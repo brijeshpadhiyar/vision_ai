@@ -159,6 +159,10 @@ class VisionAutomationChannel(
                 handleLookupContacts(query, result)
             }
 
+            "getAllContacts" -> {
+                handleGetAllContacts(result)
+            }
+
             "makePhoneCall" -> {
                 val phoneNumber = call.argument<String>("phoneNumber")?.trim() ?: ""
                 val directCall = call.argument<Boolean>("directCall") ?: false
@@ -322,6 +326,7 @@ class VisionAutomationChannel(
         val seenNumbers = HashSet<String>()
         val normalizedQuery = query.lowercase().trim()
         val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER,
             ContactsContract.CommonDataKinds.Phone.TYPE,
@@ -336,6 +341,9 @@ class VisionAutomationChannel(
                 null,
                 "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC",
             )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                )
                 val nameIndex = cursor.getColumnIndex(
                     ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
                 )
@@ -350,6 +358,7 @@ class VisionAutomationChannel(
                 )
 
                 while (cursor.moveToNext()) {
+                    val contactId = if (idIndex >= 0) cursor.getString(idIndex)?.trim() ?: "" else ""
                     val name = if (nameIndex >= 0) cursor.getString(nameIndex)?.trim() ?: "" else ""
                     val rawNumber = if (numberIndex >= 0) cursor.getString(numberIndex)?.trim() ?: "" else ""
                     if (name.isEmpty() || rawNumber.isEmpty()) continue
@@ -382,6 +391,7 @@ class VisionAutomationChannel(
 
                     scoredMatches.add(
                         score to mapOf(
+                            "contactId" to contactId,
                             "name" to name,
                             "phoneNumber" to rawNumber,
                             "label" to label,
@@ -391,7 +401,7 @@ class VisionAutomationChannel(
             }
             val matches = scoredMatches
                 .sortedByDescending { it.first }
-                .take(10)
+                .take(15)
                 .map { it.second }
             result.success(matches)
         } catch (e: SecurityException) {
@@ -404,6 +414,93 @@ class VisionAutomationChannel(
             result.error(
                 "CONTACTS_ERROR",
                 "Unable to query contacts: ${e.message}",
+                null,
+            )
+        }
+    }
+
+    private fun handleGetAllContacts(result: MethodChannel.Result) {
+        if (!hasPermission(Manifest.permission.READ_CONTACTS)) {
+            result.error(
+                "PERMISSION_DENIED",
+                "Contacts permission is required to search contacts.",
+                "read_contacts",
+            )
+            return
+        }
+
+        val contacts = mutableListOf<Map<String, String>>()
+        val seenNumbers = HashSet<String>()
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.CommonDataKinds.Phone.TYPE,
+            ContactsContract.CommonDataKinds.Phone.LABEL,
+        )
+
+        try {
+            activity.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                projection,
+                null,
+                null,
+                "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC",
+            )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                )
+                val nameIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                )
+                val numberIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                )
+                val typeIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.TYPE,
+                )
+                val labelIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.LABEL,
+                )
+
+                while (cursor.moveToNext() && contacts.size < 600) {
+                    val contactId = if (idIndex >= 0) cursor.getString(idIndex)?.trim() ?: "" else ""
+                    val name = if (nameIndex >= 0) cursor.getString(nameIndex)?.trim() ?: "" else ""
+                    val rawNumber = if (numberIndex >= 0) cursor.getString(numberIndex)?.trim() ?: "" else ""
+                    if (name.isEmpty() || rawNumber.isEmpty()) continue
+
+                    val cleanDigits = rawNumber.replace(Regex("[^0-9+]"), "")
+                    if (!seenNumbers.add("$contactId:$name:$cleanDigits")) continue
+
+                    val phoneType = if (typeIndex >= 0) cursor.getInt(typeIndex) else 0
+                    val customLabel = if (labelIndex >= 0) cursor.getString(labelIndex) else null
+                    val label = ContactsContract.CommonDataKinds.Phone.getTypeLabel(
+                        activity.resources,
+                        phoneType,
+                        customLabel,
+                    ).toString()
+
+                    contacts.add(
+                        mapOf(
+                            "contactId" to contactId,
+                            "name" to name,
+                            "phoneNumber" to rawNumber,
+                            "label" to label,
+                        ),
+                    )
+                }
+            }
+            result.success(contacts)
+        } catch (e: SecurityException) {
+            result.error(
+                "PERMISSION_DENIED",
+                "Contacts permission was revoked: ${e.message}",
+                "read_contacts",
+            )
+        } catch (e: Exception) {
+            result.error(
+                "CONTACTS_ERROR",
+                "Unable to load contacts: ${e.message}",
                 null,
             )
         }

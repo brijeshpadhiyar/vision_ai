@@ -180,6 +180,8 @@ class _AssistantExperienceScreenState
 
     final isThinking =
         voiceState.phase == VoiceListeningPhase.processingAi ||
+        voiceState.phase == VoiceListeningPhase.understanding ||
+        voiceState.phase == VoiceListeningPhase.executing ||
         (chatState.isLoading && !voiceState.isListening);
     final hasError =
         voiceState.phase == VoiceListeningPhase.error ||
@@ -195,16 +197,23 @@ class _AssistantExperienceScreenState
         ? VisionOrbState.speaking
         : VisionOrbState.idle;
 
-    final dynamicStateText = switch (orbState) {
-      VisionOrbState.listening =>
+    final dynamicStateText = switch (voiceState.phase) {
+      VoiceListeningPhase.listeningCommand =>
         voiceState.liveTranscript.trim().isNotEmpty
-            ? 'Understanding...'
+            ? 'Hearing you...'
             : 'Listening...',
-      VisionOrbState.thinking => 'Thinking...',
-      VisionOrbState.speaking => 'Speaking...',
-      VisionOrbState.error => 'Attention needed',
-      VisionOrbState.idle =>
-        voiceState.isWakeServiceRunning
+      VoiceListeningPhase.listeningWakeWord => 'Standby • Say "Hey VISION"',
+      VoiceListeningPhase.understanding => 'Understanding...',
+      VoiceListeningPhase.processingAi => 'Thinking...',
+      VoiceListeningPhase.executing => 'Executing Action...',
+      VoiceListeningPhase.confirmationRequired => 'Confirm Selection',
+      VoiceListeningPhase.speaking => 'Speaking...',
+      VoiceListeningPhase.error => 'Attention needed',
+      VoiceListeningPhase.requestingPermission => 'Permission Needed',
+      VoiceListeningPhase.idle =>
+        isThinking
+            ? 'Thinking...'
+            : voiceState.isWakeServiceRunning
             ? 'Standby • Say "Hey VISION"'
             : 'Ready.',
     };
@@ -295,6 +304,16 @@ class _AssistantExperienceScreenState
                                       onTap: () =>
                                           _handleMicOrOrbTap(voiceState),
                                     ),
+                                    if (voiceState.isListening ||
+                                        voiceState.isSpeaking) ...[
+                                      const SizedBox(height: 10),
+                                      _VoiceWaveformBars(
+                                        amplitude:
+                                            voiceState.normalizedAmplitude,
+                                        color: stateAccent,
+                                        isActive: true,
+                                      ),
+                                    ],
                                     const SizedBox(height: 16),
                                     AnimatedSwitcher(
                                       duration:
@@ -361,6 +380,16 @@ class _AssistantExperienceScreenState
                                                     .notifier,
                                               )
                                               .confirmPendingAction(),
+                                        ),
+                                        onConfirmAndSaveAlias: () => unawaited(
+                                          ref
+                                              .read(
+                                                automationControllerProvider
+                                                    .notifier,
+                                              )
+                                              .confirmPendingAction(
+                                                saveAsAlias: true,
+                                              ),
                                         ),
                                         onCancel: () => ref
                                             .read(
@@ -829,6 +858,52 @@ class _AssistantControlsBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _VoiceWaveformBars extends StatelessWidget {
+  const _VoiceWaveformBars({
+    required this.amplitude,
+    required this.color,
+    required this.isActive,
+  });
+
+  final double amplitude;
+  final Color color;
+  final bool isActive;
+
+  static const List<double> _weights = <double>[
+    0.45,
+    0.72,
+    0.95,
+    1.0,
+    0.95,
+    0.72,
+    0.45,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = isActive ? amplitude.clamp(0.18, 1.0) : 0.12;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final w in _weights)
+          AnimatedContainer(
+            duration: VisionAnimations.resolveDuration(
+              context,
+              const Duration(milliseconds: 120),
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: 4,
+            height: 6 + (normalized * w * 22),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+      ],
     );
   }
 }

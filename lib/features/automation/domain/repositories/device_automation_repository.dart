@@ -11,6 +11,9 @@ abstract interface class DeviceAutomationRepository {
   /// Searches device contacts matching [query] (`READ_CONTACTS` guarded).
   Future<List<ContactMatch>> lookupContacts(String query);
 
+  /// Loads deduplicated saved phone contacts (`READ_CONTACTS` guarded) for phonetic ranking.
+  Future<List<ContactMatch>> getAllContacts();
+
   /// Places a direct call (`ACTION_CALL`) or opens the pre-filled dialer (`ACTION_DIAL`).
   Future<DeviceActionResult> makePhoneCall({
     required String phoneNumber,

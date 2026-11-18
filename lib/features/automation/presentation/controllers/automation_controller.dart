@@ -7,6 +7,9 @@ import 'package:vision_ai/core/utils/app_logger.dart';
 import 'package:vision_ai/features/automation/data/repositories/device_automation_repository_impl.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/automation/domain/utils/device_intent_parser.dart';
+import 'package:vision_ai/features/contacts/data/repositories/contact_alias_repository.dart';
+import 'package:vision_ai/features/contacts/domain/entities/contact_resolution.dart';
+import 'package:vision_ai/features/contacts/domain/services/contact_resolver.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 
@@ -26,6 +29,10 @@ class AutomationState {
     this.recentActions = const <AutomationExecutionEntry>[],
     this.lastResult,
     this.errorMessage,
+    this.suggestedContact,
+    this.spokenContactQuery,
+    this.suggestSaveAlias = false,
+    this.lastSelectedContactId,
   });
 
   final bool isExecuting;
@@ -40,6 +47,10 @@ class AutomationState {
   final List<AutomationExecutionEntry> recentActions;
   final DeviceActionResult? lastResult;
   final String? errorMessage;
+  final ContactMatch? suggestedContact;
+  final String? spokenContactQuery;
+  final bool suggestSaveAlias;
+  final String? lastSelectedContactId;
 
   AutomationState copyWith({
     bool? isExecuting,
@@ -56,6 +67,10 @@ class AutomationState {
     DeviceActionResult? lastResult,
     String? errorMessage,
     bool clearError = false,
+    ContactMatch? suggestedContact,
+    String? spokenContactQuery,
+    bool? suggestSaveAlias,
+    String? lastSelectedContactId,
   }) {
     return AutomationState(
       isExecuting: isExecuting ?? this.isExecuting,
@@ -73,6 +88,17 @@ class AutomationState {
       recentActions: recentActions ?? this.recentActions,
       lastResult: lastResult ?? this.lastResult,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      suggestedContact: clearPending
+          ? null
+          : (suggestedContact ?? this.suggestedContact),
+      spokenContactQuery: clearPending
+          ? null
+          : (spokenContactQuery ?? this.spokenContactQuery),
+      suggestSaveAlias: clearPending
+          ? false
+          : (suggestSaveAlias ?? this.suggestSaveAlias),
+      lastSelectedContactId:
+          lastSelectedContactId ?? this.lastSelectedContactId,
     );
   }
 }
@@ -302,15 +328,26 @@ class AutomationController extends Notifier<AutomationState> {
             missingPermission: AutomationPermission.readContacts,
           );
         }
-        final matches = await repo.lookupContacts(request.target);
+        final resolution = await ref
+            .read(contactResolverProvider)
+            .resolve(
+              primaryQuery: request.target,
+              ordinalIndex: request.contactOrdinalIndex,
+              recentSelectedContactId: state.lastSelectedContactId,
+            );
+        final matches = resolution.candidates
+            .map((c) => c.contact)
+            .toList(growable: false);
         state = state.copyWith(contactSearchResults: matches);
         return DeviceActionResult(
           success: matches.isNotEmpty,
           actionType: DeviceActionType.lookupContacts,
           summary: matches.isEmpty
-              ? 'No contacts found matching "${request.target}".'
+              ? resolution.promptMessage
               : 'Found ${matches.length} contact(s) matching "${request.target}".',
           contacts: matches,
+          suggestedContact: resolution.bestCandidate?.contact,
+          contactConfidence: resolution.bestCandidate?.score,
         );
 
       case DeviceActionType.setAlarm:
@@ -442,44 +479,20 @@ class AutomationController extends Notifier<AutomationState> {
         );
       }
 
-      final matches = await repo.lookupContacts(rawTarget);
-      if (matches.isEmpty) {
-        return DeviceActionResult(
-          success: false,
-          actionType: DeviceActionType.callPhone,
-          summary: 'No contact found matching "$rawTarget".',
-        );
+      final resolution = await _resolveContactForAction(
+        request,
+        actionType: DeviceActionType.callPhone,
+      );
+      if (resolution.earlyResult != null) {
+        return resolution.earlyResult!;
       }
 
-      ContactMatch selectedMatch;
-      if (matches.length > 1) {
-        final ordinal = request.contactOrdinalIndex;
-        if (ordinal != null && ordinal >= 0 && ordinal < matches.length) {
-          selectedMatch = matches[ordinal];
-        } else {
-          state = state.copyWith(
-            contactChoices: matches,
-            pendingConfirmation: request,
-          );
-          final ordinalOutOfBoundsNote =
-              ordinal != null && ordinal >= matches.length
-              ? 'Option ${ordinal + 1} was requested, but $rawTarget has ${matches.length} number(s). '
-              : '';
-          return DeviceActionResult(
-            success: false,
-            status: DeviceActionStatus.ambiguousContact,
-            actionType: DeviceActionType.callPhone,
-            summary:
-                '${ordinalOutOfBoundsNote}Multiple contacts matched "$rawTarget". Select one to proceed.',
-            contacts: matches,
-          );
-        }
-      } else {
-        selectedMatch = matches.first;
-      }
-
+      final selectedMatch = resolution.contact!;
       phoneNumber = selectedMatch.phoneNumber;
       resolvedLabel = '${selectedMatch.name} ($phoneNumber)';
+      if (selectedMatch.contactId.isNotEmpty) {
+        state = state.copyWith(lastSelectedContactId: selectedMatch.contactId);
+      }
     }
 
     if (directCallEnabled) {
@@ -535,32 +548,16 @@ class AutomationController extends Notifier<AutomationState> {
       );
     }
 
-    final matches = await repo.lookupContacts(rawTarget);
-    if (matches.isEmpty) {
-      return DeviceActionResult(
-        success: false,
-        actionType: DeviceActionType.sendSms,
-        summary: 'No contact found matching "$rawTarget".',
-      );
-    }
-
-    if (matches.length > 1) {
-      state = state.copyWith(
-        contactChoices: matches,
-        pendingConfirmation: request,
-      );
-      return DeviceActionResult(
-        success: false,
-        status: DeviceActionStatus.ambiguousContact,
-        actionType: DeviceActionType.sendSms,
-        summary:
-            'Multiple contacts matched "$rawTarget". Choose one to send SMS.',
-        contacts: matches,
-      );
+    final resolution = await _resolveContactForAction(
+      request,
+      actionType: DeviceActionType.sendSms,
+    );
+    if (resolution.earlyResult != null) {
+      return resolution.earlyResult!;
     }
 
     return repo.sendSms(
-      phoneNumber: matches.first.phoneNumber,
+      phoneNumber: resolution.contact!.phoneNumber,
       message: request.message,
     );
   }
@@ -595,35 +592,128 @@ class AutomationController extends Notifier<AutomationState> {
       );
     }
 
-    final matches = await repo.lookupContacts(rawTarget);
-    if (matches.isEmpty) {
-      return DeviceActionResult(
-        success: false,
-        status: DeviceActionStatus.failed,
-        actionType: DeviceActionType.sendWhatsapp,
-        summary: 'No contact found matching "$rawTarget".',
-      );
-    }
-
-    if (matches.length > 1) {
-      state = state.copyWith(
-        contactChoices: matches,
-        pendingConfirmation: request,
-      );
-      return DeviceActionResult(
-        success: false,
-        status: DeviceActionStatus.ambiguousContact,
-        actionType: DeviceActionType.sendWhatsapp,
-        summary:
-            'Multiple contacts matched "$rawTarget". Choose one to open WhatsApp.',
-        contacts: matches,
-      );
+    final resolution = await _resolveContactForAction(
+      request,
+      actionType: DeviceActionType.sendWhatsapp,
+    );
+    if (resolution.earlyResult != null) {
+      return resolution.earlyResult!;
     }
 
     return repo.sendWhatsApp(
-      phoneNumber: matches.first.phoneNumber,
+      phoneNumber: resolution.contact!.phoneNumber,
       message: request.message,
     );
+  }
+
+  /// Shared confidence-gated contact resolver enforcing High / Medium ("Did you mean?") /
+  /// Low / Ambiguous policies consistently across Call, SMS, and WhatsApp.
+  Future<({ContactMatch? contact, DeviceActionResult? earlyResult})>
+  _resolveContactForAction(
+    DeviceActionRequest request, {
+    required DeviceActionType actionType,
+  }) async {
+    final resolution = await ref
+        .read(contactResolverProvider)
+        .resolve(
+          primaryQuery: request.target,
+          ordinalIndex: request.contactOrdinalIndex,
+          recentSelectedContactId: state.lastSelectedContactId,
+        );
+
+    switch (resolution.confidenceBand) {
+      case ContactConfidenceBand.high:
+        return (contact: resolution.bestCandidate!.contact, earlyResult: null);
+
+      case ContactConfidenceBand.medium:
+        final suggested = resolution.bestCandidate!.contact;
+        final confirmReq = DeviceActionRequest(
+          type: actionType,
+          target: suggested.phoneNumber,
+          message: request.message,
+          displaySummary: switch (actionType) {
+            DeviceActionType.sendSms => 'Send SMS to ${suggested.name}?',
+            DeviceActionType.sendWhatsapp => 'WhatsApp ${suggested.name}?',
+            _ => 'Call ${suggested.name} (${suggested.phoneNumber})?',
+          },
+          requiresConfirmation: true,
+        );
+        state = state.copyWith(
+          pendingConfirmation: confirmReq,
+          suggestedContact: suggested,
+          spokenContactQuery: request.target,
+          suggestSaveAlias: resolution.suggestSaveAlias,
+          contactChoices: resolution.candidates
+              .map((c) => c.contact)
+              .toList(growable: false),
+        );
+        return (
+          contact: null,
+          earlyResult: DeviceActionResult(
+            success: false,
+            status: DeviceActionStatus.confirmationRequired,
+            actionType: actionType,
+            summary: resolution.promptMessage,
+            contacts: resolution.candidates
+                .map((c) => c.contact)
+                .toList(growable: false),
+            suggestedContact: suggested,
+            spokenContactQuery: request.target,
+            contactConfidence: resolution.bestCandidate!.score,
+          ),
+        );
+
+      case ContactConfidenceBand.ambiguous:
+        final choices = resolution.candidates
+            .map((c) => c.contact)
+            .toList(growable: false);
+        state = state.copyWith(
+          contactChoices: choices,
+          pendingConfirmation: request,
+          spokenContactQuery: request.target,
+        );
+        return (
+          contact: null,
+          earlyResult: DeviceActionResult(
+            success: false,
+            status: DeviceActionStatus.ambiguousContact,
+            actionType: actionType,
+            summary: resolution.promptMessage,
+            contacts: choices,
+          ),
+        );
+
+      case ContactConfidenceBand.low:
+        final fallbackChoices = resolution.candidates
+            .map((c) => c.contact)
+            .toList(growable: false);
+        if (fallbackChoices.isNotEmpty) {
+          state = state.copyWith(
+            contactChoices: fallbackChoices,
+            pendingConfirmation: request,
+            spokenContactQuery: request.target,
+          );
+        }
+        return (
+          contact: null,
+          earlyResult: DeviceActionResult(
+            success: false,
+            actionType: actionType,
+            summary: resolution.promptMessage,
+            contacts: fallbackChoices,
+          ),
+        );
+
+      case ContactConfidenceBand.none:
+        return (
+          contact: null,
+          earlyResult: DeviceActionResult(
+            success: false,
+            actionType: actionType,
+            summary: resolution.promptMessage,
+          ),
+        );
+    }
   }
 
   Future<DeviceActionResult> _handleReadNotificationsRequest(
@@ -692,19 +782,46 @@ class AutomationController extends Notifier<AutomationState> {
     return granted;
   }
 
-  /// Confirms and executes the currently queued [AutomationState.pendingConfirmation].
-  Future<DeviceActionResult?> confirmPendingAction() async {
+  /// Confirms and executes the currently queued [AutomationState.pendingConfirmation],
+  /// optionally persisting a user-confirmed voice alias when [saveAsAlias] is true.
+  Future<DeviceActionResult?> confirmPendingAction({
+    bool saveAsAlias = false,
+  }) async {
     final pending = state.pendingConfirmation;
     if (pending == null) return null;
-    state = state.copyWith(clearPending: true);
+    if (saveAsAlias &&
+        state.suggestedContact != null &&
+        state.spokenContactQuery != null) {
+      await ref
+          .read(contactAliasRepositoryProvider)
+          .saveConfirmedAlias(
+            spokenPhrase: state.spokenContactQuery!,
+            contact: state.suggestedContact!,
+          );
+    }
+    state = state.copyWith(
+      clearPending: true,
+      lastSelectedContactId:
+          state.suggestedContact?.contactId ?? state.lastSelectedContactId,
+    );
     return executeRequest(pending, confirmed: true);
   }
 
-  /// Selects a contact from [AutomationState.contactChoices] to complete a call/SMS.
+  /// Selects a contact from [AutomationState.contactChoices] to complete a call/SMS,
+  /// optionally saving the spoken query as a personal voice alias.
   Future<DeviceActionResult> selectContactForPendingAction(
-    ContactMatch contact,
-  ) async {
+    ContactMatch contact, {
+    bool saveAsAlias = false,
+  }) async {
     final pending = state.pendingConfirmation;
+    if (saveAsAlias && state.spokenContactQuery != null) {
+      await ref
+          .read(contactAliasRepositoryProvider)
+          .saveConfirmedAlias(
+            spokenPhrase: state.spokenContactQuery!,
+            contact: contact,
+          );
+    }
     final actionType = pending?.type ?? DeviceActionType.callPhone;
     final updatedRequest = DeviceActionRequest(
       type: actionType,
@@ -720,6 +837,9 @@ class AutomationController extends Notifier<AutomationState> {
     state = state.copyWith(
       clearPending: true,
       contactChoices: const <ContactMatch>[],
+      lastSelectedContactId: contact.contactId.isNotEmpty
+          ? contact.contactId
+          : state.lastSelectedContactId,
     );
     return executeRequest(updatedRequest, confirmed: true);
   }

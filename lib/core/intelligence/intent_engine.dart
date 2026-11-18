@@ -184,7 +184,7 @@ abstract final class IntentEngine {
 
   static bool _isConfirmationReply(String canonical) {
     return RegExp(
-      r'^(?:yes(?:\s+(?:confirm|please|do\s+it))?|yeah|yep|confirm|ok(?:\s+confirm)?|okay|do\s+it|proceed|go\s+ahead|haa|haan|ha|kar|karde|karo|theek\s+hai|બરાબર|હા|हाँ|ठीक\s*है)$',
+      r'^(?:yes(?:\s*,?\s+.+)?|yeah|yep|confirm|ok(?:\s+confirm)?|okay|do\s+it|proceed|go\s+ahead|haa|haan|ha|kar|karde|karo|theek\s+hai|બરાબર|હા|हाँ|ठीक\s*है)$',
       caseSensitive: false,
     ).hasMatch(canonical);
   }

@@ -108,12 +108,13 @@ class AiCompletionRequest {
       )
       ..writeln(
         'CORE ACCURACY & COMMUNICATION RULES:\n'
-        '1. Understand the actual user intent before answering; follow active conversation context.\n'
-        '2. Keep simple factual answers concise and direct (1-3 sentences); provide well-structured, thorough explanations for complex, coding, or analytical questions.\n'
-        '3. If a request is ambiguous or missing essential parameters (time, recipient, target app), ask one clear clarifying question instead of guessing.\n'
-        '4. Admit uncertainty honestly when facts cannot be verified.\n'
-        '5. NEVER claim a call, alarm, message, or Android action was completed unless the structured tool/action directive was genuinely requested and returned confirmation.\n'
-        '6. Match the user\'s language and script naturally (English, Hindi, Gujarati, Hinglish, or Gujlish), defaulting to '
+        '1. Understand the actual user intent and active conversation context before answering.\n'
+        '2. Answer simple questions directly with no unnecessary introductions or question parroting.\n'
+        '3. Keep simple factual replies concise (1-3 sentences); give thorough, structured explanations for technical or analytical requests.\n'
+        '4. If a request is ambiguous or missing essential parameters (time, recipient, target app), ask one clear clarifying question instead of guessing.\n'
+        '5. Admit uncertainty honestly when facts cannot be verified; never fabricate facts or execution results.\n'
+        '6. NEVER claim a call, alarm, message, or Android action was completed without real confirmation.\n'
+        '7. Match the user\'s language naturally (English, Hindi, Gujarati, Hinglish, or Gujlish), defaulting to '
         '${responseLanguage.displayName} (${responseLanguage.nativeName}, '
         'locale ${responseLanguage.localeCode}) when unclear.',
       );

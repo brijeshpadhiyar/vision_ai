@@ -615,9 +615,9 @@ abstract final class EntityExtractor {
       return (recipient: recipient, message: msg, usedContext: usedContext);
     }
 
-    // Pattern C: "WhatsApp/message <recipient>" with no body
+    // Pattern C: "[now] WhatsApp/message <recipient>" with no body
     final recipientOnly = RegExp(
-      r'(?:send\s+(?:a\s+)?(?:whatsapp|sms|text|message)\s+(?:to\s+)?|(?:whatsapp|sms|text|message|msg)\s+(?:to\s+)?)([a-zA-Z0-9\+\u0900-\u097F\u0A80-\u0AFF][a-zA-Z0-9\+\s\u0900-\u097F\u0A80-\u0AFF_-]{0,35})$',
+      r'(?:now\s+|then\s+)?(?:send\s+(?:a\s+)?(?:whatsapp|sms|text|message)\s+(?:to\s+)?|(?:whatsapp|sms|text|message|msg)\s+(?:to\s+)?)([a-zA-Z0-9\+\u0900-\u097F\u0A80-\u0AFF][a-zA-Z0-9\+\s\u0900-\u097F\u0A80-\u0AFF_-]{0,35})[\.\?!\s]*$',
       caseSensitive: false,
     ).firstMatch(raw);
     if (recipientOnly != null) {

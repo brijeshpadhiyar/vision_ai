@@ -44,7 +44,21 @@ sealed class VoiceEvent {
         'text': final String text,
         'isFinal': final bool isFinal,
       } =>
-        VoiceTranscriptEvent(text: text, isFinal: isFinal),
+        VoiceTranscriptEvent(
+          text: text,
+          isFinal: isFinal,
+          hypotheses:
+              (raw['hypotheses'] as List<Object?>?)
+                  ?.whereType<String>()
+                  .map((s) => s.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList(growable: false) ??
+              const <String>[],
+          confidenceScores: (raw['confidenceScores'] as List<Object?>?)
+              ?.map((item) => item is num ? item.toDouble() : null)
+              .whereType<double>()
+              .toList(growable: false),
+        ),
       {
         'type': 'wakeServiceState',
         'isRunning': final bool isRunning,
@@ -98,11 +112,22 @@ final class VoiceAmplitudeEvent extends VoiceEvent {
 }
 
 /// Emitted when partial or final speech recognition transcripts arrive.
+///
+/// [hypotheses] preserves all ranked `RESULTS_RECOGNITION` candidates returned
+/// by the Android recognizer, and [confidenceScores] is populated ONLY when
+/// Android's engine supplies valid scores in `[0.0, 1.0]`.
 final class VoiceTranscriptEvent extends VoiceEvent {
-  const VoiceTranscriptEvent({required this.text, required this.isFinal});
+  const VoiceTranscriptEvent({
+    required this.text,
+    required this.isFinal,
+    this.hypotheses = const <String>[],
+    this.confidenceScores,
+  });
 
   final String text;
   final bool isFinal;
+  final List<String> hypotheses;
+  final List<double>? confidenceScores;
 }
 
 /// Emitted when the background foreground wake-word service changes state.
@@ -146,6 +171,9 @@ class VoiceSessionState {
   const VoiceSessionState({
     this.phase = VoiceListeningPhase.idle,
     this.liveTranscript = '',
+    this.originalTranscript = '',
+    this.alternativeTranscripts = const <String>[],
+    this.engineConfidence,
     this.lastReplyText = '',
     this.normalizedAmplitude = 0.0,
     this.hasMicPermission = false,
@@ -162,6 +190,9 @@ class VoiceSessionState {
 
   final VoiceListeningPhase phase;
   final String liveTranscript;
+  final String originalTranscript;
+  final List<String> alternativeTranscripts;
+  final double? engineConfidence;
   final String lastReplyText;
   final double normalizedAmplitude;
   final bool hasMicPermission;
@@ -183,6 +214,10 @@ class VoiceSessionState {
   VoiceSessionState copyWith({
     VoiceListeningPhase? phase,
     String? liveTranscript,
+    String? originalTranscript,
+    List<String>? alternativeTranscripts,
+    double? engineConfidence,
+    bool clearConfidence = false,
     String? lastReplyText,
     double? normalizedAmplitude,
     bool? hasMicPermission,
@@ -200,6 +235,12 @@ class VoiceSessionState {
     return VoiceSessionState(
       phase: phase ?? this.phase,
       liveTranscript: liveTranscript ?? this.liveTranscript,
+      originalTranscript: originalTranscript ?? this.originalTranscript,
+      alternativeTranscripts:
+          alternativeTranscripts ?? this.alternativeTranscripts,
+      engineConfidence: clearConfidence
+          ? null
+          : (engineConfidence ?? this.engineConfidence),
       lastReplyText: lastReplyText ?? this.lastReplyText,
       normalizedAmplitude: normalizedAmplitude ?? this.normalizedAmplitude,
       hasMicPermission: hasMicPermission ?? this.hasMicPermission,

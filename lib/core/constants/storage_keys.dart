@@ -69,6 +69,9 @@ abstract final class StorageKeys {
   /// Key for locally persisted explicit personalization memory entries.
   static const String personalMemoryEntries = 'vision_pref_memory_entries';
 
+  /// Key for user-confirmed Contact-ID voice alias mappings.
+  static const String contactVoiceAliases = 'vision_pref_contact_voice_aliases';
+
   /// Prefix used for storing encrypted provider API keys in Android Keystore.
   static const String secureApiKeyPrefix = 'vision_secure_api_key_';
 

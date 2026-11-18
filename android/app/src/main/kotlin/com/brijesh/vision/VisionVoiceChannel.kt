@@ -333,7 +333,7 @@ class VisionVoiceChannel(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeTag)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
             putExtra(
                 RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
@@ -438,14 +438,32 @@ class VisionVoiceChannel(
                 isListening = false
                 emitState()
                 resumeWakeServiceIfRunning()
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                val transcript = matches?.firstOrNull()?.trim() ?: ""
+                val matches = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?.distinct()
+                    ?.take(5)
+                    ?: emptyList()
+                val rawScores = results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+                val validScores: List<Double>? = if (rawScores != null && rawScores.isNotEmpty()) {
+                    val converted = rawScores
+                        .take(matches.size)
+                        .map { score -> score.toDouble() }
+                        .filter { it in 0.0..1.0 }
+                    converted.ifEmpty { null }
+                } else {
+                    null
+                }
+                val transcript = matches.firstOrNull() ?: ""
                 if (transcript.isNotEmpty()) {
                     emitEvent(
                         mapOf(
                             "type" to "transcript",
                             "text" to transcript,
                             "isFinal" to true,
+                            "hypotheses" to matches,
+                            if (validScores != null) "confidenceScores" to validScores else "confidenceScores" to null,
                         ),
                     )
                 }

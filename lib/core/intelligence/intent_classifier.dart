@@ -504,6 +504,12 @@ abstract final class IntentClassifier {
     if (RegExp(r'\bwhatsapp\b|व्हाट्सएप|વોટ્સએપ').hasMatch(text)) {
       return null;
     }
+    final explicitSmsOrText = RegExp(r'\b(sms|text\s+message|text)\b')
+        .hasMatch(text);
+    if (!explicitSmsOrText &&
+        context.lastAppName?.toLowerCase() == 'whatsapp') {
+      return null;
+    }
 
     final msg = EntityExtractor.extractMessageTargets(cmd, context);
     final phone = EntityExtractor.extractPhoneNumber(cmd.cleanedText);
@@ -538,14 +544,23 @@ abstract final class IntentClassifier {
     ConversationIntelligenceContext context,
   ) {
     final text = '$canonical $lower';
-    if (!RegExp(r'\b(whatsapp|wa)\b|व्हाट्सएप|वॉट्सऐप|વોટ્સએપ|વૉટ્સએપ')
-        .hasMatch(text)) {
+    final hasExplicitWhatsApp = RegExp(
+      r'\b(whatsapp|wa)\b|व्हाट्सएप|वॉट्सऐप|વોટ્સએપ|વૉટ્સએપ',
+    ).hasMatch(text);
+    final isFollowUpInWhatsApp =
+        !hasExplicitWhatsApp &&
+        context.lastAppName?.toLowerCase() == 'whatsapp' &&
+        RegExp(
+          r'\b(?:now\s+)?(?:send\s+(?:a\s+)?message|message|msg)\b|मैसेज|મેસેજ',
+        ).hasMatch(text);
+
+    if (!hasExplicitWhatsApp && !isFollowUpInWhatsApp) {
       return null;
     }
 
-    // Pure "open WhatsApp" / "WhatsApp khol" -> LaunchApp, NOT SendWhatsApp
+    // Pure "open WhatsApp" / "WhatsApp khol" / "WhatsApp open" -> LaunchApp, NOT SendWhatsApp
     if (RegExp(
-      r'^(?:(?:please\s+)?(?:open|launch|start|run)\s+(?:my\s+|the\s+)?whatsapp(?:\s+app)?|whatsapp\s+(?:khol|chalu\s+kar|open\s+kar)|व्हाट्सएप\s*खोलो?|વોટ્સએપ\s*ખોલો?)$',
+      r'^(?:(?:please\s+)?(?:open|launch|start|run)\s+(?:my\s+|the\s+)?whatsapp(?:\s+app)?|whatsapp\s+(?:khol|chalu\s+kar|open(?:\s+kar)?|start(?:\s+kar)?)|व्हाट्सएप\s*खोलो?|વોટ્સએપ\s*ખોલો?)$',
       caseSensitive: false,
     ).hasMatch(canonical)) {
       return null;

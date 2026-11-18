@@ -37,6 +37,9 @@ class DeviceAutomationRepositoryImpl implements DeviceAutomationRepository {
       _dataSource.lookupContacts(query);
 
   @override
+  Future<List<ContactMatch>> getAllContacts() => _dataSource.getAllContacts();
+
+  @override
   Future<DeviceActionResult> makePhoneCall({
     required String phoneNumber,
     bool directCall = false,

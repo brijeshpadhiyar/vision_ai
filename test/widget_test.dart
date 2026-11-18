@@ -204,6 +204,9 @@ class _FakeDeviceAutomationRepository implements DeviceAutomationRepository {
   }
 
   @override
+  Future<List<ContactMatch>> getAllContacts() async => contactsToReturn;
+
+  @override
   Future<DeviceActionResult> makePhoneCall({
     required String phoneNumber,
     bool directCall = false,

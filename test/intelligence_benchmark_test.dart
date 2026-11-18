@@ -71,11 +71,13 @@ class _BenchmarkAutomationRepository implements DeviceAutomationRepository {
     if (lower.contains('tisha')) {
       return const <ContactMatch>[
         ContactMatch(
+          contactId: 'c_tisha_1',
           name: 'Tisha',
           phoneNumber: '+919825011111',
           label: 'Mobile',
         ),
         ContactMatch(
+          contactId: 'c_tisha_2',
           name: 'Tisha Work',
           phoneNumber: '+919825022222',
           label: 'Work',
@@ -84,6 +86,28 @@ class _BenchmarkAutomationRepository implements DeviceAutomationRepository {
     }
     return const <ContactMatch>[];
   }
+
+  @override
+  Future<List<ContactMatch>> getAllContacts() async => const <ContactMatch>[
+    ContactMatch(
+      contactId: 'c_tisha_1',
+      name: 'Tisha',
+      phoneNumber: '+919825011111',
+      label: 'Mobile',
+    ),
+    ContactMatch(
+      contactId: 'c_tisha_2',
+      name: 'Tisha Work',
+      phoneNumber: '+919825022222',
+      label: 'Work',
+    ),
+    ContactMatch(
+      contactId: 'c_soel_kht',
+      name: 'Soel Kht',
+      phoneNumber: '+919825099999',
+      label: 'Mobile',
+    ),
+  ];
 
   @override
   Future<DeviceActionResult> makePhoneCall({

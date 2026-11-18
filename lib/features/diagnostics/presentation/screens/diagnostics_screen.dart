@@ -210,8 +210,16 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ),
                 const SizedBox(height: 12),
                 _DiagRow(
+                  'Wake Word Detection (avg)',
+                  '${telemetry.wakeDetectionCount} runs • ${telemetry.avgWakeDetectionMs.round()} ms',
+                ),
+                _DiagRow(
                   'Intent Parses (avg)',
                   '${telemetry.intentParseCount} runs • ${telemetry.avgIntentParseMicros.round()} µs',
+                ),
+                _DiagRow(
+                  'Contact Resolution (avg)',
+                  '${telemetry.contactResolutionCount} runs • ${telemetry.avgContactResolutionMs.round()} ms',
                 ),
                 _DiagRow(
                   'Local Commands',
@@ -236,6 +244,14 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                   '${telemetry.avgVoiceSttMs.round()} ms / '
                       '${telemetry.avgTtsStartupMs.round()} ms / '
                       '${telemetry.avgEndToEndMs.round()} ms',
+                ),
+                _DiagRow(
+                  'ASR Confidence (last utterance)',
+                  voice.engineConfidence != null
+                      ? '${(voice.engineConfidence! * 100).round()}% '
+                            '(${voice.alternativeTranscripts.length} hypotheses)'
+                      : 'Unavailable from speech engine '
+                            '(${voice.alternativeTranscripts.length} hypotheses)',
                 ),
               ],
             ),

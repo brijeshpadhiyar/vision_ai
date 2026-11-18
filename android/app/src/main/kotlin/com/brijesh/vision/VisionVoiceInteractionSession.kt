@@ -15,14 +15,19 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import java.util.Locale
+import kotlin.math.max
+import kotlin.math.min
 
 /**
- * Gemini-style system assistant overlay rendered via Android's
- * [VoiceInteractionSession] directly over the user's current screen.
+ * Glassmorphic animated system assistant overlay rendered via Android's
+ * [VoiceInteractionSession] directly over the user's current screen, with
+ * smooth transition into VISION's full Flutter Liquid Glass assistant UI.
  */
 class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(context) {
 
+    private var rootView: View? = null
+    private var orbView: VisionAssistantPulseView? = null
+    private var langView: TextView? = null
     private var statusView: TextView? = null
     private var transcriptView: TextView? = null
     private var responseView: TextView? = null
@@ -41,6 +46,9 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
 
     override fun onCreateContentView(): View {
         val view = LayoutInflater.from(context).inflate(R.layout.vision_assistant_overlay, null)
+        rootView = view.findViewById(R.id.vision_overlay_root)
+        orbView = view.findViewById(R.id.vision_overlay_orb)
+        langView = view.findViewById(R.id.vision_overlay_lang)
         statusView = view.findViewById(R.id.vision_overlay_status)
         transcriptView = view.findViewById(R.id.vision_overlay_transcript)
         responseView = view.findViewById(R.id.vision_overlay_response)
@@ -58,7 +66,7 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
         }
 
         openAppBtn.setOnClickListener {
-            openFullVisionAssistant(prompt = null)
+            openFullVisionAssistant(prompt = null, hypotheses = emptyList())
         }
 
         dismissBtn.setOnClickListener {
@@ -70,13 +78,38 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
 
     override fun onShow(args: Bundle?, showFlags: Int) {
         super.onShow(args, showFlags)
+        val localeTag = resolvePreferredLocaleTag()
+        langView?.text = "Locale: $localeTag • Voice & Automation"
         statusView?.text = "Ready"
         responseView?.text = ""
+
+        rootView?.apply {
+            alpha = 0f
+            translationY = 48f
+            animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(240L)
+                .start()
+        }
+
         if (hasMicPermission()) {
             startListening()
         } else {
             transcriptView?.text = "Microphone permission is needed for voice input."
-            statusView?.text = "Permission Needed"
+            statusView?.text = "Permission"
+        }
+    }
+
+    private fun resolvePreferredLocaleTag(): String {
+        val prefs = context.getSharedPreferences(
+            "FlutterSharedPreferences",
+            Context.MODE_PRIVATE,
+        )
+        return when (prefs.getString("flutter.vision_pref_voice_language", "english")) {
+            "hindi" -> "hi-IN"
+            "gujarati" -> "gu-IN"
+            else -> "en-IN"
         }
     }
 
@@ -89,7 +122,7 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
 
     private fun startListening() {
         if (!hasMicPermission()) {
-            openFullVisionAssistant(prompt = null)
+            openFullVisionAssistant(prompt = null, hypotheses = emptyList())
             return
         }
 
@@ -99,31 +132,43 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
             }
         }
 
+        val localeTag = resolvePreferredLocaleTag()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeTag)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
         }
 
         isListening = true
-        statusView?.text = "Listening..."
+        orbView?.setListeningActive(true)
+        statusView?.text = "Listening"
         micButton?.text = "Stop"
-        transcriptView?.text = "Listening for your request..."
+        transcriptView?.text = "Listening for your command..."
+        responseView?.text = "Speak naturally in English, Hindi, Gujarati, or Hinglish"
         speechRecognizer?.startListening(intent)
     }
 
     private fun stopListening() {
         speechRecognizer?.stopListening()
         isListening = false
+        orbView?.setListeningActive(false)
+        orbView?.setAudioLevel(0f)
         statusView?.text = "Ready"
         micButton?.text = "Speak"
     }
 
-    private fun openFullVisionAssistant(prompt: String?) {
+    private fun openFullVisionAssistant(prompt: String?, hypotheses: List<String>) {
         val intent = Intent(context, AssistantOverlayActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             if (!prompt.isNullOrBlank()) {
                 putExtra("initialPrompt", prompt)
+            }
+            if (hypotheses.isNotEmpty()) {
+                putStringArrayListExtra("initialHypotheses", ArrayList(hypotheses))
             }
         }
         try {
@@ -137,35 +182,53 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
     private fun createListener(): RecognitionListener {
         return object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
-                statusView?.text = "Listening..."
+                statusView?.text = "Listening"
+                orbView?.setListeningActive(true)
             }
 
             override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
+
+            override fun onRmsChanged(rmsdB: Float) {
+                val clamped = min(10.0f, max(0.0f, rmsdB + 2.0f))
+                orbView?.setAudioLevel(clamped / 10.0f)
+            }
+
             override fun onBufferReceived(buffer: ByteArray?) {}
 
             override fun onEndOfSpeech() {
                 isListening = false
-                statusView?.text = "Processing..."
+                orbView?.setListeningActive(false)
+                orbView?.setAudioLevel(0f)
+                statusView?.text = "Understanding"
                 micButton?.text = "Speak"
             }
 
             override fun onError(error: Int) {
                 isListening = false
+                orbView?.setListeningActive(false)
+                orbView?.setAudioLevel(0f)
                 statusView?.text = "Tap Speak"
                 micButton?.text = "Speak"
-                responseView?.text = "Could not hear clearly. Tap Speak or Open VISION."
+                responseView?.text = "Could not hear clearly. Tap Speak or open Full Assistant."
             }
 
             override fun onResults(results: Bundle?) {
                 isListening = false
+                orbView?.setListeningActive(false)
+                orbView?.setAudioLevel(0f)
                 micButton?.text = "Speak"
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                val transcript = matches?.firstOrNull()?.trim() ?: ""
+                val matches = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?.distinct()
+                    ?.take(5)
+                    ?: emptyList()
+                val transcript = matches.firstOrNull() ?: ""
                 if (transcript.isNotEmpty()) {
                     transcriptView?.text = transcript
-                    statusView?.text = "Handing off..."
-                    openFullVisionAssistant(transcript)
+                    statusView?.text = "Launching"
+                    openFullVisionAssistant(transcript, matches)
                 } else {
                     statusView?.text = "Ready"
                 }
@@ -186,6 +249,7 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
     override fun onHide() {
         speechRecognizer?.cancel()
         textToSpeech?.stop()
+        orbView?.setListeningActive(false)
         isListening = false
         super.onHide()
     }

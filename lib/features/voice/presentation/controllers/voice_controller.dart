@@ -89,8 +89,28 @@ class VoiceController extends Notifier<VoiceSessionState> {
       case VoiceAmplitudeEvent(:final normalizedLevel):
         state = state.copyWith(normalizedAmplitude: normalizedLevel);
 
-      case VoiceTranscriptEvent(:final text, :final isFinal):
-        state = state.copyWith(liveTranscript: text, clearError: true);
+      case VoiceTranscriptEvent(
+        :final text,
+        :final isFinal,
+        :final hypotheses,
+        :final confidenceScores,
+      ):
+        state = state.copyWith(
+          liveTranscript: text,
+          originalTranscript: isFinal ? text : state.originalTranscript,
+          alternativeTranscripts: isFinal
+              ? hypotheses
+              : state.alternativeTranscripts,
+          engineConfidence:
+              (isFinal &&
+                  confidenceScores != null &&
+                  confidenceScores.isNotEmpty)
+              ? confidenceScores.first
+              : null,
+          clearConfidence:
+              isFinal && (confidenceScores == null || confidenceScores.isEmpty),
+          clearError: true,
+        );
         if (isFinal) {
           unawaited(_processFinalTranscript(text));
         }

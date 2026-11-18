@@ -189,12 +189,16 @@ class ChatController extends Notifier<ChatState> {
           automationControllerProvider.notifier,
         );
         final actionResult = resolution.intentId == 'confirm_pending'
-            ? await automationNotifier.executeRequest(
-                localAction,
-                confirmed: true,
-              )
+            ? (await automationNotifier.confirmPendingAction(
+                    saveAsAlias: true,
+                  ) ??
+                  await automationNotifier.executeRequest(
+                    localAction,
+                    confirmed: true,
+                  ))
             : await automationNotifier.executeRequest(localAction);
 
+        final latestAutomationState = ref.read(automationControllerProvider);
         final isPendingConfirm =
             actionResult.status == DeviceActionStatus.confirmationRequired;
         _intelContext = _intelContext.copyWith(
@@ -205,13 +209,15 @@ class ChatController extends Notifier<ChatState> {
                       localAction.type == DeviceActionType.sendSms ||
                       localAction.type == DeviceActionType.sendWhatsapp) &&
                   localAction.target.isNotEmpty
-              ? localAction.target
+              ? (actionResult.suggestedContact?.name ?? localAction.target)
               : _intelContext.lastContactName,
           lastAppName: localAction.type == DeviceActionType.launchApp
               ? localAction.target
               : _intelContext.lastAppName,
           lastSpokenReply: actionResult.summary,
-          pendingAction: isPendingConfirm ? localAction : null,
+          pendingAction: isPendingConfirm
+              ? (latestAutomationState.pendingConfirmation ?? localAction)
+              : null,
           clearPendingAction: !isPendingConfirm,
           clearClarification: true,
         );

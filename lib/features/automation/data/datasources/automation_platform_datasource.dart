@@ -75,6 +75,33 @@ class AutomationPlatformDataSource {
     }
   }
 
+  Future<List<ContactMatch>> getAllContacts() async {
+    try {
+      final raw = await _methodChannel.invokeMethod<List<Object?>>(
+        'getAllContacts',
+      );
+      if (raw == null) return const <ContactMatch>[];
+      return raw
+          .whereType<Map<Object?, Object?>>()
+          .map(ContactMatch.fromMap)
+          .toList(growable: false);
+    } on MissingPluginException {
+      return const <ContactMatch>[];
+    } on PlatformException catch (error, stackTrace) {
+      if (error.code == 'PERMISSION_DENIED') {
+        throw DeviceAutomationException(
+          message:
+              error.message ??
+              'Contacts permission is required to search saved contacts.',
+          code: error.code,
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      return const <ContactMatch>[];
+    }
+  }
+
   Future<DeviceActionResult> makePhoneCall({
     required String phoneNumber,
     bool directCall = false,

@@ -60,6 +60,7 @@ class ContactMatch {
     required this.name,
     required this.phoneNumber,
     this.label = 'Phone',
+    this.contactId = '',
   });
 
   factory ContactMatch.fromMap(Map<Object?, Object?> raw) {
@@ -67,12 +68,14 @@ class ContactMatch {
       name: (raw['name'] as String?) ?? 'Unknown',
       phoneNumber: (raw['phoneNumber'] as String?) ?? '',
       label: (raw['label'] as String?) ?? 'Phone',
+      contactId: (raw['contactId'] as String?) ?? '',
     );
   }
 
   final String name;
   final String phoneNumber;
   final String label;
+  final String contactId;
 }
 
 /// Installed launcher application metadata returned by `PackageManager`.
@@ -232,6 +235,9 @@ class DeviceActionResult {
     this.contacts = const <ContactMatch>[],
     this.notifications = const <DeviceNotificationSummary>[],
     this.deviceStatus,
+    this.suggestedContact,
+    this.spokenContactQuery,
+    this.contactConfidence,
   }) : status =
            status ??
            (success
@@ -250,6 +256,9 @@ class DeviceActionResult {
   final List<ContactMatch> contacts;
   final List<DeviceNotificationSummary> notifications;
   final DeviceStatusSnapshot? deviceStatus;
+  final ContactMatch? suggestedContact;
+  final String? spokenContactQuery;
+  final double? contactConfidence;
 }
 
 /// Historical record of an executed automation request for UI inspection.

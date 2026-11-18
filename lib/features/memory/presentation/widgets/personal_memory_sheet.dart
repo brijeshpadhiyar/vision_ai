@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/theme/vision_colors.dart';
 import 'package:vision_ai/core/widgets/glass/vision_glass_widgets.dart';
+import 'package:vision_ai/features/contacts/data/repositories/contact_alias_repository.dart';
 import 'package:vision_ai/features/memory/domain/entities/memory_entry.dart';
 import 'package:vision_ai/features/memory/presentation/controllers/memory_controller.dart';
 
@@ -58,6 +59,8 @@ class _PersonalMemorySheetState extends ConsumerState<PersonalMemorySheet> {
   Widget build(BuildContext context) {
     final memory = ref.watch(memoryControllerProvider);
     final controller = ref.read(memoryControllerProvider.notifier);
+    final aliasRepo = ref.read(contactAliasRepositoryProvider);
+    final aliases = aliasRepo.getAliases();
 
     return SafeArea(
       child: Padding(
@@ -179,6 +182,59 @@ class _PersonalMemorySheetState extends ConsumerState<PersonalMemorySheet> {
                         IconButton(
                           icon: const Icon(Icons.close_rounded, size: 18),
                           onPressed: () => controller.deleteEntry(entry.id),
+                        ),
+                      ],
+                    ),
+                  ),
+              const SizedBox(height: 18),
+              Text(
+                'Confirmed Voice Contact Aliases (${aliases.length})',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Only user-confirmed spoken name mappings keyed by Android Contact ID.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              if (aliases.isEmpty)
+                Text(
+                  'No contact voice aliases saved yet.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else
+                for (final alias in aliases)
+                  VisionGlassCard(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.record_voice_over_outlined, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '"${alias.spokenPhrase}" -> ${alias.contactDisplayName}',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              Text(
+                                'Contact ID: ${alias.contactId}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Delete alias',
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                          ),
+                          onPressed: () async {
+                            await aliasRepo.deleteAlias(alias.aliasId);
+                            if (mounted) setState(() {});
+                          },
                         ),
                       ],
                     ),

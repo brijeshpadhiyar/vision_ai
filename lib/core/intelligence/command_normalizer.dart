@@ -294,19 +294,35 @@ abstract final class CommandNormalizer {
       fixedTokens.add(_spellingFixes[lower] ?? lower);
     }
 
-    final canonical = fixedTokens.join(' ');
-    final language = detectLanguage(strippedPunctuation, fixedTokens);
+    var canonical = fixedTokens.join(' ');
+    canonical = _applyCommandPhraseFixes(canonical);
+    final finalTokens = canonical.isEmpty
+        ? const <String>[]
+        : canonical.split(RegExp(r'\s+'));
+    final language = detectLanguage(strippedPunctuation, finalTokens);
     final clauses = splitSequentialClauses(strippedPunctuation);
 
     return NormalizedCommand(
       rawText: input,
       cleanedText: strippedPunctuation,
       canonicalText: canonical,
-      tokens: fixedTokens,
+      tokens: finalTokens,
       language: language,
       hasIndicDigitsNormalized: hasIndicDigits,
       clauses: clauses,
     );
+  }
+
+  /// Fixes ASR word-splits for brand/command phrases only in canonical command text
+  /// without altering raw transcripts or contact names.
+  static String _applyCommandPhraseFixes(String canonical) {
+    return canonical
+        .replaceAll(RegExp(r"\b(?:what's|whats|what)\s+app\b"), 'whatsapp')
+        .replaceAll(RegExp(r'\byou\s+tube\b'), 'youtube')
+        .replaceAll(RegExp(r'\bplay\s+store\b'), 'play store')
+        .replaceAll(RegExp(r'\bwi\s+fi\b'), 'wifi')
+        .replaceAll(RegExp(r'\bblue\s+tooth\b'), 'bluetooth')
+        .replaceAll(RegExp(r'\bflash\s+light\b'), 'flashlight');
   }
 
   /// Detects language category for telemetry, TTS locale & prompt routing.

@@ -16,6 +16,7 @@ class AutomationActionPromptCard extends StatelessWidget {
     required this.onCancel,
     required this.onSelectContact,
     required this.onGrantPermission,
+    this.onConfirmAndSaveAlias,
     this.onCallContact,
     this.onMessageContact,
     this.onClearSearchResults,
@@ -28,6 +29,7 @@ class AutomationActionPromptCard extends StatelessWidget {
   final VoidCallback onCancel;
   final ValueChanged<ContactMatch> onSelectContact;
   final ValueChanged<AutomationPermission> onGrantPermission;
+  final VoidCallback? onConfirmAndSaveAlias;
   final ValueChanged<ContactMatch>? onCallContact;
   final ValueChanged<ContactMatch>? onMessageContact;
   final VoidCallback? onClearSearchResults;
@@ -56,7 +58,11 @@ class AutomationActionPromptCard extends StatelessWidget {
     final accent = VisionColors.primaryAccent(brightness);
 
     if (hasPending) {
-      final isDisambiguation = automationState.contactChoices.isNotEmpty;
+      final isSuggestionConfirm =
+          automationState.suggestedContact != null &&
+          automationState.pendingConfirmation != null;
+      final isDisambiguation =
+          !isSuggestionConfirm && automationState.contactChoices.isNotEmpty;
       final isSmsPending =
           automationState.pendingConfirmation?.type == DeviceActionType.sendSms;
 
@@ -69,15 +75,19 @@ class AutomationActionPromptCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.verified_user_outlined,
+                Icon(
+                  isSuggestionConfirm
+                      ? Icons.record_voice_over_outlined
+                      : Icons.verified_user_outlined,
                   color: VisionColors.warning,
                   size: 18,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isDisambiguation
+                    isSuggestionConfirm
+                        ? 'Did you mean ${automationState.suggestedContact!.name}?'
+                        : isDisambiguation
                         ? 'Select Contact'
                         : 'Confirm Device Action',
                     style: compact
@@ -88,7 +98,55 @@ class AutomationActionPromptCard extends StatelessWidget {
                 TextButton(onPressed: onCancel, child: const Text('Cancel')),
               ],
             ),
-            if (automationState.pendingConfirmation != null) ...[
+            if (isSuggestionConfirm) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Heard "${automationState.spokenContactQuery ?? ''}" -> '
+                '${automationState.suggestedContact!.name} '
+                '(${automationState.suggestedContact!.phoneNumber})',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: VisionColors.primaryText(brightness),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: VisionGlassButton(
+                      compact: true,
+                      icon: Icons.check_rounded,
+                      label: 'Yes, Confirm',
+                      onPressed: onConfirm,
+                    ),
+                  ),
+                  if (automationState.suggestSaveAlias &&
+                      onConfirmAndSaveAlias != null) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: VisionGlassButton(
+                        compact: true,
+                        icon: Icons.bookmark_add_outlined,
+                        label: 'Yes & Save Alias',
+                        onPressed: onConfirmAndSaveAlias,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (automationState.contactChoices.length > 1) ...[
+                const SizedBox(height: 8),
+                for (final contact
+                    in automationState.contactChoices.skip(1).take(3))
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.person_outline_rounded, color: accent),
+                    title: Text(contact.name),
+                    subtitle: Text('${contact.phoneNumber} • ${contact.label}'),
+                    onTap: () => onSelectContact(contact),
+                  ),
+              ],
+            ] else if (automationState.pendingConfirmation != null) ...[
               const SizedBox(height: 4),
               Text(
                 automationState.pendingConfirmation!.displaySummary,

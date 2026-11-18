@@ -147,6 +147,9 @@ class _TestAutomationRepository implements DeviceAutomationRepository {
       const <ContactMatch>[];
 
   @override
+  Future<List<ContactMatch>> getAllContacts() async => const <ContactMatch>[];
+
+  @override
   Future<DeviceActionResult> makePhoneCall({
     required String phoneNumber,
     bool directCall = false,
