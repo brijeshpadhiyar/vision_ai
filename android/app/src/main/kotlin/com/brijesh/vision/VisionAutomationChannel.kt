@@ -55,13 +55,17 @@ class VisionAutomationChannel(
             "photos" to listOf("photos", "gallery", "album"),
             "calculator" to listOf("calculator", "calc"),
             "calendar" to listOf("calendar"),
-            "chrome" to listOf("chrome", "browser"),
-            "whatsapp" to listOf("whatsapp"),
-            "youtube" to listOf("youtube"),
+            "chrome" to listOf("chrome", "browser", "google chrome"),
+            "whatsapp" to listOf("whatsapp", "whatsapp business", "wa"),
+            "youtube" to listOf("youtube", "yt"),
             "gmail" to listOf("gmail", "mail", "email"),
             "maps" to listOf("maps", "google maps"),
             "files" to listOf("files", "file manager", "my files"),
             "notes" to listOf("notes", "keep notes"),
+            "instagram" to listOf("instagram", "insta"),
+            "telegram" to listOf("telegram"),
+            "spotify" to listOf("spotify"),
+            "play store" to listOf("play store", "google play", "playstore"),
         )
     }
 
@@ -174,6 +178,14 @@ class VisionAutomationChannel(
                 val label = call.argument<String>("label")?.trim()
                 val skipUi = call.argument<Boolean>("skipUi") ?: false
                 handleSetTimer(seconds, label, skipUi, result)
+            }
+
+            "dismissAlarm" -> {
+                handleDismissAlarm(result)
+            }
+
+            "dismissTimer" -> {
+                handleDismissTimer(result)
             }
 
             "getInstalledApps" -> {
@@ -306,9 +318,9 @@ class VisionAutomationChannel(
             return
         }
 
-        val matches = mutableListOf<Map<String, String>>()
+        val scoredMatches = mutableListOf<Pair<Int, Map<String, String>>>()
         val seenNumbers = HashSet<String>()
-        val normalizedQuery = query.lowercase()
+        val normalizedQuery = query.lowercase().trim()
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER,
@@ -337,17 +349,26 @@ class VisionAutomationChannel(
                     ContactsContract.CommonDataKinds.Phone.LABEL,
                 )
 
-                while (cursor.moveToNext() && matches.size < 10) {
+                while (cursor.moveToNext()) {
                     val name = if (nameIndex >= 0) cursor.getString(nameIndex)?.trim() ?: "" else ""
                     val rawNumber = if (numberIndex >= 0) cursor.getString(numberIndex)?.trim() ?: "" else ""
                     if (name.isEmpty() || rawNumber.isEmpty()) continue
 
+                    val lowerName = name.lowercase()
                     val cleanDigits = rawNumber.replace(Regex("[^0-9+]"), "")
-                    if (!name.lowercase().contains(normalizedQuery) &&
-                        !cleanDigits.contains(normalizedQuery)
-                    ) {
-                        continue
+
+                    val score = when {
+                        lowerName == normalizedQuery || cleanDigits == normalizedQuery -> 100
+                        lowerName.startsWith(normalizedQuery) -> 85
+                        lowerName.split(' ').any { it.startsWith(normalizedQuery) } -> 75
+                        lowerName.contains(normalizedQuery) || cleanDigits.contains(normalizedQuery) -> 60
+                        normalizedQuery.length >= 4 &&
+                            lowerName.split(' ').any { token ->
+                                token.length >= 3 && editDistance(token, normalizedQuery) <= 2
+                            } -> 40
+                        else -> 0
                     }
+                    if (score == 0) continue
 
                     if (!seenNumbers.add("$name:$cleanDigits")) continue
 
@@ -359,8 +380,8 @@ class VisionAutomationChannel(
                         customLabel,
                     ).toString()
 
-                    matches.add(
-                        mapOf(
+                    scoredMatches.add(
+                        score to mapOf(
                             "name" to name,
                             "phoneNumber" to rawNumber,
                             "label" to label,
@@ -368,6 +389,10 @@ class VisionAutomationChannel(
                     )
                 }
             }
+            val matches = scoredMatches
+                .sortedByDescending { it.first }
+                .take(10)
+                .map { it.second }
             result.success(matches)
         } catch (e: SecurityException) {
             result.error(
@@ -507,6 +532,61 @@ class VisionAutomationChannel(
         }
     }
 
+    private fun handleDismissAlarm(result: MethodChannel.Result) {
+        val action = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            AlarmClock.ACTION_DISMISS_ALARM
+        } else {
+            AlarmClock.ACTION_SHOW_ALARMS
+        }
+        val intent = Intent(action).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            activity.startActivity(intent)
+            result.success(mapOf("success" to true, "action" to action))
+        } catch (_: ActivityNotFoundException) {
+            try {
+                val fallback = Intent(AlarmClock.ACTION_SHOW_ALARMS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(fallback)
+                result.success(mapOf("success" to true, "action" to AlarmClock.ACTION_SHOW_ALARMS))
+            } catch (e: ActivityNotFoundException) {
+                result.error("ACTIVITY_NOT_FOUND", "No clock app available to manage alarms.", null)
+            }
+        }
+    }
+
+    private fun handleDismissTimer(result: MethodChannel.Result) {
+        val primaryAction = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            AlarmClock.ACTION_DISMISS_TIMER
+        } else {
+            AlarmClock.ACTION_SHOW_ALARMS
+        }
+        val intent = Intent(primaryAction).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            activity.startActivity(intent)
+            result.success(mapOf("success" to true, "action" to primaryAction))
+        } catch (_: ActivityNotFoundException) {
+            try {
+                val showTimers = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    AlarmClock.ACTION_SHOW_TIMERS
+                } else {
+                    AlarmClock.ACTION_SHOW_ALARMS
+                }
+                val fallback = Intent(showTimers).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(fallback)
+                result.success(mapOf("success" to true, "action" to showTimers))
+            } catch (_: ActivityNotFoundException) {
+                result.error("ACTIVITY_NOT_FOUND", "No clock app available to manage timers.", null)
+            }
+        }
+    }
+
     private data class LauncherApp(
         val appName: String,
         val packageName: String,
@@ -562,9 +642,20 @@ class VisionAutomationChannel(
         val apps = queryLauncherApps()
         val matched = findBestAppMatch(normalizedQuery, apps)
         if (matched == null) {
+            val suggestions = apps
+                .map { it to editDistance(normalizedQuery, it.appName.lowercase()) }
+                .filter { it.second <= 4 }
+                .sortedBy { it.second }
+                .take(3)
+                .map { it.first.appName }
+            val hint = if (suggestions.isNotEmpty()) {
+                " Similar apps: ${suggestions.joinToString(", ")}."
+            } else {
+                ""
+            }
             result.error(
                 "APP_NOT_FOUND",
-                "Could not find an installed app matching \"$query\".",
+                "Could not find an installed app matching \"$query\".$hint",
                 null,
             )
             return
@@ -617,8 +708,43 @@ class VisionAutomationChannel(
             }?.let { return it }
         }
 
-        // 5. Package name contains query
+        // 5. Fuzzy edit-distance match for minor speech-to-text typos
+        if (query.length >= 4) {
+            val compactQuery = query.replace(Regex("[^a-z0-9]"), "")
+            val fuzzyMatch = apps
+                .map { app ->
+                    val compactApp = app.appName.lowercase().replace(Regex("[^a-z0-9]"), "")
+                    app to editDistance(compactQuery, compactApp)
+                }
+                .filter { it.second <= 2 }
+                .minByOrNull { it.second }
+                ?.first
+            if (fuzzyMatch != null) return fuzzyMatch
+        }
+
+        // 6. Package name contains query
         return apps.firstOrNull { it.packageName.lowercase().contains(query) }
+    }
+
+    private fun editDistance(a: String, b: String): Int {
+        if (a == b) return 0
+        if (a.isEmpty()) return b.length
+        if (b.isEmpty()) return a.length
+        val prev = IntArray(b.length + 1) { it }
+        val curr = IntArray(b.length + 1)
+        for (i in a.indices) {
+            curr[0] = i + 1
+            for (j in b.indices) {
+                val cost = if (a[i] == b[j]) 0 else 1
+                curr[j + 1] = minOf(
+                    curr[j] + 1,
+                    prev[j + 1] + 1,
+                    prev[j] + cost,
+                )
+            }
+            curr.copyInto(prev)
+        }
+        return prev[b.length]
     }
 
     private fun handleOpenSystemSettings(section: String, result: MethodChannel.Result) {

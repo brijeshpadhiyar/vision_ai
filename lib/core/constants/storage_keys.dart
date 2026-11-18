@@ -63,6 +63,12 @@ abstract final class StorageKeys {
   /// Key for locally persisted conversation transcript JSON list.
   static const String chatHistory = 'vision_pref_chat_history';
 
+  /// Key for explicit consent gating local personalization memory injection.
+  static const String personalMemoryEnabled = 'vision_pref_memory_enabled';
+
+  /// Key for locally persisted explicit personalization memory entries.
+  static const String personalMemoryEntries = 'vision_pref_memory_entries';
+
   /// Prefix used for storing encrypted provider API keys in Android Keystore.
   static const String secureApiKeyPrefix = 'vision_secure_api_key_';
 

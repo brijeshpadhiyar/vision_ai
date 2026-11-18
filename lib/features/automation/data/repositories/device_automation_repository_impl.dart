@@ -66,6 +66,12 @@ class DeviceAutomationRepositoryImpl implements DeviceAutomationRepository {
   }) => _dataSource.setTimer(seconds: seconds, label: label, skipUi: skipUi);
 
   @override
+  Future<DeviceActionResult> dismissAlarm() => _dataSource.dismissAlarm();
+
+  @override
+  Future<DeviceActionResult> dismissTimer() => _dataSource.dismissTimer();
+
+  @override
   Future<List<InstalledAppInfo>> getInstalledApps() =>
       _dataSource.getInstalledApps();
 

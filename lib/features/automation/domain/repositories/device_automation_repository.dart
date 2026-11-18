@@ -32,6 +32,12 @@ abstract interface class DeviceAutomationRepository {
     bool skipUi = false,
   });
 
+  /// Dismisses or opens management UI for device alarms.
+  Future<DeviceActionResult> dismissAlarm();
+
+  /// Dismisses or opens management UI for running timers.
+  Future<DeviceActionResult> dismissTimer();
+
   /// Returns installed launcher applications visible on the device.
   Future<List<InstalledAppInfo>> getInstalledApps();
 

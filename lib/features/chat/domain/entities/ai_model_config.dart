@@ -1,9 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/features/chat/domain/services/task_complexity_classifier.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 
 /// Capabilities supported by a configured AI model.
 enum AiCapability { text, streaming, toolCalling, multimodalVision, reasoning }
+
+/// Relative API token cost tier for intelligent routing trade-offs.
+enum AiCostTier { economy, standard, premium }
 
 /// Centralized model metadata and endpoint specification for an AI model.
 @immutable
@@ -20,6 +24,9 @@ class AiModelConfig {
     this.isDefault = false,
     this.isCustom = false,
     this.tier = AiModelTier.balanced,
+    this.reasoningScore = 7,
+    this.multilingualScore = 8,
+    this.costTier = AiCostTier.standard,
   });
 
   final AiProviderType provider;
@@ -33,6 +40,9 @@ class AiModelConfig {
   final bool isDefault;
   final bool isCustom;
   final AiModelTier tier;
+  final int reasoningScore;
+  final int multilingualScore;
+  final AiCostTier costTier;
 
   bool get supportsStreaming => capabilities.contains(AiCapability.streaming);
   bool get supportsTools => capabilities.contains(AiCapability.toolCalling);
@@ -313,6 +323,58 @@ abstract final class AIModelRegistry {
       supportsTemperature: provider != AiProviderType.openAi,
       isCustom: true,
     );
+  }
+
+  /// Recommends a capable model for [provider] matching [complexity], falling back
+  /// cleanly to the user's configured model or provider default.
+  static AiModelConfig recommendModelFor(
+    AiProviderType provider, {
+    required TaskComplexityTier complexity,
+    String? userSelectedModelId,
+  }) {
+    final normalizedSelected = normalizeModelId(
+      provider,
+      userSelectedModelId,
+      upgradeDeprecated: true,
+    );
+    final selected = resolveModel(provider, normalizedSelected);
+    // Honor custom user-entered models directly.
+    if (selected.isCustom) return selected;
+
+    final providerModels = modelsForProvider(provider);
+    switch (complexity) {
+      case TaskComplexityTier.simpleFast:
+        // If user explicitly chose flagship, honor unless balanced/fast exists;
+        // prefer fast models on default settings.
+        if (userSelectedModelId == null || userSelectedModelId.isEmpty) {
+          return providerModels.firstWhere(
+            (m) => m.tier == AiModelTier.fast,
+            orElse: () => selected,
+          );
+        }
+        return selected;
+      case TaskComplexityTier.balancedMultilingual:
+        if (userSelectedModelId == null || userSelectedModelId.isEmpty) {
+          return providerModels.firstWhere(
+            (m) => m.tier == AiModelTier.balanced,
+            orElse: () => selected,
+          );
+        }
+        return selected;
+      case TaskComplexityTier.deepReasoningCoding:
+        // Upgrade from a lightweight default when complex reasoning/coding is detected,
+        // while keeping the user's chosen provider.
+        if (selected.tier == AiModelTier.fast) {
+          return providerModels.firstWhere(
+            (m) => m.supportsReasoning && m.tier == AiModelTier.balanced,
+            orElse: () => providerModels.firstWhere(
+              (m) => m.supportsReasoning,
+              orElse: () => selected,
+            ),
+          );
+        }
+        return selected;
+    }
   }
 
   /// Returns a recommended replacement if [modelId] is known deprecated/retired.

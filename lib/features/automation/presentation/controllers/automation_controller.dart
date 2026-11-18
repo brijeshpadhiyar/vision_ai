@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/errors/app_exception.dart';
+import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/app_logger.dart';
 import 'package:vision_ai/features/automation/data/repositories/device_automation_repository_impl.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
@@ -160,12 +161,16 @@ class AutomationController extends Notifier<AutomationState> {
     return executeRequest(parsed);
   }
 
-  /// Executes a structured [DeviceActionRequest] with permission guards.
+  /// Executes a structured [DeviceActionRequest] (including multi-step chains)
+  /// with permission guards, lifecycle tracking, and latency telemetry.
   Future<DeviceActionResult> executeRequest(
     DeviceActionRequest request, {
     bool confirmed = false,
   }) async {
     final logger = ref.read(appLoggerProvider);
+    final telemetry = ref.read(telemetryProvider.notifier);
+    final stopwatch = Stopwatch()..start();
+
     state = state.copyWith(
       isExecuting: true,
       clearError: true,
@@ -174,7 +179,54 @@ class AutomationController extends Notifier<AutomationState> {
     );
 
     try {
-      final result = await _dispatchRequest(request, confirmed: confirmed);
+      var result = await _dispatchRequest(request, confirmed: confirmed);
+
+      // Execute any chained follow-up steps sequentially if the primary step succeeded.
+      if (result.success && request.followUpActions.isNotEmpty) {
+        final stepSummaries = <String>['Step 1: ${result.summary}'];
+        for (var i = 0; i < request.followUpActions.length; i++) {
+          final followUp = request.followUpActions[i];
+          final stepResult = await _dispatchRequest(
+            followUp,
+            confirmed: confirmed,
+          );
+          if (!stepResult.success) {
+            stepSummaries.add('Step ${i + 2} failed: ${stepResult.summary}');
+            result = DeviceActionResult(
+              success: false,
+              status: stepResult.status,
+              actionType: followUp.type,
+              summary: stepSummaries.join(' | '),
+              details: stepResult.details,
+              requiresPermission: stepResult.requiresPermission,
+              missingPermission: stepResult.missingPermission,
+              contacts: stepResult.contacts,
+              notifications: stepResult.notifications,
+              deviceStatus: stepResult.deviceStatus,
+            );
+            break;
+          }
+          stepSummaries.add('Step ${i + 2}: ${stepResult.summary}');
+          result = DeviceActionResult(
+            success: true,
+            status: stepResult.status,
+            actionType: followUp.type,
+            summary: stepSummaries.join(' | '),
+            details: stepResult.details,
+            contacts: stepResult.contacts,
+            notifications: stepResult.notifications,
+            deviceStatus: stepResult.deviceStatus,
+          );
+        }
+      }
+
+      stopwatch.stop();
+      telemetry.recordAutomationExecution(
+        request.type,
+        stopwatch.elapsedMilliseconds,
+        success: result.success,
+      );
+
       final entry = AutomationExecutionEntry(
         id: 'act_${DateTime.now().microsecondsSinceEpoch}',
         timestamp: DateTime.now(),
@@ -197,6 +249,17 @@ class AutomationController extends Notifier<AutomationState> {
       logger.info('Device action [${request.type.wireId}]: ${result.summary}');
       return result;
     } on DeviceAutomationException catch (error) {
+      stopwatch.stop();
+      telemetry.recordAutomationExecution(
+        request.type,
+        stopwatch.elapsedMilliseconds,
+        success: false,
+      );
+      telemetry.recordSanitizedError(
+        'Automation[${request.type.wireId}]',
+        error,
+      );
+
       final result = DeviceActionResult(
         success: false,
         actionType: request.type,
@@ -323,6 +386,35 @@ class AutomationController extends Notifier<AutomationState> {
           summary: snapshot.toReadableSummary(),
           deviceStatus: snapshot,
         );
+
+      case DeviceActionType.dismissAlarm:
+        return repo.dismissAlarm();
+
+      case DeviceActionType.dismissTimer:
+        return repo.dismissTimer();
+
+      case DeviceActionType.stopSpeaking:
+        return const DeviceActionResult(
+          success: true,
+          actionType: DeviceActionType.stopSpeaking,
+          summary: 'Stopped speech playback.',
+        );
+
+      case DeviceActionType.repeatLast:
+        return const DeviceActionResult(
+          success: true,
+          actionType: DeviceActionType.repeatLast,
+          summary: 'Repeating previous response.',
+        );
+
+      case DeviceActionType.cancelAction:
+        cancelPendingAction();
+        return const DeviceActionResult(
+          success: true,
+          status: DeviceActionStatus.cancelled,
+          actionType: DeviceActionType.cancelAction,
+          summary: 'Cancelled pending action.',
+        );
     }
   }
 
@@ -359,23 +451,35 @@ class AutomationController extends Notifier<AutomationState> {
         );
       }
 
+      ContactMatch selectedMatch;
       if (matches.length > 1) {
-        state = state.copyWith(
-          contactChoices: matches,
-          pendingConfirmation: request,
-        );
-        return DeviceActionResult(
-          success: false,
-          status: DeviceActionStatus.ambiguousContact,
-          actionType: DeviceActionType.callPhone,
-          summary:
-              'Multiple contacts matched "$rawTarget". Select one to proceed.',
-          contacts: matches,
-        );
+        final ordinal = request.contactOrdinalIndex;
+        if (ordinal != null && ordinal >= 0 && ordinal < matches.length) {
+          selectedMatch = matches[ordinal];
+        } else {
+          state = state.copyWith(
+            contactChoices: matches,
+            pendingConfirmation: request,
+          );
+          final ordinalOutOfBoundsNote =
+              ordinal != null && ordinal >= matches.length
+              ? 'Option ${ordinal + 1} was requested, but $rawTarget has ${matches.length} number(s). '
+              : '';
+          return DeviceActionResult(
+            success: false,
+            status: DeviceActionStatus.ambiguousContact,
+            actionType: DeviceActionType.callPhone,
+            summary:
+                '${ordinalOutOfBoundsNote}Multiple contacts matched "$rawTarget". Select one to proceed.',
+            contacts: matches,
+          );
+        }
+      } else {
+        selectedMatch = matches.first;
       }
 
-      phoneNumber = matches.first.phoneNumber;
-      resolvedLabel = '${matches.first.name} ($phoneNumber)';
+      phoneNumber = selectedMatch.phoneNumber;
+      resolvedLabel = '${selectedMatch.name} ($phoneNumber)';
     }
 
     if (directCallEnabled) {

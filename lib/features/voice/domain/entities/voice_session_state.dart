@@ -1,12 +1,15 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Lifecycle phases of the VISION voice and wake-word engine.
+/// Lifecycle phases of the VISION voice, understanding, execution, and wake-word engine.
 enum VoiceListeningPhase {
   idle,
   requestingPermission,
   listeningCommand,
   listeningWakeWord,
+  understanding,
   processingAi,
+  executing,
+  confirmationRequired,
   speaking,
   error,
 }

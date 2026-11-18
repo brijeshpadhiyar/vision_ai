@@ -5,8 +5,11 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/errors/app_exception.dart';
 import 'package:vision_ai/core/errors/error_handler.dart';
+import 'package:vision_ai/core/intelligence/conversation_context.dart';
+import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/app_logger.dart';
 import 'package:vision_ai/core/utils/secret_redactor.dart';
+import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/automation/domain/utils/device_intent_parser.dart';
 import 'package:vision_ai/features/automation/presentation/controllers/automation_controller.dart';
 import 'package:vision_ai/features/chat/data/repositories/chat_repository_impl.dart';
@@ -76,6 +79,8 @@ final chatControllerProvider = NotifierProvider<ChatController, ChatState>(
 /// offline local fallback, and error feedback.
 class ChatController extends Notifier<ChatState> {
   AICancellationToken? _activeCancellation;
+  ConversationIntelligenceContext _intelContext =
+      const ConversationIntelligenceContext();
 
   @override
   ChatState build() {
@@ -122,22 +127,104 @@ class ChatController extends Notifier<ChatState> {
     );
 
     try {
-      if (settings.deviceActionsEnabled) {
-        final localAction = DeviceIntentParser.parseLocalCommand(trimmed);
-        if (localAction != null) {
-          final actionResult = await ref
-              .read(automationControllerProvider.notifier)
-              .executeRequest(localAction);
+      final telemetry = ref.read(telemetryProvider.notifier);
+      final resolution = DeviceIntentParser.analyzeIntent(
+        trimmed,
+        context: _intelContext,
+      );
+      telemetry.recordIntentParse(
+        resolution.parseTimeMicros,
+        localHandled:
+            resolution.shouldHandleLocally || resolution.needsClarification,
+      );
+
+      if (resolution.needsClarification &&
+          resolution.clarificationPrompt != null) {
+        final clarification = resolution.clarificationPrompt!;
+        _intelContext = _intelContext.copyWith(
+          pendingClarificationIntentId: resolution.intentId,
+          pendingClarificationPrompt: clarification,
+          lastSpokenReply: clarification,
+        );
+        final updatedMessages = await repository.recordLocalActionExchange(
+          userPrompt: trimmed,
+          assistantReply: clarification,
+          provider: settings.selectedAiProvider,
+          modelId: 'offline-local-clarification',
+        );
+        state = ChatState(messages: updatedMessages);
+        return true;
+      }
+
+      if (settings.deviceActionsEnabled &&
+          resolution.shouldHandleLocally &&
+          resolution.request != null) {
+        final localAction = resolution.request!;
+        if (localAction.type == DeviceActionType.repeatLast) {
+          final repeatText =
+              _intelContext.lastSpokenReply ??
+              repository
+                  .getMessages()
+                  .lastWhere(
+                    (m) => m.sender == MessageSender.assistant,
+                    orElse: () => ChatMessage(
+                      id: 'none',
+                      sender: MessageSender.assistant,
+                      content: 'There is no previous response to repeat yet.',
+                      createdAt: DateTime.now(),
+                    ),
+                  )
+                  .content;
           final updatedMessages = await repository.recordLocalActionExchange(
             userPrompt: trimmed,
-            assistantReply: actionResult.summary,
+            assistantReply: repeatText,
             provider: settings.selectedAiProvider,
             modelId: 'offline-local-intent',
           );
           state = ChatState(messages: updatedMessages);
-          logger.info('Executed local device command: ${actionResult.summary}');
           return true;
         }
+
+        final automationNotifier = ref.read(
+          automationControllerProvider.notifier,
+        );
+        final actionResult = resolution.intentId == 'confirm_pending'
+            ? await automationNotifier.executeRequest(
+                localAction,
+                confirmed: true,
+              )
+            : await automationNotifier.executeRequest(localAction);
+
+        final isPendingConfirm =
+            actionResult.status == DeviceActionStatus.confirmationRequired;
+        _intelContext = _intelContext.copyWith(
+          lastIntentId: resolution.intentId,
+          lastContactName:
+              (localAction.type == DeviceActionType.callPhone ||
+                      localAction.type == DeviceActionType.lookupContacts ||
+                      localAction.type == DeviceActionType.sendSms ||
+                      localAction.type == DeviceActionType.sendWhatsapp) &&
+                  localAction.target.isNotEmpty
+              ? localAction.target
+              : _intelContext.lastContactName,
+          lastAppName: localAction.type == DeviceActionType.launchApp
+              ? localAction.target
+              : _intelContext.lastAppName,
+          lastSpokenReply: actionResult.summary,
+          pendingAction: isPendingConfirm ? localAction : null,
+          clearPendingAction: !isPendingConfirm,
+          clearClarification: true,
+        );
+
+        final updatedMessages = await repository.recordLocalActionExchange(
+          userPrompt: trimmed,
+          assistantReply: actionResult.summary,
+          provider: settings.selectedAiProvider,
+          modelId: 'offline-local-intent',
+        );
+        state = ChatState(messages: updatedMessages);
+        logger.info('Executed local device command: ${actionResult.summary}');
+        return true;
       }
 
       String? latestRoutingNotice;
@@ -160,14 +247,31 @@ class ChatController extends Notifier<ChatState> {
         final actionResult = await ref
             .read(automationControllerProvider.notifier)
             .executeRequest(aiAction);
+        _intelContext = _intelContext.copyWith(
+          pendingAction:
+              actionResult.status == DeviceActionStatus.confirmationRequired
+              ? aiAction
+              : null,
+          clearPendingAction:
+              actionResult.status != DeviceActionStatus.confirmationRequired,
+        );
         logger.info(
           'AI-triggered device action [${aiAction.type.wireId}]: '
           '${actionResult.summary}',
         );
       }
 
+      final allMessages = repository.getMessages();
+      if (allMessages.isNotEmpty &&
+          allMessages.last.sender == MessageSender.assistant) {
+        _intelContext = _intelContext.copyWith(
+          lastSpokenReply: allMessages.last.content,
+          clearClarification: true,
+        );
+      }
+
       state = ChatState(
-        messages: repository.getMessages(),
+        messages: allMessages,
         routingNotice: latestRoutingNotice,
       );
       logger.info(

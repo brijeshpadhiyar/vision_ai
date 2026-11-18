@@ -13,6 +13,7 @@ import 'package:vision_ai/features/assistant/presentation/screens/assistant_home
 import 'package:vision_ai/features/assistant/presentation/screens/assistant_overlay_screen.dart';
 import 'package:vision_ai/features/automation/presentation/screens/automation_screen.dart';
 import 'package:vision_ai/features/chat/presentation/screens/chat_screen.dart';
+import 'package:vision_ai/features/diagnostics/presentation/screens/diagnostics_screen.dart';
 import 'package:vision_ai/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:vision_ai/features/settings/presentation/screens/settings_screen.dart';
 import 'package:vision_ai/features/splash/presentation/screens/splash_screen.dart';
@@ -115,6 +116,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _assistantModalPage(
           key: state.pageKey,
           child: const AssistantOverlayScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.diagnosticsPath,
+        name: AppRoutes.diagnosticsName,
+        pageBuilder: (context, state) => _fadeSlidePage(
+          key: state.pageKey,
+          child: const DiagnosticsScreen(),
         ),
       ),
     ],

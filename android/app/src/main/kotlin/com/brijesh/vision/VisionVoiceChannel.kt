@@ -334,6 +334,12 @@ class VisionVoiceChannel(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
+            putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                1400L,
+            )
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1200L)
         }
 
         isListening = true
@@ -360,6 +366,9 @@ class VisionVoiceChannel(
         if (!isTtsReady || tts == null || text.isBlank()) {
             return false
         }
+
+        // Prevent wake-word AudioRecord contention while TTS speaks aloud.
+        pauseWakeServiceIfRunning()
 
         val locale = Locale.forLanguageTag(localeTag)
         val availability = tts.isLanguageAvailable(locale)

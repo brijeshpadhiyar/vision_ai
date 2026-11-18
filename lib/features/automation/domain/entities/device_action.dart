@@ -17,7 +17,12 @@ enum DeviceActionType {
   adjustVolume('Volume Control', 'adjust_volume'),
   webSearch('Web Search', 'web_search'),
   navigateTo('Navigation', 'navigate_to'),
-  deviceStatus('Device Status', 'device_status');
+  deviceStatus('Device Status', 'device_status'),
+  dismissAlarm('Dismiss Alarm', 'dismiss_alarm'),
+  dismissTimer('Dismiss Timer', 'dismiss_timer'),
+  stopSpeaking('Stop Speaking', 'stop_speaking'),
+  repeatLast('Repeat Response', 'repeat_last'),
+  cancelAction('Cancel Action', 'cancel_action');
 
   const DeviceActionType(this.displayName, this.wireId);
 
@@ -193,6 +198,9 @@ class DeviceActionRequest {
     this.message,
     this.enabled,
     this.requiresConfirmation = false,
+    this.contactOrdinalIndex,
+    this.isTomorrow = false,
+    this.followUpActions = const <DeviceActionRequest>[],
   });
 
   final DeviceActionType type;
@@ -205,6 +213,9 @@ class DeviceActionRequest {
   final String? message;
   final bool? enabled;
   final bool requiresConfirmation;
+  final int? contactOrdinalIndex;
+  final bool isTomorrow;
+  final List<DeviceActionRequest> followUpActions;
 }
 
 /// Outcome returned after executing or attempting a [DeviceActionRequest].

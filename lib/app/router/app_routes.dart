@@ -23,4 +23,7 @@ abstract final class AppRoutes {
 
   static const String assistantOverlayPath = '/assistant-overlay';
   static const String assistantOverlayName = 'assistant-overlay';
+
+  static const String diagnosticsPath = '/diagnostics';
+  static const String diagnosticsName = 'diagnostics';
 }

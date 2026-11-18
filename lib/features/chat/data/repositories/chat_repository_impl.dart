@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:vision_ai/core/constants/app_constants.dart';
+import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/http_client_provider.dart';
 import 'package:vision_ai/core/utils/network_status_service.dart';
 import 'package:vision_ai/core/utils/secure_storage_provider.dart';
@@ -22,6 +23,8 @@ import 'package:vision_ai/features/chat/domain/repositories/ai_provider_client.d
 import 'package:vision_ai/features/chat/domain/repositories/chat_repository.dart';
 import 'package:vision_ai/features/chat/domain/services/ai_conversation_manager.dart';
 import 'package:vision_ai/features/chat/domain/services/ai_router.dart';
+import 'package:vision_ai/features/chat/domain/services/provider_health_manager.dart';
+import 'package:vision_ai/features/memory/presentation/controllers/memory_controller.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
@@ -62,7 +65,14 @@ final aiProviderRegistryProvider = Provider<AIProviderRegistry>((ref) {
 final aiRouterProvider = Provider<AIRouter>((ref) {
   final registry = ref.watch(aiProviderRegistryProvider);
   final credentialStore = ref.watch(secureCredentialStoreProvider);
-  return AIRouter(registry: registry, credentialStore: credentialStore);
+  final healthManager = ref.watch(providerHealthManagerProvider);
+  final telemetry = ref.read(telemetryProvider.notifier);
+  return AIRouter(
+    registry: registry,
+    credentialStore: credentialStore,
+    healthManager: healthManager,
+    telemetry: telemetry,
+  );
 });
 
 /// Provides the concrete [ChatRepository] implementation.
@@ -70,7 +80,13 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   final localDataSource = ref.watch(chatLocalDataSourceProvider);
   final router = ref.watch(aiRouterProvider);
   final networkStatus = ref.watch(networkStatusServiceProvider);
-  return ChatRepositoryImpl(localDataSource, router, networkStatus);
+  return ChatRepositoryImpl(
+    localDataSource,
+    router,
+    networkStatus,
+    memoryContextReader: () =>
+        ref.read(memoryControllerProvider).buildPromptContext(),
+  );
 });
 
 /// Adapts legacy [AiProviderClient] test stubs into [AIProvider].
@@ -156,14 +172,16 @@ class ChatRepositoryImpl implements ChatRepository {
   ChatRepositoryImpl(
     this._localDataSource,
     this._router,
-    this._networkStatusService,
-  ) : _conversationManager = AIConversationManager(
-        initialMessages: _localDataSource.readMessages(),
-      );
+    this._networkStatusService, {
+    this._memoryContextReader,
+  }) : _conversationManager = AIConversationManager(
+         initialMessages: _localDataSource.readMessages(),
+       );
 
   final ChatLocalDataSource _localDataSource;
   final AIRouter _router;
   final NetworkStatusService _networkStatusService;
+  final String Function()? _memoryContextReader;
   final AIConversationManager _conversationManager;
   DeviceActionRequest? _pendingAiAction;
 
@@ -237,9 +255,9 @@ class ChatRepositoryImpl implements ChatRepository {
     final provider = settings.selectedAiProvider;
     final modelId = settings.modelForProvider(provider);
 
-    // Validate candidate availability before adding user prompt to history so
-    // missing-key errors don't leave orphaned messages.
-    await _router.resolveCandidates(
+    // Resolve candidates once upfront so missing-key errors abort before writing
+    // user messages and SecureStorage isn't queried twice per turn.
+    final candidates = await _router.resolveCandidates(
       settings: settings,
       promptText: trimmedPrompt,
     );
@@ -263,6 +281,7 @@ class ChatRepositoryImpl implements ChatRepository {
       messages: contextWindow,
       responseLanguage: settings.selectedVoiceLanguage,
       enableDeviceActions: settings.deviceActionsEnabled,
+      personalMemoryContext: _memoryContextReader?.call() ?? '',
     );
 
     if (!settings.streamingEnabled) {
@@ -271,6 +290,7 @@ class ChatRepositoryImpl implements ChatRepository {
         settings: settings,
         promptText: trimmedPrompt,
         cancellationToken: cancellationToken,
+        preResolvedCandidates: candidates,
       );
       final assistantMessage = _finalizeResponse(
         response,
@@ -296,6 +316,7 @@ class ChatRepositoryImpl implements ChatRepository {
         settings: settings,
         promptText: trimmedPrompt,
         cancellationToken: cancellationToken,
+        preResolvedCandidates: candidates,
       )) {
         switch (chunk) {
           case AITextDeltaChunk(:final delta):
@@ -364,14 +385,35 @@ class ChatRepositoryImpl implements ChatRepository {
   }) {
     final rawText = response.text;
     if (enableDeviceActions && response.toolCalls.isNotEmpty) {
-      final firstTool = response.toolCalls.first;
-      if (firstTool.name == 'execute_device_action') {
-        final directive =
-            '[[VISION_ACTION:${jsonEncode(firstTool.arguments)}]]';
-        final extracted = DeviceIntentParser.extractAiAction(directive);
-        if (extracted.action != null) {
-          _pendingAiAction = extracted.action;
+      final parsedTools = <DeviceActionRequest>[];
+      for (final tool in response.toolCalls) {
+        if (tool.name == 'execute_device_action') {
+          final directive = '[[VISION_ACTION:${jsonEncode(tool.arguments)}]]';
+          final extracted = DeviceIntentParser.extractAiAction(directive);
+          if (extracted.action != null) {
+            parsedTools.add(extracted.action!);
+          }
         }
+      }
+      if (parsedTools.length == 1) {
+        _pendingAiAction = parsedTools.first;
+      } else if (parsedTools.length > 1) {
+        final primary = parsedTools.first;
+        _pendingAiAction = DeviceActionRequest(
+          type: primary.type,
+          displaySummary: parsedTools.map((a) => a.displaySummary).join(' -> '),
+          target: primary.target,
+          hour: primary.hour,
+          minute: primary.minute,
+          durationSeconds: primary.durationSeconds,
+          label: primary.label,
+          message: primary.message,
+          enabled: primary.enabled,
+          requiresConfirmation: parsedTools.any((a) => a.requiresConfirmation),
+          contactOrdinalIndex: primary.contactOrdinalIndex,
+          isTomorrow: primary.isTomorrow,
+          followUpActions: parsedTools.skip(1).toList(growable: false),
+        );
       }
     }
 

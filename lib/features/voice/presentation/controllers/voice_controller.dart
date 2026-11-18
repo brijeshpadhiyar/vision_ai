@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:vision_ai/core/errors/app_exception.dart';
+import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/app_logger.dart';
+import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
+import 'package:vision_ai/features/automation/domain/utils/device_intent_parser.dart';
+import 'package:vision_ai/features/automation/presentation/controllers/automation_controller.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
@@ -20,6 +24,7 @@ final voiceControllerProvider =
 /// across English (`en-IN`), Hindi (`hi-IN`), and Gujarati (`gu-IN`).
 class VoiceController extends Notifier<VoiceSessionState> {
   StreamSubscription<VoiceEvent>? _eventSubscription;
+  Stopwatch? _listenStopwatch;
 
   @override
   VoiceSessionState build() {
@@ -62,9 +67,17 @@ class VoiceController extends Notifier<VoiceSessionState> {
             ? (currentPhase == VoiceListeningPhase.listeningWakeWord
                   ? VoiceListeningPhase.listeningWakeWord
                   : VoiceListeningPhase.listeningCommand)
-            : (currentPhase == VoiceListeningPhase.processingAi
-                  ? VoiceListeningPhase.processingAi
+            : (currentPhase == VoiceListeningPhase.processingAi ||
+                      currentPhase == VoiceListeningPhase.understanding ||
+                      currentPhase == VoiceListeningPhase.executing ||
+                      currentPhase == VoiceListeningPhase.confirmationRequired
+                  ? currentPhase
                   : VoiceListeningPhase.idle);
+
+        if (isListening &&
+            (_listenStopwatch == null || !_listenStopwatch!.isRunning)) {
+          _listenStopwatch = Stopwatch()..start();
+        }
 
         state = state.copyWith(
           isListening: isListening,
@@ -124,11 +137,19 @@ class VoiceController extends Notifier<VoiceSessionState> {
     final trimmed = transcript.trim();
     if (trimmed.isEmpty) return;
 
+    final sttElapsedMs = _listenStopwatch?.elapsedMilliseconds;
+    _listenStopwatch?.stop();
+    if (sttElapsedMs != null) {
+      ref
+          .read(telemetryProvider.notifier)
+          .recordVoiceLatency(sttFinalMs: sttElapsedMs);
+    }
+
     final logger = ref.read(appLoggerProvider);
 
-    // Check if we were listening in wake-word standby mode.
-    if (state.phase == VoiceListeningPhase.listeningWakeWord ||
-        state.isWakeWordArmed) {
+    // Check wake-word strictly when in wake-word listening mode, or strip a
+    // leading multi-word wake prefix ("hey vision ...") when wake-word is armed.
+    if (state.phase == VoiceListeningPhase.listeningWakeWord) {
       final match = WakeWordDetector.evaluate(trimmed);
       if (match.isTriggered) {
         logger.info('Wake word detected: "${match.matchedPhrase}"');
@@ -148,12 +169,24 @@ class VoiceController extends Notifier<VoiceSessionState> {
           await startCommandListening();
         }
         return;
-      } else if (state.phase == VoiceListeningPhase.listeningWakeWord) {
+      } else {
         // Ignore non-wake-word ambient speech when strictly in wake-word mode.
         state = state.copyWith(
           phase: VoiceListeningPhase.idle,
           liveTranscript: '',
         );
+        return;
+      }
+    } else if (state.isWakeWordArmed) {
+      final match = WakeWordDetector.evaluate(trimmed);
+      if (match.isTriggered && match.trailingCommand.isNotEmpty) {
+        logger.info('Wake word detected: "${match.matchedPhrase}"');
+        state = state.copyWith(
+          lastWakeWordDetected: match.matchedPhrase,
+          wakeTriggerSequence: state.wakeTriggerSequence + 1,
+          clearError: true,
+        );
+        await _dispatchVoiceCommandToAi(match.trailingCommand);
         return;
       }
     }
@@ -162,12 +195,32 @@ class VoiceController extends Notifier<VoiceSessionState> {
   }
 
   Future<void> _dispatchVoiceCommandToAi(String commandText) async {
+    final e2eStopwatch = Stopwatch()..start();
+
     state = state.copyWith(
-      phase: VoiceListeningPhase.processingAi,
+      phase: VoiceListeningPhase.understanding,
       liveTranscript: commandText,
       isListening: false,
       normalizedAmplitude: 0.0,
       clearError: true,
+    );
+
+    // Fast-path voice interruption before invoking chat/LLM pipelines.
+    final quickIntent = DeviceIntentParser.analyzeIntent(commandText);
+    if (quickIntent.shouldHandleLocally &&
+        quickIntent.request?.type == DeviceActionType.stopSpeaking) {
+      await stopSpeaking();
+      state = state.copyWith(
+        phase: VoiceListeningPhase.idle,
+        lastReplyText: 'Stopped speaking.',
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      phase: quickIntent.shouldHandleLocally
+          ? VoiceListeningPhase.executing
+          : VoiceListeningPhase.processingAi,
     );
 
     final accepted = await ref
@@ -175,7 +228,9 @@ class VoiceController extends Notifier<VoiceSessionState> {
         .sendMessage(commandText);
 
     final chatState = ref.read(chatControllerProvider);
+    final automationState = ref.read(automationControllerProvider);
     if (!accepted || chatState.errorMessage != null) {
+      e2eStopwatch.stop();
       final msg =
           chatState.errorMessage ?? 'Unable to complete voice AI request.';
       state = state.copyWith(
@@ -192,8 +247,15 @@ class VoiceController extends Notifier<VoiceSessionState> {
         ? chatState.messages.last.content
         : '';
 
+    final needsConfirm =
+        automationState.pendingConfirmation != null ||
+        automationState.lastResult?.status ==
+            DeviceActionStatus.confirmationRequired;
+
     state = state.copyWith(
-      phase: VoiceListeningPhase.idle,
+      phase: needsConfirm
+          ? VoiceListeningPhase.confirmationRequired
+          : VoiceListeningPhase.idle,
       lastReplyText: latestReply,
     );
 
@@ -201,6 +263,11 @@ class VoiceController extends Notifier<VoiceSessionState> {
     if (settings.autoSpeakReplies && latestReply.isNotEmpty) {
       await speakReply(latestReply);
     }
+
+    e2eStopwatch.stop();
+    ref
+        .read(telemetryProvider.notifier)
+        .recordVoiceLatency(endToEndMs: e2eStopwatch.elapsedMilliseconds);
   }
 
   /// Toggles voice command capture on or off.
@@ -396,21 +463,17 @@ class VoiceController extends Notifier<VoiceSessionState> {
     }
   }
 
-  /// Speaks [text] aloud in the user's selected [VoiceLanguage].
+  /// Speaks [text] aloud in the user's selected [VoiceLanguage] after
+  /// sanitizing Markdown symbols, code blocks, and raw URLs for natural speech.
   Future<void> speakReply(String text) async {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    final cleaned = _sanitizeForSpeech(text);
+    if (cleaned.isEmpty) return;
 
     final voiceRepo = ref.read(voiceRepositoryProvider);
     final settings = ref.read(settingsControllerProvider);
 
     if (state.isSpeaking) {
       await voiceRepo.stopSpeaking();
-      state = state.copyWith(
-        isSpeaking: false,
-        phase: VoiceListeningPhase.idle,
-      );
-      return;
     }
 
     state = state.copyWith(
@@ -418,10 +481,15 @@ class VoiceController extends Notifier<VoiceSessionState> {
       phase: VoiceListeningPhase.speaking,
     );
 
+    final ttsSw = Stopwatch()..start();
     final started = await voiceRepo.speak(
-      text: trimmed,
+      text: cleaned,
       language: settings.selectedVoiceLanguage,
     );
+    ttsSw.stop();
+    ref
+        .read(telemetryProvider.notifier)
+        .recordVoiceLatency(ttsStartupMs: ttsSw.elapsedMilliseconds);
 
     if (!started) {
       state = state.copyWith(
@@ -429,6 +497,22 @@ class VoiceController extends Notifier<VoiceSessionState> {
         phase: VoiceListeningPhase.idle,
       );
     }
+  }
+
+  /// Cleans Markdown markup and code fences for natural TTS pronunciation
+  /// while preserving readable punctuation.
+  static String _sanitizeForSpeech(String raw) {
+    return raw
+        .replaceAll(
+          RegExp(r'```[\s\S]*?```'),
+          ' Code snippet provided on screen. ',
+        )
+        .replaceAll(RegExp(r'`([^`]+)`'), r'$1')
+        .replaceAll(RegExp(r'\[\[VISION_ACTION:.*?\]\]', dotAll: true), '')
+        .replaceAll(RegExp(r'[*_~#>]'), '')
+        .replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   /// Stops any active TTS playback.

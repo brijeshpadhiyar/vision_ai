@@ -19,6 +19,8 @@ import 'package:vision_ai/features/automation/presentation/controllers/automatio
 import 'package:vision_ai/features/chat/domain/entities/ai_model_config.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
+import 'package:vision_ai/features/memory/presentation/controllers/memory_controller.dart';
+import 'package:vision_ai/features/memory/presentation/widgets/personal_memory_sheet.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
@@ -218,6 +220,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final controller = ref.read(settingsControllerProvider.notifier);
     final voiceState = ref.watch(voiceControllerProvider);
     final chatState = ref.watch(chatControllerProvider);
+    final memoryState = ref.watch(memoryControllerProvider);
     final automationState = ref.watch(automationControllerProvider);
     final keyStatusAsync = ref.watch(apiKeyStatusControllerProvider);
     final connectionMap = ref.watch(providerConnectionControllerProvider);
@@ -442,6 +445,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 20),
             _MemorySection(
               messageCount: chatState.messages.length,
+              personalMemoryEnabled: memoryState.memoryEnabled,
+              personalMemoryCount: memoryState.entries.length,
+              onManagePersonalMemory: () {
+                _triggerHaptic(settings);
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const VisionGlassBottomSheet(
+                    child: PersonalMemorySheet(),
+                  ),
+                );
+              },
               onClearMemory: () async {
                 _triggerHaptic(settings);
                 await ref
@@ -465,6 +481,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onOpenOnboarding: () {
                 _triggerHaptic(settings);
                 context.push(AppRoutes.onboardingPath);
+              },
+              onOpenDiagnostics: () {
+                _triggerHaptic(settings);
+                context.push(AppRoutes.diagnosticsPath);
               },
               onResetDefaults: () async {
                 _triggerHaptic(settings);
@@ -1205,10 +1225,16 @@ class _DeviceAutomationSection extends StatelessWidget {
 class _MemorySection extends StatelessWidget {
   const _MemorySection({
     required this.messageCount,
+    required this.personalMemoryEnabled,
+    required this.personalMemoryCount,
+    required this.onManagePersonalMemory,
     required this.onClearMemory,
   });
 
   final int messageCount;
+  final bool personalMemoryEnabled;
+  final int personalMemoryCount;
+  final VoidCallback onManagePersonalMemory;
   final VoidCallback onClearMemory;
 
   @override
@@ -1216,8 +1242,17 @@ class _MemorySection extends StatelessWidget {
     return SettingsSectionCard(
       title: 'Memory',
       icon: Icons.psychology_outlined,
-      subtitle: 'Local multi-turn conversation history & context window',
+      subtitle: 'Local conversation history & explicit personalization memory',
       children: [
+        SettingsTile(
+          icon: Icons.manage_accounts_outlined,
+          title: 'Personalization Memory',
+          subtitle:
+              '${personalMemoryEnabled ? 'Enabled' : 'Disabled'} • '
+              '$personalMemoryCount saved preference${personalMemoryCount == 1 ? '' : 's'} (view, edit, delete)',
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onManagePersonalMemory,
+        ),
         SettingsTile(
           icon: Icons.history_rounded,
           title: 'Stored Conversation Messages',
@@ -1275,10 +1310,12 @@ class _PrivacySection extends StatelessWidget {
 class _AboutVisionSection extends StatelessWidget {
   const _AboutVisionSection({
     required this.onOpenOnboarding,
+    required this.onOpenDiagnostics,
     required this.onResetDefaults,
   });
 
   final VoidCallback onOpenOnboarding;
+  final VoidCallback onOpenDiagnostics;
   final VoidCallback onResetDefaults;
 
   @override
@@ -1288,6 +1325,14 @@ class _AboutVisionSection extends StatelessWidget {
       icon: Icons.info_outline_rounded,
       subtitle: '${AppConstants.appFullTitle} — "${AppConstants.appTagline}"',
       children: [
+        SettingsTile(
+          icon: Icons.monitor_heart_outlined,
+          iconColor: VisionColors.accentPrimary,
+          title: 'Developer Diagnostics',
+          subtitle: 'Inspect live provider health, latency metrics, voice state & export logs',
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onOpenDiagnostics,
+        ),
         const SettingsTile(
           icon: Icons.apps_rounded,
           title: 'Application ID',

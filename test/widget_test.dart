@@ -251,6 +251,24 @@ class _FakeDeviceAutomationRepository implements DeviceAutomationRepository {
   }
 
   @override
+  Future<DeviceActionResult> dismissAlarm() async {
+    return const DeviceActionResult(
+      success: true,
+      actionType: DeviceActionType.dismissAlarm,
+      summary: 'Alarm manager opened.',
+    );
+  }
+
+  @override
+  Future<DeviceActionResult> dismissTimer() async {
+    return const DeviceActionResult(
+      success: true,
+      actionType: DeviceActionType.dismissTimer,
+      summary: 'Timer manager opened.',
+    );
+  }
+
+  @override
   Future<List<InstalledAppInfo>> getInstalledApps() async {
     return const <InstalledAppInfo>[
       InstalledAppInfo(appName: 'Camera', packageName: 'com.oppo.camera'),

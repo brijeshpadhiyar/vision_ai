@@ -194,6 +194,56 @@ class AutomationPlatformDataSource {
     }
   }
 
+  Future<DeviceActionResult> dismissAlarm() async {
+    try {
+      await _methodChannel.invokeMethod<Map<Object?, Object?>>('dismissAlarm');
+      return const DeviceActionResult(
+        success: true,
+        actionType: DeviceActionType.dismissAlarm,
+        summary: 'Opened alarm manager to dismiss or review alarms.',
+      );
+    } on MissingPluginException {
+      return const DeviceActionResult(
+        success: false,
+        status: DeviceActionStatus.notSupported,
+        actionType: DeviceActionType.dismissAlarm,
+        summary: 'Alarm management is only available on Android.',
+      );
+    } on PlatformException catch (error) {
+      return DeviceActionResult(
+        success: false,
+        status: DeviceActionStatus.failed,
+        actionType: DeviceActionType.dismissAlarm,
+        summary: error.message ?? 'Unable to dismiss alarm.',
+      );
+    }
+  }
+
+  Future<DeviceActionResult> dismissTimer() async {
+    try {
+      await _methodChannel.invokeMethod<Map<Object?, Object?>>('dismissTimer');
+      return const DeviceActionResult(
+        success: true,
+        actionType: DeviceActionType.dismissTimer,
+        summary: 'Opened timer controls to stop or review active timers.',
+      );
+    } on MissingPluginException {
+      return const DeviceActionResult(
+        success: false,
+        status: DeviceActionStatus.notSupported,
+        actionType: DeviceActionType.dismissTimer,
+        summary: 'Timer management is only available on Android.',
+      );
+    } on PlatformException catch (error) {
+      return DeviceActionResult(
+        success: false,
+        status: DeviceActionStatus.failed,
+        actionType: DeviceActionType.dismissTimer,
+        summary: error.message ?? 'Unable to manage timer.',
+      );
+    }
+  }
+
   Future<List<InstalledAppInfo>> getInstalledApps() async {
     try {
       final raw = await _methodChannel.invokeMethod<List<Object?>>(
