@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" width="640" height="160" fill="none">
+  <defs>
+    <linearGradient id="wordmarkAccent" x1="0" y1="20" x2="620" y2="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="82%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E2F8FF" />
+    </linearGradient>
+  </defs>
+
+  <!-- V -->
+  <path
+    d="M 16 22 L 40 22 L 70 112 L 100 22 L 124 22 L 81 138 L 59 138 Z"
+    fill="url(#wordmarkAccent)"
+  />
+
+  <!-- I -->
+  <rect x="154" y="22" width="22" height="116" rx="2" fill="url(#wordmarkAccent)" />
+
+  <!-- S -->
+  <path
+    d="M 284 44 C 280 34, 266 30, 248 30 C 224 30, 210 40, 210 55 C 210 71, 226 76, 248 80 C 272 84, 288 90, 288 108 C 288 124, 272 132, 246 132 C 226 132, 212 127, 206 118"
+    stroke="url(#wordmarkAccent)"
+    stroke-width="20"
+    stroke-linecap="butt"
+    fill="none"
+  />
+
+  <!-- I -->
+  <rect x="322" y="22" width="22" height="116" rx="2" fill="url(#wordmarkAccent)" />
+
+  <!-- O -->
+  <rect
+    x="384"
+    y="31"
+    width="86"
+    height="98"
+    rx="43"
+    stroke="url(#wordmarkAccent)"
+    stroke-width="20"
+    fill="none"
+  />
+  <!-- Subtle cyan AI core dot inside O -->
+  <circle cx="427" cy="80" r="8" fill="#00D4FF" />
+
+  <!-- N -->
+  <path
+    d="M 510 138 L 510 22 L 533 22 L 590 104 L 590 22 L 612 22 L 612 138 L 589 138 L 532 56 L 532 138 Z"
+    fill="url(#wordmarkAccent)"
+  />
+</svg>

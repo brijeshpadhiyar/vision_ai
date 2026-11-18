@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" fill="none">
+  <defs>
+    <linearGradient id="logoArmGrad" x1="60" y1="48" x2="300" y2="312" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D4FF" />
+      <stop offset="52%" stop-color="#1EA8FF" />
+      <stop offset="100%" stop-color="#397BFF" />
+    </linearGradient>
+    <linearGradient id="logoLeftHighlight" x1="64" y1="54" x2="180" y2="304" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8AF0FF" stop-opacity="0.72" />
+      <stop offset="100%" stop-color="#00D4FF" stop-opacity="0.0" />
+    </linearGradient>
+    <linearGradient id="logoEyeRim" x1="108" y1="126" x2="256" y2="126" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D4FF" />
+      <stop offset="50%" stop-color="#8AF0FF" />
+      <stop offset="100%" stop-color="#397BFF" />
+    </linearGradient>
+    <radialGradient id="logoIrisGlow" cx="50%" cy="46%" r="54%">
+      <stop offset="0%" stop-color="#E6FCFF" />
+      <stop offset="30%" stop-color="#00D4FF" />
+      <stop offset="74%" stop-color="#397BFF" />
+      <stop offset="100%" stop-color="#163E9E" />
+    </radialGradient>
+    <radialGradient id="logoAmbientHalo" cx="182" cy="176" r="154" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.18" />
+      <stop offset="60%" stop-color="#397BFF" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#397BFF" stop-opacity="0.0" />
+    </radialGradient>
+    <linearGradient id="logoDividerGrad" x1="346" y1="84" x2="346" y2="276" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.0" />
+      <stop offset="50%" stop-color="#00D4FF" stop-opacity="0.55" />
+      <stop offset="100%" stop-color="#397BFF" stop-opacity="0.0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Symbol (Left) -->
+  <circle cx="182" cy="176" r="154" fill="url(#logoAmbientHalo)" />
+
+  <g transform="translate(26, 20) scale(0.61)">
+    <path
+      d="M 88 112 L 154 112 L 256 364 L 358 112 L 424 112 L 284 432 C 276 448, 236 448, 228 432 Z"
+      fill="url(#logoArmGrad)"
+    />
+    <path
+      d="M 88 112 L 116 112 L 244 416 L 228 432 Z"
+      fill="url(#logoLeftHighlight)"
+    />
+    <path
+      d="M 152 202 C 194 142, 318 142, 360 202 C 318 262, 194 262, 152 202 Z"
+      fill="#080D18"
+    />
+    <path
+      d="M 158 202 C 197 147, 315 147, 354 202 C 315 257, 197 257, 158 202 Z"
+      stroke="url(#logoEyeRim)"
+      stroke-width="7.5"
+      stroke-linejoin="round"
+      fill="#101A2B"
+    />
+    <circle cx="256" cy="202" r="35" stroke="#00D4FF" stroke-opacity="0.55" stroke-width="2.75" />
+    <circle cx="256" cy="202" r="26" fill="url(#logoIrisGlow)" />
+    <circle cx="256" cy="202" r="11.5" fill="#080D18" />
+    <circle cx="262.5" cy="194.5" r="4.6" fill="#FFFFFF" />
+    <circle cx="247.5" cy="209.5" r="1.9" fill="#8AF0FF" fill-opacity="0.85" />
+    <polygon points="256,374 268,396 256,418 244,396" fill="#080D18" fill-opacity="0.55" />
+  </g>
+
+  <!-- Subtle vertical divider -->
+  <rect x="345" y="84" width="2" height="192" rx="1" fill="url(#logoDividerGrad)" />
+
+  <!-- Horizontal VISION Wordmark (Right) -->
+  <g transform="translate(390, 80) scale(1.25)">
+    <!-- V -->
+    <path d="M 16 22 L 40 22 L 70 112 L 100 22 L 124 22 L 81 138 L 59 138 Z" fill="#FFFFFF" />
+    <!-- I -->
+    <rect x="154" y="22" width="22" height="116" rx="2" fill="#FFFFFF" />
+    <!-- S -->
+    <path
+      d="M 284 44 C 280 34, 266 30, 248 30 C 224 30, 210 40, 210 55 C 210 71, 226 76, 248 80 C 272 84, 288 90, 288 108 C 288 124, 272 132, 246 132 C 226 132, 212 127, 206 118"
+      stroke="#FFFFFF"
+      stroke-width="20"
+      stroke-linecap="butt"
+      fill="none"
+    />
+    <!-- I -->
+    <rect x="322" y="22" width="22" height="116" rx="2" fill="#FFFFFF" />
+    <!-- O -->
+    <rect x="384" y="31" width="86" height="98" rx="43" stroke="#FFFFFF" stroke-width="20" fill="none" />
+    <circle cx="427" cy="80" r="8" fill="#00D4FF" />
+    <!-- N -->
+    <path
+      d="M 510 138 L 510 22 L 533 22 L 590 104 L 590 22 L 612 22 L 612 138 L 589 138 L 532 56 L 532 138 Z"
+      fill="#FFFFFF"
+    />
+  </g>
+</svg>
