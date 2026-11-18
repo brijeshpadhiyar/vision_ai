@@ -240,6 +240,25 @@ class ChatController extends Notifier<ChatState> {
     _activeCancellation?.cancel();
   }
 
+  /// Regenerates a reply for the most recent user prompt in the conversation.
+  Future<bool> regenerateLastResponse() async {
+    if (state.isLoading) return false;
+    final userMessages = state.messages
+        .where((m) => m.sender == MessageSender.user)
+        .toList(growable: false);
+    if (userMessages.isEmpty) return false;
+    return sendMessage(userMessages.last.content);
+  }
+
+  /// Retries an unsent failed prompt or falls back to the latest user prompt.
+  Future<bool> retryLastPrompt() async {
+    final draft = state.unsentDraft?.trim();
+    if (draft != null && draft.isNotEmpty) {
+      return sendMessage(draft);
+    }
+    return regenerateLastResponse();
+  }
+
   /// Clears all messages from the current conversation and local storage.
   Future<void> clearConversation() async {
     _activeCancellation?.cancel();

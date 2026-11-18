@@ -153,6 +153,7 @@ class VoiceSessionState {
     this.isWakeMicActive = false,
     this.isDefaultAssistant = false,
     this.lastWakeWordDetected,
+    this.wakeTriggerSequence = 0,
     this.errorMessage,
   });
 
@@ -168,6 +169,7 @@ class VoiceSessionState {
   final bool isWakeMicActive;
   final bool isDefaultAssistant;
   final String? lastWakeWordDetected;
+  final int wakeTriggerSequence;
   final String? errorMessage;
 
   /// True only when either STT or the foreground wake-word AudioRecord loop
@@ -188,6 +190,7 @@ class VoiceSessionState {
     bool? isWakeMicActive,
     bool? isDefaultAssistant,
     String? lastWakeWordDetected,
+    int? wakeTriggerSequence,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -204,6 +207,7 @@ class VoiceSessionState {
       isWakeMicActive: isWakeMicActive ?? this.isWakeMicActive,
       isDefaultAssistant: isDefaultAssistant ?? this.isDefaultAssistant,
       lastWakeWordDetected: lastWakeWordDetected ?? this.lastWakeWordDetected,
+      wakeTriggerSequence: wakeTriggerSequence ?? this.wakeTriggerSequence,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

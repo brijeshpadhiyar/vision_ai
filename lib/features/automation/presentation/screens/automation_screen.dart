@@ -4,10 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:vision_ai/app/theme/app_colors.dart';
 import 'package:vision_ai/core/constants/app_constants.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
+import 'package:vision_ai/core/theme/vision_glass.dart';
+import 'package:vision_ai/core/theme/vision_spacing.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_widgets.dart';
 import 'package:vision_ai/core/widgets/vision_app_bar.dart';
-import 'package:vision_ai/core/widgets/vision_card.dart';
 import 'package:vision_ai/core/widgets/vision_scaffold.dart';
 import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
@@ -15,7 +17,7 @@ import 'package:vision_ai/features/automation/presentation/controllers/automatio
 import 'package:vision_ai/features/automation/presentation/widgets/automation_action_prompt_card.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 
-/// Phase 4 Android Device Automation & System Control Hub.
+/// Liquid Glass Android Device Automation & System Control Hub.
 class AutomationScreen extends ConsumerStatefulWidget {
   const AutomationScreen({super.key});
 
@@ -25,17 +27,24 @@ class AutomationScreen extends ConsumerStatefulWidget {
 
 class _AutomationScreenState extends ConsumerState<AutomationScreen> {
   final TextEditingController _commandController = TextEditingController();
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(
-          ref.read(automationControllerProvider.notifier).refreshEnvironment(),
-        );
+        unawaited(_refresh());
       }
     });
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _isRefreshing = true);
+    await ref.read(automationControllerProvider.notifier).refreshEnvironment();
+    if (mounted) {
+      setState(() => _isRefreshing = false);
+    }
   }
 
   @override
@@ -79,17 +88,16 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
   Future<void> _openCallDialog() async {
     _triggerHaptic();
     final targetController = TextEditingController();
-    final query = await showDialog<String>(
+    final query = await showVisionGlassDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Call or Lookup Contact'),
-        content: TextField(
+      builder: (dialogContext) => VisionGlassDialog(
+        title: 'Call or Lookup Contact',
+        icon: Icons.call_rounded,
+        content: VisionGlassInput(
           controller: targetController,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Contact name or phone number',
-            hintText: 'e.g. Mom or +91 9876543210',
-          ),
+          labelText: 'Contact name or phone number',
+          hintText: 'e.g. Mom or +91 9876543210',
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
         ),
         actions: [
@@ -97,10 +105,11 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          VisionGlassButton(
+            label: 'Call / Dial',
+            compact: true,
             onPressed: () =>
                 Navigator.of(dialogContext).pop(targetController.text.trim()),
-            child: const Text('Call / Dial'),
           ),
         ],
       ),
@@ -147,16 +156,28 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
 
   Future<void> _openTimerDialog() async {
     _triggerHaptic();
-    final minutes = await showDialog<int>(
+    final minutes = await showVisionGlassDialog<int>(
       context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('Start Countdown Timer'),
-        children: [
-          for (final preset in const <int>[1, 5, 10, 15, 30])
-            SimpleDialogOption(
-              onPressed: () => Navigator.of(dialogContext).pop(preset),
-              child: Text('$preset minute${preset == 1 ? '' : 's'}'),
-            ),
+      builder: (dialogContext) => VisionGlassDialog(
+        title: 'Start Countdown Timer',
+        icon: Icons.timer_outlined,
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final preset in const <int>[1, 5, 10, 15, 30])
+              VisionGlassChip(
+                icon: Icons.timer_outlined,
+                label: '$preset min',
+                onTap: () => Navigator.of(dialogContext).pop(preset),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
         ],
       ),
     );
@@ -185,9 +206,8 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
         .loadInstalledApps();
     if (!mounted) return;
 
-    await showModalBottomSheet<void>(
+    await showVisionGlassBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
       builder: (sheetContext) {
         return _InstalledAppsSheet(
           apps: apps,
@@ -216,29 +236,26 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
     _triggerHaptic();
     final targetController = TextEditingController();
     final messageController = TextEditingController();
-    final payload = await showDialog<(String, String)>(
+    final payload = await showVisionGlassDialog<(String, String)>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Compose SMS'),
+      builder: (dialogContext) => VisionGlassDialog(
+        title: 'Compose SMS',
+        icon: Icons.sms_outlined,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
+            VisionGlassInput(
               controller: targetController,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Contact name or phone number',
-                hintText: 'e.g. Mom or +91 9876543210',
-              ),
+              labelText: 'Contact name or phone number',
+              hintText: 'e.g. Mom or +91 9876543210',
             ),
             const SizedBox(height: 12),
-            TextField(
+            VisionGlassInput(
               controller: messageController,
               maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Message (optional)',
-                hintText: 'On my way!',
-              ),
+              labelText: 'Message (optional)',
+              hintText: 'On my way!',
             ),
           ],
         ),
@@ -247,12 +264,13 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          VisionGlassButton(
+            label: 'Open SMS',
+            compact: true,
             onPressed: () => Navigator.of(dialogContext).pop((
               targetController.text.trim(),
               messageController.text.trim(),
             )),
-            child: const Text('Open SMS'),
           ),
         ],
       ),
@@ -280,17 +298,16 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
   Future<void> _openLookupContactDialog() async {
     _triggerHaptic();
     final queryController = TextEditingController();
-    final query = await showDialog<String>(
+    final query = await showVisionGlassDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Search Contacts'),
-        content: TextField(
+      builder: (dialogContext) => VisionGlassDialog(
+        title: 'Search Contacts',
+        icon: Icons.contacts_outlined,
+        content: VisionGlassInput(
           controller: queryController,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Name or phone digits',
-            hintText: 'e.g. Rahul',
-          ),
+          labelText: 'Name or phone digits',
+          hintText: 'e.g. Rahul',
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
         ),
         actions: [
@@ -298,10 +315,11 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          VisionGlassButton(
+            label: 'Search',
+            compact: true,
             onPressed: () =>
                 Navigator.of(dialogContext).pop(queryController.text.trim()),
-            child: const Text('Search'),
           ),
         ],
       ),
@@ -330,18 +348,21 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
     required String hint,
     required String buttonLabel,
     required DeviceActionType actionType,
+    required IconData icon,
     required String Function(String input) summaryBuilder,
   }) async {
     _triggerHaptic();
     final inputController = TextEditingController();
-    final value = await showDialog<String>(
+    final value = await showVisionGlassDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
+      builder: (dialogContext) => VisionGlassDialog(
+        title: title,
+        icon: icon,
+        content: VisionGlassInput(
           controller: inputController,
           autofocus: true,
-          decoration: InputDecoration(labelText: label, hintText: hint),
+          labelText: label,
+          hintText: hint,
           onSubmitted: (val) => Navigator.of(dialogContext).pop(val.trim()),
         ),
         actions: [
@@ -349,10 +370,11 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          VisionGlassButton(
+            label: buttonLabel,
+            compact: true,
             onPressed: () =>
                 Navigator.of(dialogContext).pop(inputController.text.trim()),
-            child: Text(buttonLabel),
           ),
         ],
       ),
@@ -388,7 +410,7 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
           IconButton(
             onPressed: () {
               _triggerHaptic();
-              unawaited(controller.refreshEnvironment());
+              unawaited(_refresh());
             },
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh device status',
@@ -396,15 +418,8 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
+        padding: const EdgeInsets.only(bottom: VisionSpacing.navBarClearance),
         children: [
-          const Center(
-            child: VisionStatusBadge(
-              label: AppConstants.currentPhaseLabel,
-              icon: Icons.phonelink_setup_rounded,
-            ),
-          ),
-          const SizedBox(height: 16),
           _CommandBarCard(
             controller: _commandController,
             isExecuting: automationState.isExecuting,
@@ -452,7 +467,10 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
             ),
           ],
           const SizedBox(height: 16),
-          _DeviceTelemetryCard(status: automationState.deviceStatus),
+          _DeviceTelemetryCard(
+            status: automationState.deviceStatus,
+            isLoading: _isRefreshing && automationState.deviceStatus == null,
+          ),
           const SizedBox(height: 16),
           _PermissionsCard(
             hasCallPermission: automationState.hasCallPermission,
@@ -479,6 +497,7 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
               label: 'Search query',
               hint: 'e.g. Weather in Ahmedabad',
               buttonLabel: 'Search',
+              icon: Icons.travel_explore_rounded,
               actionType: DeviceActionType.webSearch,
               summaryBuilder: (q) => 'Search web for "$q"',
             ),
@@ -487,6 +506,7 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
               label: 'Destination or place',
               hint: 'e.g. Ahmedabad Airport',
               buttonLabel: 'Navigate',
+              icon: Icons.directions_rounded,
               actionType: DeviceActionType.navigateTo,
               summaryBuilder: (dest) => 'Navigate to $dest',
             ),
@@ -495,6 +515,7 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
               label: 'Website URL',
               hint: 'https://flutter.dev',
               buttonLabel: 'Open',
+              icon: Icons.open_in_browser_rounded,
               actionType: DeviceActionType.openUrl,
               summaryBuilder: (url) => 'Open $url',
             ),
@@ -549,10 +570,8 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
               );
             },
           ),
-          if (automationState.recentActions.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _RecentActionsCard(entries: automationState.recentActions),
-          ],
+          const SizedBox(height: 16),
+          _RecentActionsCard(entries: automationState.recentActions),
         ],
       ),
     );
@@ -573,12 +592,13 @@ class _CommandBarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return VisionCard(
+    return VisionGlassCard(
+      variant: VisionGlassVariant.accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Run Device Command', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             'Try "set alarm for 6:30 am", "set timer for 5 minutes", '
             '"open Camera", "open Wi-Fi settings", or "call Mom".',
@@ -588,27 +608,20 @@ class _CommandBarCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: VisionGlassInput(
                   controller: controller,
+                  hintText: 'Enter an Android action command...',
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => onExecute(),
-                  decoration: const InputDecoration(
-                    hintText: 'Enter an Android action command...',
-                    isDense: true,
-                  ),
                 ),
               ),
               const SizedBox(width: 10),
-              FilledButton.icon(
+              VisionGlassButton(
+                label: 'Run',
+                icon: Icons.play_arrow_rounded,
+                compact: true,
+                isLoading: isExecuting,
                 onPressed: isExecuting ? null : onExecute,
-                icon: isExecuting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.play_arrow_rounded, size: 18),
-                label: const Text('Run'),
               ),
             ],
           ),
@@ -629,14 +642,14 @@ class _AutomationFeedbackBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return VisionCard(
-      borderColor: AppColors.error.withValues(alpha: 0.7),
+    return VisionGlassCard(
+      borderColor: VisionColors.error.withValues(alpha: 0.7),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
           const Icon(
             Icons.warning_amber_rounded,
-            color: AppColors.error,
+            color: VisionColors.error,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -656,19 +669,21 @@ class _AutomationFeedbackBanner extends StatelessWidget {
 }
 
 class _DeviceTelemetryCard extends StatelessWidget {
-  const _DeviceTelemetryCard({required this.status});
+  const _DeviceTelemetryCard({required this.status, this.isLoading = false});
 
   final DeviceStatusSnapshot? status;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final brightness = theme.brightness;
     final snapshot = status;
     final batteryLabel = snapshot != null && snapshot.batteryLevel >= 0
         ? '${snapshot.batteryLevel}%${snapshot.isCharging ? ' (Charging)' : ''}'
         : 'Unavailable';
 
-    return VisionCard(
+    return VisionGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -677,7 +692,7 @@ class _DeviceTelemetryCard extends StatelessWidget {
               Icon(
                 Icons.phone_android_rounded,
                 size: 18,
-                color: theme.colorScheme.primary,
+                color: VisionColors.primaryAccent(brightness),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -690,47 +705,57 @@ class _DeviceTelemetryCard extends StatelessWidget {
               ),
               VisionStatusBadge(
                 label: snapshot?.isColorOs == true ? 'ColorOS' : 'Android',
-                indicatorColor: AppColors.success,
+                indicatorColor: VisionColors.success,
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              VisionStatusBadge(
-                label: 'Battery: $batteryLabel',
-                icon: Icons.battery_charging_full_rounded,
-              ),
-              VisionStatusBadge(
-                label: 'Network: ${snapshot?.networkType ?? 'Unknown'}',
-                icon: Icons.wifi_rounded,
-              ),
-              VisionStatusBadge(
-                label: 'Ringer: ${snapshot?.ringerMode ?? 'normal'}',
-                icon: Icons.notifications_active_outlined,
-              ),
-              if (snapshot != null)
+          if (isLoading)
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                VisionShimmer(width: 220, height: 14),
+                SizedBox(height: 8),
+                VisionShimmer(width: 160, height: 14),
+              ],
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
                 VisionStatusBadge(
-                  label: snapshot.isDefaultAssistant
-                      ? 'Default Assistant: Active'
-                      : 'Default Assistant: Not Set',
-                  indicatorColor: snapshot.isDefaultAssistant
-                      ? AppColors.success
-                      : AppColors.warning,
+                  label: 'Battery: $batteryLabel',
+                  icon: Icons.battery_charging_full_rounded,
                 ),
-              if (snapshot != null && snapshot.isColorOs)
                 VisionStatusBadge(
-                  label: snapshot.isIgnoringBatteryOptimizations
-                      ? 'Battery: Unrestricted'
-                      : 'Battery: Optimized',
-                  indicatorColor: snapshot.isIgnoringBatteryOptimizations
-                      ? AppColors.success
-                      : AppColors.warning,
+                  label: 'Network: ${snapshot?.networkType ?? 'Unknown'}',
+                  icon: Icons.wifi_rounded,
                 ),
-            ],
-          ),
+                VisionStatusBadge(
+                  label: 'Ringer: ${snapshot?.ringerMode ?? 'normal'}',
+                  icon: Icons.notifications_active_outlined,
+                ),
+                if (snapshot != null)
+                  VisionStatusBadge(
+                    label: snapshot.isDefaultAssistant
+                        ? 'Default Assistant: Active'
+                        : 'Default Assistant: Not Set',
+                    indicatorColor: snapshot.isDefaultAssistant
+                        ? VisionColors.success
+                        : VisionColors.warning,
+                  ),
+                if (snapshot != null && snapshot.isColorOs)
+                  VisionStatusBadge(
+                    label: snapshot.isIgnoringBatteryOptimizations
+                        ? 'Battery: Unrestricted'
+                        : 'Battery: Optimized',
+                    indicatorColor: snapshot.isIgnoringBatteryOptimizations
+                        ? VisionColors.success
+                        : VisionColors.warning,
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -753,7 +778,7 @@ class _PermissionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return VisionCard(
+    return VisionGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -802,10 +827,16 @@ class _PermissionRow extends StatelessWidget {
         if (granted)
           const VisionStatusBadge(
             label: 'Granted',
-            indicatorColor: AppColors.success,
+            indicatorColor: VisionColors.success,
+            compact: true,
           )
         else
-          OutlinedButton(onPressed: onRequest, child: const Text('Grant')),
+          VisionGlassButton(
+            label: 'Grant',
+            compact: true,
+            style: VisionGlassButtonStyle.tonal,
+            onPressed: onRequest,
+          ),
       ],
     );
   }
@@ -849,70 +880,71 @@ class _QuickActionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return VisionCard(
+    final accent = VisionColors.primaryAccent(theme.brightness);
+
+    return VisionGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('System Intents & Actions', style: theme.textTheme.titleMedium),
           const SizedBox(height: 12),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              ActionChip(
-                avatar: const Icon(Icons.call_rounded, size: 18),
-                label: const Text('Call / Contact'),
-                onPressed: onCallTap,
+              VisionGlassChip(
+                icon: Icons.call_rounded,
+                label: 'Call / Contact',
+                onTap: onCallTap,
               ),
-              ActionChip(
-                avatar: const Icon(Icons.sms_outlined, size: 18),
-                label: const Text('Send SMS'),
-                onPressed: onSmsTap,
+              VisionGlassChip(
+                icon: Icons.sms_outlined,
+                label: 'Send SMS',
+                onTap: onSmsTap,
               ),
-              ActionChip(
-                avatar: const Icon(Icons.contacts_outlined, size: 18),
-                label: const Text('Lookup Contact'),
-                onPressed: onLookupContactTap,
+              VisionGlassChip(
+                icon: Icons.contacts_outlined,
+                label: 'Lookup Contact',
+                onTap: onLookupContactTap,
               ),
-              ActionChip(
-                avatar: const Icon(Icons.alarm_add_rounded, size: 18),
-                label: const Text('Set Alarm'),
-                onPressed: onAlarmTap,
+              VisionGlassChip(
+                icon: Icons.alarm_add_rounded,
+                label: 'Set Alarm',
+                onTap: onAlarmTap,
               ),
-              ActionChip(
-                avatar: const Icon(Icons.timer_outlined, size: 18),
-                label: const Text('Start Timer'),
-                onPressed: onTimerTap,
+              VisionGlassChip(
+                icon: Icons.timer_outlined,
+                label: 'Start Timer',
+                onTap: onTimerTap,
               ),
-              ActionChip(
-                avatar: const Icon(Icons.apps_rounded, size: 18),
-                label: const Text('Launch App'),
-                onPressed: onLaunchAppTap,
+              VisionGlassChip(
+                icon: Icons.apps_rounded,
+                label: 'Launch App',
+                onTap: onLaunchAppTap,
               ),
-              ActionChip(
-                avatar: const Icon(Icons.travel_explore_rounded, size: 18),
-                label: const Text('Web Search'),
-                onPressed: onWebSearchTap,
+              VisionGlassChip(
+                icon: Icons.travel_explore_rounded,
+                label: 'Web Search',
+                onTap: onWebSearchTap,
               ),
-              ActionChip(
-                avatar: const Icon(Icons.directions_rounded, size: 18),
-                label: const Text('Navigate'),
-                onPressed: onNavigateTap,
+              VisionGlassChip(
+                icon: Icons.directions_rounded,
+                label: 'Navigate',
+                onTap: onNavigateTap,
               ),
-              ActionChip(
-                avatar: const Icon(Icons.open_in_browser_rounded, size: 18),
-                label: const Text('Open URL'),
-                onPressed: onOpenUrlTap,
+              VisionGlassChip(
+                icon: Icons.open_in_browser_rounded,
+                label: 'Open URL',
+                onTap: onOpenUrlTap,
               ),
-              ActionChip(
-                avatar: Icon(
-                  flashlightOn
-                      ? Icons.flashlight_on_rounded
-                      : Icons.flashlight_off_rounded,
-                  size: 18,
-                ),
-                label: Text(flashlightOn ? 'Torch On' : 'Torch Off'),
-                onPressed: onFlashlightTap,
+              VisionGlassChip(
+                icon: flashlightOn
+                    ? Icons.flashlight_on_rounded
+                    : Icons.flashlight_off_rounded,
+                label: flashlightOn ? 'Torch On' : 'Torch Off',
+                selected: flashlightOn,
+                accentColor: VisionColors.warning,
+                onTap: onFlashlightTap,
               ),
             ],
           ),
@@ -922,7 +954,7 @@ class _QuickActionsCard extends StatelessWidget {
           Text(
             'AUDIO & RINGER MODE',
             style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.primary,
+              color: accent,
               letterSpacing: 1.0,
             ),
           ),
@@ -936,25 +968,25 @@ class _QuickActionsCard extends StatelessWidget {
                 ('vibrate', 'Vibrate'),
                 ('silent', 'Silent'),
               ])
-                ChoiceChip(
-                  label: Text(mode.$2),
+                VisionGlassChip(
+                  label: mode.$2,
                   selected: ringerMode == mode.$1,
-                  onSelected: (_) => onSetRingerMode(mode.$1),
+                  onTap: () => onSetRingerMode(mode.$1),
                 ),
-              ActionChip(
-                avatar: const Icon(Icons.volume_up_rounded, size: 18),
-                label: const Text('Vol +'),
-                onPressed: () => onAdjustVolume('up'),
+              VisionGlassChip(
+                icon: Icons.volume_up_rounded,
+                label: 'Vol +',
+                onTap: () => onAdjustVolume('up'),
               ),
-              ActionChip(
-                avatar: const Icon(Icons.volume_down_rounded, size: 18),
-                label: const Text('Vol -'),
-                onPressed: () => onAdjustVolume('down'),
+              VisionGlassChip(
+                icon: Icons.volume_down_rounded,
+                label: 'Vol -',
+                onTap: () => onAdjustVolume('down'),
               ),
-              ActionChip(
-                avatar: const Icon(Icons.volume_off_rounded, size: 18),
-                label: const Text('Mute'),
-                onPressed: () => onAdjustVolume('mute'),
+              VisionGlassChip(
+                icon: Icons.volume_off_rounded,
+                label: 'Mute',
+                onTap: () => onAdjustVolume('mute'),
               ),
             ],
           ),
@@ -964,7 +996,7 @@ class _QuickActionsCard extends StatelessWidget {
           Text(
             'SYSTEM SETTINGS SHORTCUTS',
             style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.primary,
+              color: accent,
               letterSpacing: 1.0,
             ),
           ),
@@ -984,9 +1016,10 @@ class _QuickActionsCard extends StatelessWidget {
                 ('storage', 'Storage'),
                 ('accessibility', 'Accessibility'),
               ])
-                OutlinedButton(
-                  onPressed: () => onOpenSettingsSection(entry.$1),
-                  child: Text(entry.$2),
+                VisionGlassChip(
+                  label: entry.$2,
+                  compact: true,
+                  onTap: () => onOpenSettingsSection(entry.$1),
                 ),
             ],
           ),
@@ -1004,46 +1037,53 @@ class _RecentActionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return VisionCard(
+    return VisionGlassCard(
+      variant: VisionGlassVariant.subtle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Recent Automation Log', style: theme.textTheme.titleMedium),
           const SizedBox(height: 10),
-          for (final entry in entries.take(5))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    entry.result.success
-                        ? Icons.check_circle_outline_rounded
-                        : Icons.error_outline_rounded,
-                    size: 18,
-                    color: entry.result.success
-                        ? AppColors.success
-                        : AppColors.warning,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.request.displaySummary,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        Text(
-                          entry.result.summary,
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
+          if (entries.isEmpty)
+            Text(
+              'No automation commands executed yet in this session.',
+              style: theme.textTheme.bodySmall,
+            )
+          else
+            for (final entry in entries.take(5))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      entry.result.success
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.error_outline_rounded,
+                      size: 18,
+                      color: entry.result.success
+                          ? VisionColors.success
+                          : VisionColors.warning,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.request.displaySummary,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          Text(
+                            entry.result.summary,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
         ],
       ),
     );
@@ -1074,54 +1114,43 @@ class _InstalledAppsSheetState extends State<_InstalledAppsSheet> {
         )
         .toList(growable: false);
 
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.65,
-      maxChildSize: 0.9,
-      builder: (context, scrollController) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Column(
-            children: [
-              Text(
-                'Launch Installed App (${widget.apps.length})',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                onChanged: (value) => setState(() => _filter = value),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search_rounded),
-                  hintText: 'Search installed apps...',
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: filtered.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No launchable apps available in this environment.',
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: scrollController,
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final app = filtered[index];
-                          return ListTile(
-                            leading: const Icon(Icons.android_rounded),
-                            title: Text(app.appName),
-                            subtitle: Text(app.packageName),
-                            onTap: () => widget.onSelectApp(app),
-                          );
-                        },
-                      ),
-              ),
-            ],
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.62,
+      child: Column(
+        children: [
+          Text(
+            'Launch Installed App (${widget.apps.length})',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          VisionGlassInput(
+            prefixIcon: const Icon(Icons.search_rounded),
+            hintText: 'Search installed apps...',
+            onChanged: (value) => setState(() => _filter = value),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: filtered.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No launchable apps available in this environment.',
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final app = filtered[index];
+                      return ListTile(
+                        leading: const Icon(Icons.android_rounded),
+                        title: Text(app.appName),
+                        subtitle: Text(app.packageName),
+                        onTap: () => widget.onSelectApp(app),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

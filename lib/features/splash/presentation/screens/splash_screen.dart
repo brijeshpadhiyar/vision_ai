@@ -6,8 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/app/router/app_routes.dart';
-import 'package:vision_ai/app/theme/app_colors.dart';
 import 'package:vision_ai/core/constants/app_constants.dart';
+import 'package:vision_ai/core/theme/vision_animations.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
 import 'package:vision_ai/core/widgets/vision_brand_logo.dart';
 
 /// Controls how long the coordinated Flutter splash screen displays before
@@ -36,8 +37,6 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
   void initState() {
     super.initState();
 
-    // Release the native Android splash hold as soon as the Flutter splash
-    // widget mounts so the first Flutter frame replaces it seamlessly.
     FlutterNativeSplash.remove();
 
     _revealController = AnimationController(
@@ -63,9 +62,7 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
   }
 
   void _navigateToHome() {
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     context.go(AppRoutes.homePath);
   }
 
@@ -79,23 +76,27 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final reducedMotion = VisionAnimations.isReducedMotion(context);
+
     return Scaffold(
-      backgroundColor: AppColors.brandBackgroundPrimary,
+      backgroundColor: VisionColors.backgroundPrimary,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0.0, -0.08),
-                  radius: 0.85,
-                  colors: [
-                    Color(0x2000D4FF),
-                    Color(0x0E397BFF),
-                    AppColors.brandBackgroundPrimary,
-                  ],
-                  stops: [0.0, 0.45, 1.0],
+          const RepaintBoundary(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0.0, -0.08),
+                    radius: 0.88,
+                    colors: [
+                      Color(0x2200D4FF),
+                      Color(0x103985FF),
+                      VisionColors.backgroundPrimary,
+                    ],
+                    stops: [0.0, 0.45, 1.0],
+                  ),
                 ),
               ),
             ),
@@ -107,16 +108,21 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ScaleTransition(
-                      scale: _logoScale,
-                      child: const VisionBrandLogo(
-                        size: 132,
-                        isDarkBackground: true,
+                    if (reducedMotion)
+                      const VisionBrandLogo(size: 132, isDarkBackground: true)
+                    else
+                      ScaleTransition(
+                        scale: _logoScale,
+                        child: const VisionBrandLogo(
+                          size: 132,
+                          isDarkBackground: true,
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 24),
                     FadeTransition(
-                      opacity: _textOpacity,
+                      opacity: reducedMotion
+                          ? const AlwaysStoppedAnimation<double>(1.0)
+                          : _textOpacity,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -124,7 +130,7 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
                             AppConstants.appName,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: AppColors.brandTextPrimary,
+                              color: VisionColors.textPrimaryDark,
                               fontSize: 30,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 8.0,
@@ -136,7 +142,7 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
                             AppConstants.appTagline,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: AppColors.brandTextSecondary,
+                              color: VisionColors.textSecondaryDark,
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
                               letterSpacing: 0.4,
@@ -144,7 +150,10 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
                             ),
                           ),
                           const SizedBox(height: 36),
-                          _MinimalBrandLoader(animation: _loaderController),
+                          _MinimalBrandLoader(
+                            animation: _loaderController,
+                            reducedMotion: reducedMotion,
+                          ),
                         ],
                       ),
                     ),
@@ -160,9 +169,13 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
 }
 
 class _MinimalBrandLoader extends StatelessWidget {
-  const _MinimalBrandLoader({required this.animation});
+  const _MinimalBrandLoader({
+    required this.animation,
+    required this.reducedMotion,
+  });
 
   final Animation<double> animation;
+  final bool reducedMotion;
 
   @override
   Widget build(BuildContext context) {
@@ -172,29 +185,30 @@ class _MinimalBrandLoader extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(99),
         child: ColoredBox(
-          color: AppColors.brandBackgroundSecondary,
-          child: AnimatedBuilder(
-            animation: animation,
-            builder: (context, child) {
-              final alignmentX = -1.6 + (animation.value * 3.2);
-              return Align(
-                alignment: Alignment(alignmentX, 0),
-                child: Container(
-                  width: 48,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(99),
-                    gradient: const LinearGradient(
-                      colors: [
-                        AppColors.brandAccentPrimary,
-                        AppColors.brandAccentSecondary,
-                      ],
-                    ),
+          color: VisionColors.backgroundSecondary,
+          child: reducedMotion
+              ? Container(
+                  decoration: const BoxDecoration(
+                    gradient: VisionColors.brandGradient,
                   ),
+                )
+              : AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) {
+                    final alignmentX = -1.6 + (animation.value * 3.2);
+                    return Align(
+                      alignment: Alignment(alignmentX, 0),
+                      child: Container(
+                        width: 48,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(99),
+                          gradient: VisionColors.brandGradient,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ),
     );

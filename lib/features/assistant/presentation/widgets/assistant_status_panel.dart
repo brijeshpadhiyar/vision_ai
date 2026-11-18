@@ -1,32 +1,41 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'package:vision_ai/app/theme/app_colors.dart';
-import 'package:vision_ai/core/widgets/vision_card.dart';
+import 'package:vision_ai/core/theme/vision_animations.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
+import 'package:vision_ai/core/theme/vision_glass.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_card.dart';
+import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/assistant/domain/entities/assistant_readiness.dart';
+import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
 
-/// Displays current readiness, live voice transcript, configured AI provider, and voice locale.
+/// Liquid Glass status card displaying real assistant readiness, voice state,
+/// active AI provider, connection verification status, and locale.
 class AssistantStatusPanel extends StatelessWidget {
   const AssistantStatusPanel({
     required this.readiness,
     required this.settings,
     super.key,
     this.voiceState,
+    this.connectionState = ProviderConnectionState.untested,
+    this.hasApiKey = false,
     this.onDismissNotice,
+    this.onTapProviderStatus,
   });
 
   final AssistantReadiness readiness;
   final AppSettings settings;
   final VoiceSessionState? voiceState;
+  final ProviderConnectionState connectionState;
+  final bool hasApiKey;
   final VoidCallback? onDismissNotice;
+  final VoidCallback? onTapProviderStatus;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final isNotice =
-        readiness.mode == AssistantStandbyMode.micPlaceholderNotice;
+    final brightness = theme.brightness;
     final hasVoiceError = voiceState?.errorMessage != null;
     final isMicActive = voiceState?.isMicActuallyActive ?? false;
     final isVoiceActive =
@@ -51,17 +60,44 @@ class AssistantStatusPanel extends StatelessWidget {
         ? '"${voiceState!.liveTranscript}"'
         : readiness.statusDetail;
 
+    final (providerStatusText, providerColor) = switch (connectionState) {
+      ProviderConnectionState.connected => ('Connected', VisionColors.success),
+      ProviderConnectionState.testing => (
+        'Testing...',
+        VisionColors.accentPrimary,
+      ),
+      ProviderConnectionState.failed => ('Check Failed', VisionColors.error),
+      ProviderConnectionState.missingKey => (
+        'Key Needed',
+        VisionColors.warning,
+      ),
+      ProviderConnectionState.disabled => (
+        'Disabled',
+        VisionColors.mutedText(brightness),
+      ),
+      ProviderConnectionState.untested =>
+        hasApiKey
+            ? ('Key Saved', VisionColors.accentPrimary)
+            : ('Key Needed', VisionColors.warning),
+    };
+
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
-      child: VisionCard(
-        key: ValueKey<String>('$headline-$detail'),
+      duration: VisionAnimations.resolveDuration(
+        context,
+        VisionAnimations.standardFast,
+      ),
+      child: VisionGlassCard(
+        key: ValueKey<String>('$headline-$providerStatusText-$hasApiKey'),
+        variant: isVoiceActive
+            ? VisionGlassVariant.accent
+            : VisionGlassVariant.standard,
         borderColor: hasVoiceError
-            ? AppColors.error.withValues(alpha: 0.7)
+            ? VisionColors.error.withValues(alpha: 0.65)
             : isVoiceActive
-            ? AppColors.success.withValues(alpha: 0.7)
-            : isNotice
-            ? colorScheme.primary.withValues(alpha: 0.65)
-            : colorScheme.outline,
+            ? VisionColors.success.withValues(alpha: 0.65)
+            : null,
+        padding: const EdgeInsets.all(16),
+        onTap: onTapProviderStatus,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -72,93 +108,62 @@ class AssistantStatusPanel extends StatelessWidget {
                       ? Icons.warning_amber_rounded
                       : isVoiceActive
                       ? Icons.graphic_eq_rounded
-                      : isNotice
-                      ? Icons.info_outline_rounded
-                      : Icons.verified_user_outlined,
+                      : Icons.auto_awesome_rounded,
                   size: 18,
                   color: hasVoiceError
-                      ? AppColors.error
+                      ? VisionColors.error
                       : isVoiceActive
-                      ? AppColors.success
-                      : colorScheme.primary,
+                      ? VisionColors.success
+                      : VisionColors.primaryAccent(brightness),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    headline,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontSize: 14,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
+                  child: Text(headline, style: theme.textTheme.titleSmall),
                 ),
-                if ((isNotice || hasVoiceError) && onDismissNotice != null)
+                VisionStatusBadge(
+                  label: providerStatusText,
+                  indicatorColor: providerColor,
+                  compact: true,
+                ),
+                if (hasVoiceError && onDismissNotice != null) ...[
+                  const SizedBox(width: 4),
                   IconButton(
                     onPressed: onDismissNotice,
                     icon: const Icon(Icons.close_rounded, size: 18),
                     tooltip: 'Dismiss notice',
                     visualDensity: VisualDensity.compact,
                   ),
+                ],
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(detail, style: theme.textTheme.bodySmall),
             const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
             Wrap(
-              spacing: 12,
+              spacing: 8,
               runSpacing: 8,
               children: [
-                _ConfigChip(
+                VisionGlassMetaPill(
                   icon: Icons.hub_outlined,
-                  label: 'AI: ${settings.selectedAiProvider.displayName}',
+                  label:
+                      '${settings.selectedAiProvider.displayName} • ${settings.selectedModelId}',
                 ),
-                _ConfigChip(
+                VisionGlassMetaPill(
                   icon: Icons.translate_rounded,
                   label:
-                      'Voice: ${settings.selectedVoiceLanguage.displayName} (${settings.selectedVoiceLanguage.localeCode})',
+                      '${settings.selectedVoiceLanguage.displayName} (${settings.selectedVoiceLanguage.localeCode})',
                 ),
                 if (settings.wakeWordEnabled)
-                  const _ConfigChip(
+                  const VisionGlassMetaPill(
                     icon: Icons.hearing_rounded,
-                    label: 'Wake-Word: "Hey VISION"',
+                    label: '"Hey VISION" Armed',
+                    color: VisionColors.success,
                   ),
               ],
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ConfigChip extends StatelessWidget {
-  const _ConfigChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: colorScheme.primary),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

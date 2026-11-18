@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Reusable application bar with clean VISION typography and optional actions.
+import 'package:vision_ai/core/widgets/glass/vision_glass_navigation.dart';
+
+/// Reusable Liquid Glass application bar with VISION typography and actions.
 class VisionAppBar extends StatelessWidget implements PreferredSizeWidget {
   const VisionAppBar({
     required this.title,
@@ -9,6 +11,8 @@ class VisionAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions,
     this.leading,
     this.centerTitle = true,
+    this.enableBlur = true,
+    this.titleWidget,
   });
 
   final String title;
@@ -16,39 +20,22 @@ class VisionAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final Widget? leading;
   final bool centerTitle;
+  final bool enableBlur;
+  final Widget? titleWidget;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 4);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 8);
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return AppBar(
+    return VisionGlassAppBar(
+      title: title,
+      subtitle: subtitle,
       leading: leading,
-      centerTitle: centerTitle,
       actions: actions,
-      title: subtitle == null
-          ? Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                letterSpacing: 1.4,
-                fontWeight: FontWeight.w700,
-              ),
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    letterSpacing: 1.4,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(subtitle!, style: theme.textTheme.bodySmall),
-              ],
-            ),
+      centerTitle: centerTitle,
+      enableBlur: enableBlur,
+      titleWidget: titleWidget,
     );
   }
 }

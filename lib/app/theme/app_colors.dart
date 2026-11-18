@@ -1,45 +1,43 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Semantic color tokens for VISION AI's dark and light themes.
+import 'package:vision_ai/core/theme/vision_colors.dart';
+
+/// Backward-compatible color token aliases backed by [VisionColors].
 abstract final class AppColors {
-  // ── Official VISION Brand Palette ─────────────────────────────────────
-  static const Color brandBackgroundPrimary = Color(0xFF080D18);
-  static const Color brandBackgroundSecondary = Color(0xFF101A2B);
-  static const Color brandAccentPrimary = Color(0xFF00D4FF);
-  static const Color brandAccentSecondary = Color(0xFF397BFF);
-  static const Color brandTextPrimary = Color(0xFFFFFFFF);
-  static const Color brandTextSecondary = Color(0xFFAAB8CC);
+  static const Color brandBackgroundPrimary = VisionColors.backgroundPrimary;
+  static const Color brandBackgroundSecondary =
+      VisionColors.backgroundSecondary;
+  static const Color brandAccentPrimary = VisionColors.accentPrimary;
+  static const Color brandAccentSecondary = VisionColors.accentSecondary;
+  static const Color brandTextPrimary = VisionColors.textPrimaryDark;
+  static const Color brandTextSecondary = VisionColors.textSecondaryDark;
 
-  // ── Dark Theme Surfaces (Primary Experience) ──────────────────────────
-  static const Color darkBackground = Color(0xFF05080F);
-  static const Color darkSurface = Color(0xFF0B111E);
-  static const Color darkSurfaceElevated = Color(0xFF111A2E);
-  static const Color darkBorder = Color(0xFF1E2D45);
+  static const Color darkBackground = VisionColors.backgroundPrimary;
+  static const Color darkSurface = VisionColors.backgroundSecondary;
+  static const Color darkSurfaceElevated = VisionColors.backgroundElevated;
+  static const Color darkBorder = Color(0x28FFFFFF);
 
-  // ── Light Theme Surfaces ──────────────────────────────────────────────
-  static const Color lightBackground = Color(0xFFF8FAFC);
-  static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightSurfaceElevated = Color(0xFFF1F5F9);
-  static const Color lightBorder = Color(0xFFE2E8F0);
+  static const Color lightBackground = VisionColors.lightBackgroundPrimary;
+  static const Color lightSurface = VisionColors.lightBackgroundElevated;
+  static const Color lightSurfaceElevated =
+      VisionColors.lightBackgroundSecondary;
+  static const Color lightBorder = Color(0x1F0A1220);
 
-  // ── Signature Cyan & Electric Blue Accents ────────────────────────────
-  static const Color cyanAccent = Color(0xFF00E5FF);
-  static const Color cyanPrimaryDark = Color(0xFF06B6D4);
-  static const Color cyanPrimaryLight = Color(0xFF0284C7);
-  static const Color electricBlue = Color(0xFF3B82F6);
-  static const Color deepIndigo = Color(0xFF1D4ED8);
+  static const Color cyanAccent = VisionColors.accentPrimary;
+  static const Color cyanPrimaryDark = VisionColors.accentPrimary;
+  static const Color cyanPrimaryLight = VisionColors.accentPrimaryLightMode;
+  static const Color electricBlue = VisionColors.accentSecondary;
+  static const Color deepIndigo = VisionColors.accentDeep;
 
-  // ── Typography Colors ─────────────────────────────────────────────────
-  static const Color darkTextPrimary = Color(0xFFF8FAFC);
-  static const Color darkTextSecondary = Color(0xFF94A3B8);
-  static const Color darkTextMuted = Color(0xFF64748B);
+  static const Color darkTextPrimary = VisionColors.textPrimaryDark;
+  static const Color darkTextSecondary = VisionColors.textSecondaryDark;
+  static const Color darkTextMuted = VisionColors.textMutedDark;
 
-  static const Color lightTextPrimary = Color(0xFF0F172A);
-  static const Color lightTextSecondary = Color(0xFF475569);
-  static const Color lightTextMuted = Color(0xFF64748B);
+  static const Color lightTextPrimary = VisionColors.textPrimaryLight;
+  static const Color lightTextSecondary = VisionColors.textSecondaryLight;
+  static const Color lightTextMuted = VisionColors.textMutedLight;
 
-  // ── Semantic Status Colors ────────────────────────────────────────────
-  static const Color success = Color(0xFF10B981);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
+  static const Color success = VisionColors.success;
+  static const Color warning = VisionColors.warning;
+  static const Color error = VisionColors.error;
 }

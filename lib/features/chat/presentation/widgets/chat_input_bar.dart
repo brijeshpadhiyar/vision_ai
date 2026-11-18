@@ -1,8 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'package:vision_ai/app/theme/app_colors.dart';
+import 'package:vision_ai/core/theme/vision_animations.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
+import 'package:vision_ai/core/theme/vision_glass.dart';
+import 'package:vision_ai/core/theme/vision_radii.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_button.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_container.dart';
 
-/// Bottom message composer bar for the VISION conversation screen.
+/// Floating Liquid Glass message composer bar for the VISION chat screen.
 class ChatInputBar extends StatelessWidget {
   const ChatInputBar({
     required this.controller,
@@ -26,33 +31,29 @@ class ChatInputBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
 
-    return Container(
-      padding: const EdgeInsets.only(top: 10, bottom: 4),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: colorScheme.outline.withValues(alpha: 0.6)),
-        ),
-      ),
+    return VisionGlassContainer(
+      variant: VisionGlassVariant.elevated,
+      blurSigma: VisionGlass.blurSoft,
+      borderRadius: VisionRadii.xlBorder,
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      showShadow: true,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (onVoiceTap != null) ...[
-            IconButton.outlined(
-              onPressed: isLoading ? null : onVoiceTap,
+            VisionGlassIconButton(
+              icon: isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
               tooltip: isListening ? 'Stop voice input' : 'Speak prompt',
-              style: IconButton.styleFrom(
-                side: BorderSide(
-                  color: isListening ? AppColors.success : colorScheme.outline,
-                ),
-              ),
-              icon: Icon(
-                isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
-                color: isListening ? AppColors.success : colorScheme.primary,
-              ),
+              iconColor: isListening
+                  ? VisionColors.success
+                  : VisionColors.primaryAccent(brightness),
+              glowColor: VisionColors.success,
+              isActive: isListening,
+              onPressed: isLoading ? null : onVoiceTap,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
           ],
           Expanded(
             child: TextField(
@@ -66,68 +67,71 @@ class ChatInputBar extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: isListening
                     ? 'Listening for voice prompt...'
-                    : 'Ask VISION ($providerName)...',
+                    : 'Ask $providerName...',
                 hintStyle: theme.textTheme.bodyMedium,
-                filled: true,
-                fillColor: colorScheme.surface,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(color: colorScheme.outline),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(color: colorScheme.outline),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(
-                    color: colorScheme.primary,
-                    width: 1.4,
-                  ),
+                  horizontal: 8,
+                  vertical: 11,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 6),
           Semantics(
             button: true,
             label: isLoading
-                ? 'Cancel active AI request'
+                ? 'Stop AI response generation'
                 : 'Send message to VISION',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: isLoading ? onCancel : onSend,
-                customBorder: const CircleBorder(),
-                child: Ink(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: isLoading
-                          ? [AppColors.warning, AppColors.error]
-                          : [AppColors.cyanAccent, AppColors.electricBlue],
+            child: Tooltip(
+              message: isLoading ? 'Stop generation' : 'Send',
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isLoading ? onCancel : onSend,
+                  customBorder: const CircleBorder(),
+                  child: AnimatedContainer(
+                    duration: VisionAnimations.resolveDuration(
+                      context,
+                      VisionAnimations.micro,
                     ),
-                  ),
-                  child: Center(
-                    child: isLoading
-                        ? const Icon(
-                            Icons.stop_rounded,
-                            size: 22,
-                            color: AppColors.darkBackground,
-                          )
-                        : const Icon(
-                            Icons.send_rounded,
-                            size: 22,
-                            color: AppColors.darkBackground,
-                          ),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isLoading
+                            ? [VisionColors.warning, VisionColors.error]
+                            : [
+                                VisionColors.accentPrimary,
+                                VisionColors.accentSecondary,
+                              ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              (isLoading
+                                      ? VisionColors.error
+                                      : VisionColors.accentPrimary)
+                                  .withValues(alpha: 0.35),
+                          blurRadius: 12,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        isLoading
+                            ? Icons.stop_rounded
+                            : Icons.arrow_upward_rounded,
+                        size: 22,
+                        color: VisionColors.backgroundPrimary,
+                      ),
+                    ),
                   ),
                 ),
               ),

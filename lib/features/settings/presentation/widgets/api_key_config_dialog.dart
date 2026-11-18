@@ -1,10 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/errors/error_handler.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
 import 'package:vision_ai/core/utils/secret_redactor.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_widgets.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 
-/// Modal dialog allowing the user to securely enter or clear an AI provider API key.
+/// Liquid Glass modal dialog allowing secure entry or removal of an API key.
 class ApiKeyConfigDialog extends StatefulWidget {
   const ApiKeyConfigDialog({
     required this.provider,
@@ -91,61 +93,36 @@ class _ApiKeyConfigDialogState extends State<ApiKeyConfigDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
-    return AlertDialog(
-      backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: colorScheme.outline),
-      ),
-      title: Row(
-        children: [
-          Icon(Icons.key_rounded, color: colorScheme.primary, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '${widget.provider.displayName} Key',
-              style: theme.textTheme.titleLarge,
-            ),
-          ),
-        ],
-      ),
+    return VisionGlassDialog(
+      title: '${widget.provider.displayName} Key',
+      icon: Icons.key_rounded,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your API key is encrypted and stored locally in the Android Keystore. '
-            'It is never logged or shared.',
+            'Your API key is encrypted and stored locally in Android Keystore. '
+            'It is never logged, backed up, or shared.',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
-          TextField(
+          VisionGlassInput(
             controller: _controller,
             obscureText: _obscureText,
             autocorrect: false,
             enableSuggestions: false,
             enabled: !_isSaving,
-            decoration: InputDecoration(
-              labelText: 'API Key (${widget.provider.keyHint})',
-              errorText: _errorText,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+            labelText: 'API Key (${widget.provider.keyHint})',
+            errorText: _errorText,
+            suffixIcon: IconButton(
+              onPressed: () => setState(() => _obscureText = !_obscureText),
+              icon: Icon(
+                _obscureText
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
               ),
-              suffixIcon: IconButton(
-                onPressed: () {
-                  setState(() {
-                    _obscureText = !_obscureText;
-                  });
-                },
-                icon: Icon(
-                  _obscureText
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-                tooltip: _obscureText ? 'Show API key' : 'Hide API key',
-              ),
+              tooltip: _obscureText ? 'Show API key' : 'Hide API key',
             ),
           ),
         ],
@@ -154,22 +131,18 @@ class _ApiKeyConfigDialogState extends State<ApiKeyConfigDialog> {
         if (widget.hasExistingKey)
           TextButton(
             onPressed: _isSaving ? null : _handleRemove,
-            style: TextButton.styleFrom(foregroundColor: colorScheme.error),
-            child: const Text('Remove Key'),
+            style: TextButton.styleFrom(foregroundColor: VisionColors.error),
+            child: const Text('Remove'),
           ),
         TextButton(
           onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
+        VisionGlassButton(
+          label: 'Save Key',
+          compact: true,
+          isLoading: _isSaving,
           onPressed: _isSaving ? null : _handleSave,
-          child: _isSaving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save Key'),
         ),
       ],
     );

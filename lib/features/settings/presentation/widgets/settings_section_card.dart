@@ -1,24 +1,28 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'package:vision_ai/core/widgets/vision_card.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_card.dart';
 
-/// Grouped section card used on the Settings screen.
+/// Grouped Liquid Glass section card used on the Settings dashboard.
 class SettingsSectionCard extends StatelessWidget {
   const SettingsSectionCard({
     required this.title,
     required this.children,
     super.key,
     this.subtitle,
+    this.icon,
   });
 
   final String title;
   final String? subtitle;
+  final IconData? icon;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    final accent = VisionColors.primaryAccent(brightness);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,22 +32,32 @@ class SettingsSectionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title.toUpperCase(),
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colorScheme.primary,
-                  letterSpacing: 1.1,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 15, color: accent),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: Text(
+                      title.toUpperCase(),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: accent,
+                        letterSpacing: 1.15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (subtitle != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(subtitle!, style: theme.textTheme.bodySmall),
               ],
             ],
           ),
         ),
-        VisionCard(
+        VisionGlassCard(
           padding: EdgeInsets.zero,
           child: Column(
             children: [

@@ -99,6 +99,7 @@ class VoiceController extends Notifier<VoiceSessionState> {
         ref.read(appLoggerProvider).info('Hardware/DSP wake-word triggered!');
         state = state.copyWith(
           lastWakeWordDetected: 'Hey VISION',
+          wakeTriggerSequence: state.wakeTriggerSequence + 1,
           liveTranscript: 'Hey VISION detected — listening for command...',
           clearError: true,
         );
@@ -133,6 +134,7 @@ class VoiceController extends Notifier<VoiceSessionState> {
         logger.info('Wake word detected: "${match.matchedPhrase}"');
         state = state.copyWith(
           lastWakeWordDetected: match.matchedPhrase,
+          wakeTriggerSequence: state.wakeTriggerSequence + 1,
           clearError: true,
         );
 

@@ -6,15 +6,19 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/app/router/app_routes.dart';
-import 'package:vision_ai/app/theme/app_colors.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
+import 'package:vision_ai/core/theme/vision_glass.dart';
+import 'package:vision_ai/core/theme/vision_radii.dart';
+import 'package:vision_ai/core/theme/vision_spacing.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_widgets.dart';
 import 'package:vision_ai/core/widgets/vision_app_bar.dart';
-import 'package:vision_ai/core/widgets/vision_card.dart';
 import 'package:vision_ai/core/widgets/vision_scaffold.dart';
 import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/automation/presentation/controllers/automation_controller.dart';
 import 'package:vision_ai/features/automation/presentation/widgets/automation_action_prompt_card.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
+import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:vision_ai/features/chat/presentation/widgets/chat_input_bar.dart';
 import 'package:vision_ai/features/chat/presentation/widgets/chat_message_bubble.dart';
@@ -25,7 +29,7 @@ import 'package:vision_ai/features/settings/presentation/controllers/settings_co
 import 'package:vision_ai/features/settings/presentation/widgets/api_key_config_dialog.dart';
 import 'package:vision_ai/features/voice/presentation/controllers/voice_controller.dart';
 
-/// Live multi-provider AI conversation screen for VISION AI.
+/// Live multi-provider AI conversation screen with Liquid Glass UI.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
@@ -75,7 +79,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _openKeyDialog(AiProviderType provider, bool hasKey) async {
-    await showDialog<bool>(
+    await showVisionGlassDialog<bool>(
       context: context,
       builder: (dialogContext) => ApiKeyConfigDialog(
         provider: provider,
@@ -115,17 +119,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final activeModelId = settings.modelForProvider(activeProvider);
     final hasActiveKey = keyMap[activeProvider] ?? false;
     final runtimeStatus = connectionMap[activeProvider];
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 80;
+
+    final waitingForFirstToken =
+        chatState.isLoading &&
+        (chatState.messages.isEmpty ||
+            chatState.messages.last.sender == MessageSender.user);
+
+    final lastAssistantIndex = chatState.messages.lastIndexWhere(
+      (m) => m.sender == MessageSender.assistant,
+    );
 
     return VisionScaffold(
+      useSafeAreaBottom: false,
       appBar: VisionAppBar(
         title: 'VISION CHAT',
         subtitle:
             '${activeProvider.displayName} • ${settings.selectedVoiceLanguage.displayName}',
         actions: [
           IconButton(
-            onPressed: () => context.push(AppRoutes.automationPath),
-            icon: const Icon(Icons.phonelink_setup_rounded),
-            tooltip: 'Device Control',
+            onPressed: () => context.push(AppRoutes.assistantPath),
+            icon: const Icon(Icons.auto_awesome_outlined),
+            tooltip: 'Voice Assistant Mode',
           ),
           if (chatState.messages.isNotEmpty)
             IconButton(
@@ -135,165 +150,213 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               tooltip: 'Clear conversation',
             ),
           IconButton(
-            onPressed: () => context.push(AppRoutes.settingsPath),
+            onPressed: () => context.go(AppRoutes.settingsPath),
             icon: const Icon(Icons.tune_rounded),
             tooltip: 'Provider Settings',
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _ProviderStatusBar(
-            provider: activeProvider,
-            modelId: activeModelId,
-            hasApiKey: hasActiveKey,
-            connectionState:
-                runtimeStatus?.connectionState ??
-                ProviderConnectionState.untested,
-            onSwitchProvider: (selected) {
-              unawaited(
-                ref
-                    .read(settingsControllerProvider.notifier)
-                    .setAiProvider(selected),
-              );
-            },
-            onConfigureKey: () => _openKeyDialog(activeProvider, hasActiveKey),
-          ),
-          if (chatState.routingNotice != null) ...[
-            const SizedBox(height: 8),
-            VisionCard(
-              borderColor: AppColors.warning.withValues(alpha: 0.6),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.alt_route_rounded,
-                    size: 16,
-                    color: AppColors.warning,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      chatState.routingNotice!,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: Column(
+          children: [
+            _ProviderStatusBar(
+              provider: activeProvider,
+              modelId: activeModelId,
+              hasApiKey: hasActiveKey,
+              connectionState:
+                  runtimeStatus?.connectionState ??
+                  ProviderConnectionState.untested,
+              onSwitchProvider: (selected) {
+                unawaited(
+                  ref
+                      .read(settingsControllerProvider.notifier)
+                      .setAiProvider(selected),
+                );
+              },
+              onConfigureKey: () =>
+                  _openKeyDialog(activeProvider, hasActiveKey),
             ),
-          ],
-          if (chatState.errorMessage != null) ...[
-            const SizedBox(height: 10),
-            _ChatErrorBanner(
-              message: chatState.errorMessage!,
-              missingKeyProvider: chatState.missingKeyProvider,
-              onConfigureKey: chatState.missingKeyProvider != null
-                  ? () => _openKeyDialog(
-                      chatState.missingKeyProvider!,
-                      keyMap[chatState.missingKeyProvider!] ?? false,
+            if (chatState.routingNotice != null) ...[
+              const SizedBox(height: 8),
+              VisionGlassCard(
+                variant: VisionGlassVariant.subtle,
+                borderColor: VisionColors.warning.withValues(alpha: 0.55),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.alt_route_rounded,
+                      size: 16,
+                      color: VisionColors.warning,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        chatState.routingNotice!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (chatState.errorMessage != null) ...[
+              const SizedBox(height: 8),
+              _ChatErrorBanner(
+                message: chatState.errorMessage!,
+                missingKeyProvider: chatState.missingKeyProvider,
+                canRetry:
+                    chatState.unsentDraft != null ||
+                    chatState.messages.any(
+                      (m) => m.sender == MessageSender.user,
+                    ),
+                onRetry: () {
+                  unawaited(
+                    ref.read(chatControllerProvider.notifier).retryLastPrompt(),
+                  );
+                },
+                onConfigureKey: chatState.missingKeyProvider != null
+                    ? () => _openKeyDialog(
+                        chatState.missingKeyProvider!,
+                        keyMap[chatState.missingKeyProvider!] ?? false,
+                      )
+                    : null,
+                onDismiss: () =>
+                    ref.read(chatControllerProvider.notifier).dismissError(),
+              ),
+            ],
+            const SizedBox(height: 6),
+            Expanded(
+              child: chatState.messages.isEmpty
+                  ? _EmptyChatView(
+                      provider: activeProvider,
+                      modelId: activeModelId,
+                      hasApiKey: hasActiveKey,
+                      onSelectPrompt: (prompt) {
+                        _inputController.text = prompt;
+                        _inputController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: prompt.length),
+                        );
+                      },
+                      onConfigureKey: () =>
+                          _openKeyDialog(activeProvider, hasActiveKey),
                     )
-                  : null,
-              onDismiss: () =>
-                  ref.read(chatControllerProvider.notifier).dismissError(),
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount:
+                          chatState.messages.length +
+                          (waitingForFirstToken ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (waitingForFirstToken &&
+                            index == chatState.messages.length) {
+                          return _ThinkingShimmerBubble(
+                            providerName: activeProvider.displayName,
+                          );
+                        }
+                        final msg = chatState.messages[index];
+                        final isLastAssistant = index == lastAssistantIndex;
+                        return ChatMessageBubble(
+                          message: msg,
+                          isSpeaking: voiceState.isSpeaking,
+                          isStreaming:
+                              chatState.isLoading &&
+                              isLastAssistant &&
+                              !waitingForFirstToken,
+                          onSpeak: () => ref
+                              .read(voiceControllerProvider.notifier)
+                              .speakReply(msg.content),
+                          onRegenerate:
+                              (isLastAssistant && !chatState.isLoading)
+                              ? () => unawaited(
+                                  ref
+                                      .read(chatControllerProvider.notifier)
+                                      .regenerateLastResponse(),
+                                )
+                              : null,
+                        );
+                      },
+                    ),
+            ),
+            if (automationState.pendingConfirmation != null ||
+                automationState.contactChoices.isNotEmpty ||
+                automationState.contactSearchResults.isNotEmpty ||
+                (automationState.lastResult?.requiresPermission == true)) ...[
+              const SizedBox(height: 8),
+              AutomationActionPromptCard(
+                automationState: automationState,
+                compact: true,
+                onConfirm: () => unawaited(
+                  ref
+                      .read(automationControllerProvider.notifier)
+                      .confirmPendingAction(),
+                ),
+                onCancel: () => ref
+                    .read(automationControllerProvider.notifier)
+                    .cancelPendingAction(),
+                onSelectContact: (contact) => unawaited(
+                  ref
+                      .read(automationControllerProvider.notifier)
+                      .selectContactForPendingAction(contact),
+                ),
+                onGrantPermission: (permission) => unawaited(
+                  ref
+                      .read(automationControllerProvider.notifier)
+                      .requestPermission(permission),
+                ),
+                onCallContact: (contact) => unawaited(
+                  ref
+                      .read(automationControllerProvider.notifier)
+                      .executeRequest(
+                        DeviceActionRequest(
+                          type: DeviceActionType.callPhone,
+                          target: contact.phoneNumber,
+                          displaySummary: 'Call ${contact.name}',
+                        ),
+                      ),
+                ),
+                onMessageContact: (contact) => unawaited(
+                  ref
+                      .read(automationControllerProvider.notifier)
+                      .executeRequest(
+                        DeviceActionRequest(
+                          type: DeviceActionType.sendSms,
+                          target: contact.phoneNumber,
+                          displaySummary: 'Compose SMS to ${contact.name}',
+                        ),
+                      ),
+                ),
+                onClearSearchResults: () => ref
+                    .read(automationControllerProvider.notifier)
+                    .clearContactSearchResults(),
+              ),
+            ],
+            const SizedBox(height: 6),
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: keyboardOpen ? 6 : VisionSpacing.navBarClearance - 14,
+              ),
+              child: ChatInputBar(
+                controller: _inputController,
+                isLoading: chatState.isLoading,
+                isListening: voiceState.isListening,
+                providerName: activeProvider.displayName,
+                onSend: _handleSend,
+                onCancel: () => ref
+                    .read(chatControllerProvider.notifier)
+                    .cancelActiveRequest(),
+                onVoiceTap: () => ref
+                    .read(voiceControllerProvider.notifier)
+                    .toggleVoiceCapture(),
+              ),
             ),
           ],
-          const SizedBox(height: 8),
-          Expanded(
-            child: chatState.messages.isEmpty
-                ? _EmptyChatView(
-                    provider: activeProvider,
-                    modelId: activeModelId,
-                    hasApiKey: hasActiveKey,
-                    onSelectPrompt: (prompt) {
-                      _inputController.text = prompt;
-                      _inputController.selection = TextSelection.fromPosition(
-                        TextPosition(offset: prompt.length),
-                      );
-                    },
-                    onConfigureKey: () =>
-                        _openKeyDialog(activeProvider, hasActiveKey),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: chatState.messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = chatState.messages[index];
-                      return ChatMessageBubble(
-                        message: msg,
-                        isSpeaking: voiceState.isSpeaking,
-                        onSpeak: () => ref
-                            .read(voiceControllerProvider.notifier)
-                            .speakReply(msg.content),
-                      );
-                    },
-                  ),
-          ),
-          ChatInputBar(
-            controller: _inputController,
-            isLoading: chatState.isLoading,
-            isListening: voiceState.isListening,
-            providerName: '${activeProvider.displayName} ($activeModelId)',
-            onSend: _handleSend,
-            onCancel: () =>
-                ref.read(chatControllerProvider.notifier).cancelActiveRequest(),
-            onVoiceTap: () =>
-                ref.read(voiceControllerProvider.notifier).toggleVoiceCapture(),
-          ),
-          if (automationState.pendingConfirmation != null ||
-              automationState.contactChoices.isNotEmpty ||
-              automationState.contactSearchResults.isNotEmpty ||
-              (automationState.lastResult?.requiresPermission == true)) ...[
-            const SizedBox(height: 10),
-            AutomationActionPromptCard(
-              automationState: automationState,
-              compact: true,
-              onConfirm: () => unawaited(
-                ref
-                    .read(automationControllerProvider.notifier)
-                    .confirmPendingAction(),
-              ),
-              onCancel: () => ref
-                  .read(automationControllerProvider.notifier)
-                  .cancelPendingAction(),
-              onSelectContact: (contact) => unawaited(
-                ref
-                    .read(automationControllerProvider.notifier)
-                    .selectContactForPendingAction(contact),
-              ),
-              onGrantPermission: (permission) => unawaited(
-                ref
-                    .read(automationControllerProvider.notifier)
-                    .requestPermission(permission),
-              ),
-              onCallContact: (contact) => unawaited(
-                ref
-                    .read(automationControllerProvider.notifier)
-                    .executeRequest(
-                      DeviceActionRequest(
-                        type: DeviceActionType.callPhone,
-                        target: contact.phoneNumber,
-                        displaySummary: 'Call ${contact.name}',
-                      ),
-                    ),
-              ),
-              onMessageContact: (contact) => unawaited(
-                ref
-                    .read(automationControllerProvider.notifier)
-                    .executeRequest(
-                      DeviceActionRequest(
-                        type: DeviceActionType.sendSms,
-                        target: contact.phoneNumber,
-                        displaySummary: 'Compose SMS to ${contact.name}',
-                      ),
-                    ),
-              ),
-              onClearSearchResults: () => ref
-                  .read(automationControllerProvider.notifier)
-                  .clearContactSearchResults(),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -328,28 +391,42 @@ class _ProviderStatusBar extends StatelessWidget {
         hasApiKey ? 'Key Saved' : 'Add API Key',
     };
     final statusColor = switch (connectionState) {
-      ProviderConnectionState.connected => AppColors.success,
-      ProviderConnectionState.failed => AppColors.error,
-      ProviderConnectionState.testing => AppColors.cyanAccent,
-      _ => hasApiKey ? AppColors.cyanAccent : AppColors.warning,
+      ProviderConnectionState.connected => VisionColors.success,
+      ProviderConnectionState.failed => VisionColors.error,
+      ProviderConnectionState.testing => VisionColors.accentPrimary,
+      _ => hasApiKey ? VisionColors.accentPrimary : VisionColors.warning,
     };
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Flexible(
-          child: PopupMenuButton<AiProviderType>(
+          child: VisionGlassPopup<AiProviderType>(
             tooltip: 'Switch AI Provider (preserves chat history)',
             onSelected: onSwitchProvider,
-            itemBuilder: (context) => [
+            items: [
               for (final p in AiProviderType.values)
                 PopupMenuItem<AiProviderType>(
                   value: p,
-                  child: Text(p.displayName),
+                  child: Row(
+                    children: [
+                      Icon(
+                        p == provider
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_off_rounded,
+                        size: 16,
+                        color: p == provider
+                            ? VisionColors.accentPrimary
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(p.displayName),
+                    ],
+                  ),
                 ),
             ],
             child: VisionStatusBadge(
-              label: '${provider.displayName} ($modelId)',
+              label: '${provider.displayName} • $modelId',
               icon: Icons.hub_outlined,
             ),
           ),
@@ -357,7 +434,7 @@ class _ProviderStatusBar extends StatelessWidget {
         const SizedBox(width: 8),
         InkWell(
           onTap: onConfigureKey,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: VisionRadii.pillBorder,
           child: VisionStatusBadge(
             label: statusLabel,
             indicatorColor: statusColor,
@@ -368,10 +445,74 @@ class _ProviderStatusBar extends StatelessWidget {
   }
 }
 
+class _ThinkingShimmerBubble extends StatelessWidget {
+  const _ThinkingShimmerBubble({required this.providerName});
+
+  final String providerName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final brightness = theme.brightness;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.all(16),
+          decoration: VisionGlass.decoration(
+            brightness,
+            variant: VisionGlassVariant.standard,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(VisionRadii.lg),
+              topRight: Radius.circular(VisionRadii.lg),
+              bottomRight: Radius.circular(VisionRadii.lg),
+              bottomLeft: Radius.circular(VisionRadii.xs),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 14,
+                    color: VisionColors.primaryAccent(brightness),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '$providerName is thinking...',
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: VisionColors.primaryAccent(brightness),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const VisionShimmer(width: 240, height: 12),
+              const SizedBox(height: 6),
+              const VisionShimmer(width: 175, height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatErrorBanner extends StatelessWidget {
   const _ChatErrorBanner({
     required this.message,
     required this.onDismiss,
+    required this.canRetry,
+    required this.onRetry,
     this.missingKeyProvider,
     this.onConfigureKey,
   });
@@ -379,39 +520,70 @@ class _ChatErrorBanner extends StatelessWidget {
   final String message;
   final AiProviderType? missingKeyProvider;
   final VoidCallback? onConfigureKey;
+  final bool canRetry;
+  final VoidCallback onRetry;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final brightness = theme.brightness;
 
-    return VisionCard(
-      borderColor: AppColors.error.withValues(alpha: 0.7),
+    return VisionGlassContainer(
+      variant: VisionGlassVariant.standard,
+      borderColor: VisionColors.error.withValues(alpha: 0.7),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            color: AppColors.error,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface,
+          Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: VisionColors.error,
+                size: 20,
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: VisionColors.primaryText(brightness),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onDismiss,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Dismiss error',
+              ),
+            ],
+          ),
+          if (onConfigureKey != null || canRetry) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (onConfigureKey != null)
+                  VisionGlassButton(
+                    label: 'Add Key',
+                    icon: Icons.key_rounded,
+                    compact: true,
+                    style: VisionGlassButtonStyle.tonal,
+                    onPressed: onConfigureKey,
+                  ),
+                if (canRetry)
+                  VisionGlassButton(
+                    label: 'Retry',
+                    icon: Icons.refresh_rounded,
+                    compact: true,
+                    style: VisionGlassButtonStyle.glass,
+                    onPressed: onRetry,
+                  ),
+              ],
             ),
-          ),
-          if (onConfigureKey != null)
-            TextButton(onPressed: onConfigureKey, child: const Text('Add Key')),
-          IconButton(
-            onPressed: onDismiss,
-            icon: const Icon(Icons.close_rounded, size: 18),
-            visualDensity: VisualDensity.compact,
-            tooltip: 'Dismiss error',
-          ),
+          ],
         ],
       ),
     );
@@ -442,34 +614,48 @@ class _EmptyChatView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    final accent = VisionColors.primaryAccent(brightness);
 
     return Center(
       child: SingleChildScrollView(
-        child: VisionCard(
+        child: VisionGlassCard(
           padding: const EdgeInsets.all(22),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.auto_awesome_rounded,
-                size: 36,
-                color: colorScheme.primary,
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: VisionColors.brandGradient,
+                  boxShadow: [
+                    BoxShadow(
+                      color: VisionColors.accentPrimary.withValues(alpha: 0.35),
+                      blurRadius: 18,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 26,
+                  color: VisionColors.backgroundPrimary,
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 'Ready to Chat with ${provider.displayName}',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.headlineSmall,
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Model: $modelId',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colorScheme.primary,
-                ),
+              const SizedBox(height: 6),
+              VisionStatusBadge(
+                label: 'Model: $modelId',
+                indicatorColor: accent,
+                compact: true,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 hasApiKey
                     ? 'Your encrypted ${provider.displayName} API key is loaded. '
@@ -481,10 +667,10 @@ class _EmptyChatView extends StatelessWidget {
               ),
               if (!hasApiKey) ...[
                 const SizedBox(height: 16),
-                FilledButton.icon(
+                VisionGlassButton(
                   onPressed: onConfigureKey,
-                  icon: const Icon(Icons.key_rounded, size: 18),
-                  label: Text('Configure ${provider.displayName} Key'),
+                  icon: Icons.key_rounded,
+                  label: 'Configure ${provider.displayName} Key',
                 ),
               ],
               const SizedBox(height: 20),
@@ -493,30 +679,33 @@ class _EmptyChatView extends StatelessWidget {
                 child: Text(
                   'STARTER PROMPTS',
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: colorScheme.primary,
+                    color: accent,
                     letterSpacing: 1.0,
                   ),
                 ),
               ),
               const SizedBox(height: 8),
               for (final prompt in _starterPrompts) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => onSelectPrompt(prompt),
-                    style: OutlinedButton.styleFrom(
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
+                VisionGlassCard(
+                  variant: VisionGlassVariant.subtle,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  onTap: () => onSelectPrompt(prompt),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          prompt,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: VisionColors.primaryText(brightness),
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      prompt,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.north_west_rounded, size: 15, color: accent),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),

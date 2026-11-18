@@ -3,9 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/app/router/app_routes.dart';
+import 'package:vision_ai/app/router/vision_shell_scaffold.dart';
 import 'package:vision_ai/core/constants/app_constants.dart';
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/widgets/vision_app_bar.dart';
 import 'package:vision_ai/core/widgets/vision_scaffold.dart';
+import 'package:vision_ai/features/assistant/presentation/screens/assistant_experience_screen.dart';
 import 'package:vision_ai/features/assistant/presentation/screens/assistant_home_screen.dart';
 import 'package:vision_ai/features/assistant/presentation/screens/assistant_overlay_screen.dart';
 import 'package:vision_ai/features/automation/presentation/screens/automation_screen.dart';
@@ -14,9 +17,15 @@ import 'package:vision_ai/features/onboarding/presentation/screens/onboarding_sc
 import 'package:vision_ai/features/settings/presentation/screens/settings_screen.dart';
 import 'package:vision_ai/features/splash/presentation/screens/splash_screen.dart';
 
-/// Provides the application's [GoRouter] configuration.
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'visionRootNavigator',
+);
+
+/// Provides the application's [GoRouter] configuration with a persistent
+/// Liquid Glass navigation shell and dedicated modal Assistant routes.
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.splashPath,
     routes: <RouteBase>[
       GoRoute(
@@ -24,48 +33,89 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoutes.splashName,
         builder: (context, state) => const VisionSplashScreen(),
       ),
-      GoRoute(
-        path: AppRoutes.homePath,
-        name: AppRoutes.homeName,
-        pageBuilder: (context, state) => CustomTransitionPage<void>(
-          key: state.pageKey,
-          transitionDuration: AppConstants.splashTransitionDuration,
-          child: const AssistantHomeScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return VisionShellScaffold(navigationShell: navigationShell);
+        },
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.homePath,
+                name: AppRoutes.homeName,
+                pageBuilder: (context, state) => _fadeSlidePage(
+                  key: state.pageKey,
+                  duration: AppConstants.splashTransitionDuration,
+                  child: const AssistantHomeScreen(),
+                ),
               ),
-              child: child,
-            );
-          },
-        ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.chatPath,
+                name: AppRoutes.chatName,
+                pageBuilder: (context, state) => _fadeSlidePage(
+                  key: state.pageKey,
+                  child: const ChatScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.automationPath,
+                name: AppRoutes.automationName,
+                pageBuilder: (context, state) => _fadeSlidePage(
+                  key: state.pageKey,
+                  child: const AutomationScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.settingsPath,
+                name: AppRoutes.settingsName,
+                pageBuilder: (context, state) => _fadeSlidePage(
+                  key: state.pageKey,
+                  child: const SettingsScreen(),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
-        path: AppRoutes.settingsPath,
-        name: AppRoutes.settingsName,
-        builder: (context, state) => const SettingsScreen(),
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.assistantPath,
+        name: AppRoutes.assistantName,
+        pageBuilder: (context, state) {
+          final autoListen = state.uri.queryParameters['listen'] == '1';
+          return _assistantModalPage(
+            key: state.pageKey,
+            child: AssistantExperienceScreen(autoListenOnOpen: autoListen),
+          );
+        },
       ),
       GoRoute(
-        path: AppRoutes.chatPath,
-        name: AppRoutes.chatName,
-        builder: (context, state) => const ChatScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.automationPath,
-        name: AppRoutes.automationName,
-        builder: (context, state) => const AutomationScreen(),
-      ),
-      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.onboardingPath,
         name: AppRoutes.onboardingName,
-        builder: (context, state) => const OnboardingScreen(),
+        pageBuilder: (context, state) =>
+            _fadeSlidePage(key: state.pageKey, child: const OnboardingScreen()),
       ),
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.assistantOverlayPath,
         name: AppRoutes.assistantOverlayName,
-        builder: (context, state) => const AssistantOverlayScreen(),
+        pageBuilder: (context, state) => _assistantModalPage(
+          key: state.pageKey,
+          child: const AssistantOverlayScreen(),
+        ),
       ),
     ],
     errorBuilder: (context, state) => VisionScaffold(
@@ -92,3 +142,63 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+CustomTransitionPage<void> _fadeSlidePage({
+  required LocalKey key,
+  required Widget child,
+  Duration duration = VisionAnimations.standard,
+}) {
+  return CustomTransitionPage<void>(
+    key: key,
+    transitionDuration: duration,
+    reverseTransitionDuration: VisionAnimations.standardFast,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      if (VisionAnimations.isReducedMotion(context)) {
+        return child;
+      }
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: VisionAnimations.standardCurve,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.025),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+CustomTransitionPage<void> _assistantModalPage({
+  required LocalKey key,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: key,
+    transitionDuration: VisionAnimations.large,
+    reverseTransitionDuration: VisionAnimations.standard,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      if (VisionAnimations.isReducedMotion(context)) {
+        return child;
+      }
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: VisionAnimations.emphasizedCurve,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}

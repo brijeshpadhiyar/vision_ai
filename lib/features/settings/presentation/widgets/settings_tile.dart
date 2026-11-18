@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Individual row item inside a [SettingsSectionCard].
+import 'package:vision_ai/core/theme/vision_colors.dart';
+import 'package:vision_ai/core/theme/vision_radii.dart';
+
+/// Individual Liquid Glass row item inside a [SettingsSectionCard].
 class SettingsTile extends StatelessWidget {
   const SettingsTile({
     required this.icon,
@@ -9,6 +12,7 @@ class SettingsTile extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.onTap,
+    this.iconColor,
   });
 
   final IconData icon;
@@ -16,11 +20,13 @@ class SettingsTile extends StatelessWidget {
   final String? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    final accent = iconColor ?? VisionColors.primaryAccent(brightness);
 
     return InkWell(
       onTap: onTap,
@@ -32,10 +38,13 @@ class SettingsTile extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                color: accent.withValues(
+                  alpha: brightness == Brightness.dark ? 0.14 : 0.11,
+                ),
+                borderRadius: VisionRadii.smBorder,
+                border: Border.all(color: accent.withValues(alpha: 0.28)),
               ),
-              child: Icon(icon, size: 20, color: colorScheme.primary),
+              child: Icon(icon, size: 19, color: accent),
             ),
             const SizedBox(width: 14),
             Expanded(

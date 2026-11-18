@@ -1,11 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'package:vision_ai/app/theme/app_colors.dart';
-import 'package:vision_ai/core/widgets/vision_card.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
+import 'package:vision_ai/core/theme/vision_glass.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_button.dart';
+import 'package:vision_ai/core/widgets/glass/vision_glass_card.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/automation/presentation/controllers/automation_controller.dart';
 
-/// Shared interactive card for pending device confirmations, contact
+/// Shared Liquid Glass card for pending device confirmations, contact
 /// disambiguation, contact lookup results, and runtime permission recovery.
 class AutomationActionPromptCard extends StatelessWidget {
   const AutomationActionPromptCard({
@@ -50,15 +52,17 @@ class AutomationActionPromptCard extends StatelessWidget {
     }
 
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    final accent = VisionColors.primaryAccent(brightness);
 
     if (hasPending) {
       final isDisambiguation = automationState.contactChoices.isNotEmpty;
       final isSmsPending =
           automationState.pendingConfirmation?.type == DeviceActionType.sendSms;
 
-      return VisionCard(
-        borderColor: AppColors.warning.withValues(alpha: 0.75),
+      return VisionGlassCard(
+        variant: VisionGlassVariant.accent,
+        borderColor: VisionColors.warning.withValues(alpha: 0.72),
         padding: EdgeInsets.all(compact ? 12 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,7 +71,7 @@ class AutomationActionPromptCard extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.verified_user_outlined,
-                  color: AppColors.warning,
+                  color: VisionColors.warning,
                   size: 18,
                 ),
                 const SizedBox(width: 8),
@@ -89,7 +93,7 @@ class AutomationActionPromptCard extends StatelessWidget {
               Text(
                 automationState.pendingConfirmation!.displaySummary,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface,
+                  color: VisionColors.primaryText(brightness),
                 ),
               ),
             ],
@@ -101,10 +105,7 @@ class AutomationActionPromptCard extends StatelessWidget {
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    Icons.person_outline_rounded,
-                    color: colorScheme.primary,
-                  ),
+                  leading: Icon(Icons.person_outline_rounded, color: accent),
                   title: Text(contact.name),
                   subtitle: Text('${contact.phoneNumber} • ${contact.label}'),
                   trailing: Icon(
@@ -115,13 +116,12 @@ class AutomationActionPromptCard extends StatelessWidget {
                 ),
             ] else ...[
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onConfirm,
-                  icon: const Icon(Icons.check_rounded, size: 18),
-                  label: Text(compact ? 'Confirm' : 'Confirm & Execute'),
-                ),
+              VisionGlassButton(
+                expand: true,
+                compact: compact,
+                icon: Icons.check_rounded,
+                label: compact ? 'Confirm' : 'Confirm & Execute',
+                onPressed: onConfirm,
               ),
             ],
           ],
@@ -130,19 +130,15 @@ class AutomationActionPromptCard extends StatelessWidget {
     }
 
     if (hasLookupResults) {
-      return VisionCard(
-        borderColor: colorScheme.primary.withValues(alpha: 0.55),
+      return VisionGlassCard(
+        borderColor: accent.withValues(alpha: 0.55),
         padding: EdgeInsets.all(compact ? 12 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.contacts_outlined,
-                  color: colorScheme.primary,
-                  size: 18,
-                ),
+                Icon(Icons.contacts_outlined, color: accent, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -191,14 +187,14 @@ class AutomationActionPromptCard extends StatelessWidget {
       );
     }
 
-    return VisionCard(
-      borderColor: AppColors.warning.withValues(alpha: 0.7),
+    return VisionGlassCard(
+      borderColor: VisionColors.warning.withValues(alpha: 0.7),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
           const Icon(
             Icons.admin_panel_settings_outlined,
-            color: AppColors.warning,
+            color: VisionColors.warning,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -207,14 +203,15 @@ class AutomationActionPromptCard extends StatelessWidget {
               lastResult?.summary ??
                   'Permission required: ${missingPermission!.displayName}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface,
+                color: VisionColors.primaryText(brightness),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton(
+          VisionGlassButton(
+            label: 'Grant',
+            compact: true,
             onPressed: () => onGrantPermission(missingPermission!),
-            child: const Text('Grant'),
           ),
         ],
       ),

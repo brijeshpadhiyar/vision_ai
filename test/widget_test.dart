@@ -946,72 +946,63 @@ void main() {
     expect(waRes?.actionType, DeviceActionType.sendWhatsapp);
   });
 
-  test(
-    'VoiceController handles microphone permission denied without showing active mic indicator and processes Gujarati commands',
-    () async {
-      final container = createTestContainer();
-      addTearDown(container.dispose);
+  test('VoiceController handles microphone permission denied without showing active mic indicator and processes Gujarati commands', () async {
+    final container = createTestContainer();
+    addTearDown(container.dispose);
 
-      // 1. Microphone permission denied
-      voiceRepository.permissionGranted = false;
-      final voiceNotifier = container.read(voiceControllerProvider.notifier);
-      await voiceNotifier.startCommandListening();
+    // 1. Microphone permission denied
+    voiceRepository.permissionGranted = false;
+    final voiceNotifier = container.read(voiceControllerProvider.notifier);
+    await voiceNotifier.startCommandListening();
 
-      final deniedState = container.read(voiceControllerProvider);
-      expect(deniedState.phase, VoiceListeningPhase.error);
-      expect(deniedState.isListening, isFalse);
-      expect(deniedState.isMicActuallyActive, isFalse);
-      expect(deniedState.errorMessage, contains('Microphone permission'));
+    final deniedState = container.read(voiceControllerProvider);
+    expect(deniedState.phase, VoiceListeningPhase.error);
+    expect(deniedState.isListening, isFalse);
+    expect(deniedState.isMicActuallyActive, isFalse);
+    expect(deniedState.errorMessage, contains('Microphone permission'));
 
-      // 2. Gujarati voice command execution
-      voiceRepository.permissionGranted = true;
-      await container
-          .read(settingsControllerProvider.notifier)
-          .setVoiceLanguage(VoiceLanguage.gujarati);
-      await voiceNotifier.startCommandListening();
-      voiceRepository.eventController.add(
-        const VoiceTranscriptEvent(
-          text: 'ફ્લેશલાઇટ ચાલુ કરો',
-          isFinal: true,
-        ),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+    // 2. Gujarati voice command execution
+    voiceRepository.permissionGranted = true;
+    await container
+        .read(settingsControllerProvider.notifier)
+        .setVoiceLanguage(VoiceLanguage.gujarati);
+    await voiceNotifier.startCommandListening();
+    voiceRepository.eventController.add(
+      const VoiceTranscriptEvent(text: 'ફ્લેશલાઇટ ચાલુ કરો', isFinal: true),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      expect(automationRepository.lastFlashlightState, isTrue);
-      expect(voiceRepository.lastSpokenLanguage, VoiceLanguage.gujarati);
-    },
-  );
+    expect(automationRepository.lastFlashlightState, isTrue);
+    expect(voiceRepository.lastSpokenLanguage, VoiceLanguage.gujarati);
+  });
 
-  test(
-    'AutomationController enforces notification consent & WhatsApp contact resolution',
-    () async {
-      final container = createTestContainer();
-      addTearDown(container.dispose);
-      final controller = container.read(automationControllerProvider.notifier);
+  test('AutomationController enforces notification consent & WhatsApp contact resolution', () async {
+    final container = createTestContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(automationControllerProvider.notifier);
 
-      // Notifications blocked without explicit consent
-      final blockedNotif = await controller.tryHandleNaturalCommand(
-        'read my notifications',
-      );
-      expect(blockedNotif?.success, isFalse);
-      expect(blockedNotif?.status, DeviceActionStatus.confirmationRequired);
+    // Notifications blocked without explicit consent
+    final blockedNotif = await controller.tryHandleNaturalCommand(
+      'read my notifications',
+    );
+    expect(blockedNotif?.success, isFalse);
+    expect(blockedNotif?.status, DeviceActionStatus.confirmationRequired);
 
-      // With consent + permission -> reads notifications locally
-      await container
-          .read(settingsControllerProvider.notifier)
-          .setNotificationListenerConsent(consented: true);
-      final okNotif = await controller.tryHandleNaturalCommand(
-        'read my notifications',
-      );
-      expect(okNotif?.success, isTrue);
-      expect(okNotif?.notifications.length, 1);
+    // With consent + permission -> reads notifications locally
+    await container
+        .read(settingsControllerProvider.notifier)
+        .setNotificationListenerConsent(consented: true);
+    final okNotif = await controller.tryHandleNaturalCommand(
+      'read my notifications',
+    );
+    expect(okNotif?.success, isTrue);
+    expect(okNotif?.notifications.length, 1);
 
-      // WhatsApp contact resolution
-      final waRes = await controller.tryHandleNaturalCommand(
-        'whatsapp Mom saying Good evening',
-      );
-      expect(waRes?.success, isTrue);
-      expect(waRes?.actionType, DeviceActionType.sendWhatsapp);
-    },
-  );
+    // WhatsApp contact resolution
+    final waRes = await controller.tryHandleNaturalCommand(
+      'whatsapp Mom saying Good evening',
+    );
+    expect(waRes?.success, isTrue);
+    expect(waRes?.actionType, DeviceActionType.sendWhatsapp);
+  });
 }
