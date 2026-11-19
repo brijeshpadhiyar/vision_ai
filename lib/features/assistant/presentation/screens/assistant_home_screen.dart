@@ -28,6 +28,8 @@ import 'package:vision_ai/features/automation/presentation/widgets/automation_ac
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
+import 'package:vision_ai/features/cloud/presentation/controllers/cloud_auth_controller.dart';
+import 'package:vision_ai/features/cloud/presentation/widgets/user_profile_widgets.dart';
 import 'package:vision_ai/features/proactive/presentation/widgets/proactive_suggestions_strip.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
@@ -47,6 +49,7 @@ class AssistantHomeScreen extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider);
     final voiceState = ref.watch(voiceControllerProvider);
     final chatState = ref.watch(chatControllerProvider);
+    final cloudAuth = ref.watch(cloudAuthControllerProvider);
     final automationState = ref.watch(automationControllerProvider);
     final connectionMap = ref.watch(providerConnectionControllerProvider);
     final keyMap =
@@ -168,6 +171,22 @@ class AssistantHomeScreen extends ConsumerWidget {
             onPressed: handleOpenSettings,
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                haptic();
+                VisionUserProfileSheet.show(context);
+              },
+              child: Tooltip(
+                message: cloudAuth.isSignedIn
+                    ? (cloudAuth.displayName ?? cloudAuth.email ?? 'Account')
+                    : 'VISION Account',
+                child: VisionUserAvatar(authState: cloudAuth, radius: 15),
+              ),
+            ),
           ),
         ],
       ),

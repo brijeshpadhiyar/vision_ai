@@ -46,6 +46,21 @@ class CloudAuthState {
   final String? statusMessage;
   final String? errorMessage;
 
+  /// Human-readable initials fallback when avatar image is unavailable.
+  String get initials {
+    final source = (displayName?.trim().isNotEmpty == true)
+        ? displayName!.trim()
+        : (email?.trim() ?? 'V');
+    final parts = source
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    return source.isNotEmpty ? source[0].toUpperCase() : 'V';
+  }
+
   CloudAuthState copyWith({
     bool? isConfigured,
     bool? isSignedIn,
@@ -86,11 +101,34 @@ final cloudAuthControllerProvider =
       CloudAuthController.new,
     );
 
-/// Coordinates optional Google Sign-In, Supabase Auth sessions, conversation
-/// thread cloud sync, and Zero-Knowledge AES-256-GCM API key backup/restore.
+/// Coordinates optional Google Sign-In (native Credential Manager with
+/// automatic Supabase Browser OAuth fallback), conversation thread cloud sync,
+/// and Zero-Knowledge AES-256-GCM API key backup/restore.
 class CloudAuthController extends Notifier<CloudAuthState> {
+  static const String oauthRedirectUrl = 'com.brijesh.vision://login-callback/';
+
   StreamSubscription<AuthState>? _authSub;
   bool _googleInitialized = false;
+
+  static String? _extractDisplayName(User? user) {
+    final meta = user?.userMetadata;
+    if (meta == null) return null;
+    final full = (meta['full_name'] as String?)?.trim();
+    if (full != null && full.isNotEmpty) return full;
+    final name = (meta['name'] as String?)?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return null;
+  }
+
+  static String? _extractAvatarUrl(User? user) {
+    final meta = user?.userMetadata;
+    if (meta == null) return null;
+    final avatar = (meta['avatar_url'] as String?)?.trim();
+    if (avatar != null && avatar.isNotEmpty) return avatar;
+    final picture = (meta['picture'] as String?)?.trim();
+    if (picture != null && picture.isNotEmpty) return picture;
+    return null;
+  }
 
   @override
   CloudAuthState build() {
@@ -114,15 +152,26 @@ class CloudAuthController extends Notifier<CloudAuthState> {
       _authSub ??= client.auth.onAuthStateChange.listen((authState) {
         final user = authState.session?.user;
         if (user != null) {
+          final wasSignedIn = state.isSignedIn;
           state = state.copyWith(
+            isBusy: false,
             isSignedIn: true,
             userId: user.id,
             email: user.email,
-            displayName: user.userMetadata?['full_name'] as String?,
-            avatarUrl: user.userMetadata?['avatar_url'] as String?,
+            displayName: _extractDisplayName(user),
+            avatarUrl: _extractAvatarUrl(user),
+            clearMessages: true,
+            statusMessage: 'Signed in as ${user.email ?? 'Google User'}.',
           );
+          if (!wasSignedIn && state.cloudHistorySyncEnabled) {
+            unawaited(syncThreadsNow());
+          }
         } else {
-          state = state.copyWith(isSignedIn: false, clearUser: true);
+          state = state.copyWith(
+            isBusy: false,
+            isSignedIn: false,
+            clearUser: true,
+          );
         }
       });
 
@@ -132,8 +181,8 @@ class CloudAuthController extends Notifier<CloudAuthState> {
         isSignedIn: currentUser != null,
         userId: currentUser?.id,
         email: currentUser?.email,
-        displayName: currentUser?.userMetadata?['full_name'] as String?,
-        avatarUrl: currentUser?.userMetadata?['avatar_url'] as String?,
+        displayName: _extractDisplayName(currentUser),
+        avatarUrl: _extractAvatarUrl(currentUser),
         cloudHistorySyncEnabled: historySyncEnabled,
       );
     } catch (_) {
@@ -151,14 +200,20 @@ class CloudAuthController extends Notifier<CloudAuthState> {
     state = state.copyWith(cloudHistorySyncEnabled: enabled);
   }
 
-  /// Signs in with Google (`google_sign_in` 7.x) and exchanges the ID token
-  /// with Supabase Auth.
+  /// Signs in with Google. Tries native Android Credential Manager first when
+  /// `GOOGLE_WEB_CLIENT_ID` is configured, and automatically falls back to
+  /// Supabase Browser OAuth (`com.brijesh.vision://login-callback/`) if native
+  /// Android OAuth configuration (SHA-1) is missing.
   Future<bool> signInWithGoogle() async {
-    if (!CloudConfig.isGoogleSignInConfigured) {
+    if (!CloudConfig.isSupabaseConfigured) {
       state = state.copyWith(
-        errorMessage: 'Supabase or Google Web Client ID is not configured via --dart-define.',
+        errorMessage: 'Supabase is not configured via --dart-define.',
       );
       return false;
+    }
+
+    if (!CloudConfig.isGoogleSignInConfigured) {
+      return signInWithGoogleBrowser();
     }
 
     state = state.copyWith(isBusy: true, clearMessages: true);
@@ -173,11 +228,12 @@ class CloudAuthController extends Notifier<CloudAuthState> {
       final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
-        state = state.copyWith(
-          isBusy: false,
-          errorMessage: 'Google Sign-In did not return an ID token.',
-        );
-        return false;
+        ref
+            .read(appLoggerProvider)
+            .warning(
+              'Native Google Sign-In returned empty idToken; falling back to OAuth browser.',
+            );
+        return await signInWithGoogleBrowser();
       }
 
       final response = await Supabase.instance.client.auth.signInWithIdToken(
@@ -199,10 +255,8 @@ class CloudAuthController extends Notifier<CloudAuthState> {
         isSignedIn: true,
         userId: user.id,
         email: user.email,
-        displayName:
-            user.userMetadata?['full_name'] as String? ?? account.displayName,
-        avatarUrl:
-            user.userMetadata?['avatar_url'] as String? ?? account.photoUrl,
+        displayName: _extractDisplayName(user) ?? account.displayName,
+        avatarUrl: _extractAvatarUrl(user) ?? account.photoUrl,
         statusMessage: 'Signed in as ${user.email ?? 'Google User'}.',
       );
       ref.read(appLoggerProvider).info('Google + Supabase sign-in succeeded.');
@@ -211,13 +265,86 @@ class CloudAuthController extends Notifier<CloudAuthState> {
         unawaited(syncThreadsNow());
       }
       return true;
+    } on GoogleSignInException catch (error, stackTrace) {
+      if (error.code == GoogleSignInExceptionCode.canceled) {
+        state = state.copyWith(isBusy: false, clearMessages: true);
+        return false;
+      }
+      ref
+          .read(appLoggerProvider)
+          .warning(
+            'Native Google Sign-In failed (${error.code.name}: ${error.description}); '
+            'falling back to Supabase Browser OAuth.',
+            error: error,
+            stackTrace: stackTrace,
+          );
+      return signInWithGoogleBrowser();
+    } on AuthException catch (error, stackTrace) {
+      ref
+          .read(appLoggerProvider)
+          .error('Supabase Auth error', error: error, stackTrace: stackTrace);
+      state = state.copyWith(
+        isBusy: false,
+        errorMessage: 'Supabase Auth error: ${error.message}',
+      );
+      return false;
     } catch (error, stackTrace) {
       ref
           .read(appLoggerProvider)
-          .error('Google Sign-In failed', error: error, stackTrace: stackTrace);
+          .warning(
+            'Native Google Sign-In error ($error); falling back to Supabase Browser OAuth.',
+            error: error,
+            stackTrace: stackTrace,
+          );
+      return signInWithGoogleBrowser();
+    }
+  }
+
+  /// Launches Google OAuth via Supabase Browser / Custom Tab and returns to
+  /// VISION AI via the `com.brijesh.vision://login-callback/` deep link.
+  Future<bool> signInWithGoogleBrowser() async {
+    if (!CloudConfig.isSupabaseConfigured) {
+      state = state.copyWith(
+        errorMessage: 'Supabase is not configured via --dart-define.',
+      );
+      return false;
+    }
+
+    state = state.copyWith(isBusy: true, clearMessages: true);
+    try {
+      final launched = await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: oauthRedirectUrl,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        state = state.copyWith(
+          isBusy: false,
+          errorMessage: 'Could not launch browser for Google Sign-In.',
+        );
+        return false;
+      }
       state = state.copyWith(
         isBusy: false,
-        errorMessage: 'Google Sign-In failed. Check network and OAuth setup.',
+        statusMessage: 'Complete Google Sign-In in your browser to return.',
+      );
+      return true;
+    } on AuthException catch (error, stackTrace) {
+      ref
+          .read(appLoggerProvider)
+          .error('Browser OAuth failed', error: error, stackTrace: stackTrace);
+      state = state.copyWith(
+        isBusy: false,
+        errorMessage: 'OAuth error: ${error.message}',
+      );
+      return false;
+    } catch (error, stackTrace) {
+      ref
+          .read(appLoggerProvider)
+          .error('Browser OAuth failed', error: error, stackTrace: stackTrace);
+      state = state.copyWith(
+        isBusy: false,
+        errorMessage: 'Google Sign-In failed: $error',
       );
       return false;
     }
@@ -289,7 +416,7 @@ class CloudAuthController extends Notifier<CloudAuthState> {
           .error('Thread sync failed', error: error, stackTrace: stackTrace);
       state = state.copyWith(
         isBusy: false,
-        errorMessage: 'Cloud sync failed. Verify connectivity and schema.',
+        errorMessage: 'Cloud sync failed: $error',
       );
       return false;
     } finally {
@@ -353,7 +480,7 @@ class CloudAuthController extends Notifier<CloudAuthState> {
           .error('API key backup failed', error: error, stackTrace: stackTrace);
       state = state.copyWith(
         isBusy: false,
-        errorMessage: 'Unable to back up encrypted API keys.',
+        errorMessage: 'Unable to back up encrypted API keys: $error',
       );
       return false;
     }
@@ -419,7 +546,7 @@ class CloudAuthController extends Notifier<CloudAuthState> {
           );
       state = state.copyWith(
         isBusy: false,
-        errorMessage: 'Unable to restore encrypted API keys.',
+        errorMessage: 'Unable to restore encrypted API keys: $error',
       );
       return false;
     }

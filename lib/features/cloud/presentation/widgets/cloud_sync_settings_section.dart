@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/theme/vision_radius.dart';
 import 'package:vision_ai/core/theme/vision_spacing.dart';
 import 'package:vision_ai/core/theme/vision_theme_extension.dart';
 import 'package:vision_ai/core/widgets/vision_dialog.dart';
@@ -8,10 +9,11 @@ import 'package:vision_ai/core/widgets/vision_primary_button.dart';
 import 'package:vision_ai/core/widgets/vision_secondary_button.dart';
 import 'package:vision_ai/core/widgets/vision_text_field.dart';
 import 'package:vision_ai/features/cloud/presentation/controllers/cloud_auth_controller.dart';
+import 'package:vision_ai/features/cloud/presentation/widgets/user_profile_widgets.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/settings_section_card.dart';
 
-/// Settings card for optional Google Sign-In, Supabase conversation sync, and
-/// Zero-Knowledge AES-256-GCM encrypted API key backup/restore.
+/// Settings card for optional Google Sign-In, logged-in user profile display,
+/// Supabase conversation sync, and Zero-Knowledge AES-256-GCM API key backup.
 class CloudSyncSettingsSection extends ConsumerWidget {
   const CloudSyncSettingsSection({super.key});
 
@@ -114,39 +116,69 @@ class CloudSyncSettingsSection extends ConsumerWidget {
                   expanded: true,
                   onPressed: controller.signInWithGoogle,
                 ),
+                const SizedBox(height: VisionSpacing.xs),
+                VisionSecondaryButton(
+                  label: 'Sign in via Browser (OAuth)',
+                  icon: Icons.open_in_browser_rounded,
+                  expanded: true,
+                  onPressed: cloud.isBusy
+                      ? null
+                      : controller.signInWithGoogleBrowser,
+                ),
               ] else ...<Widget>[
-                Row(
-                  children: <Widget>[
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: colors.primaryContainer,
-                      child: Icon(
-                        Icons.person_rounded,
-                        size: 20,
-                        color: colors.primary,
+                Container(
+                  padding: const EdgeInsets.all(VisionSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: colors.elevatedSurface,
+                    borderRadius: VisionRadius.mdBorder,
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      VisionUserAvatar(authState: cloud, radius: 24),
+                      const SizedBox(width: VisionSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              cloud.displayName ?? 'Google Account',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.titleSmall,
+                            ),
+                            Text(
+                              cloud.email ?? 'Signed in',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: <Widget>[
+                                Icon(
+                                  Icons.verified_user_outlined,
+                                  size: 13,
+                                  color: colors.success,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Signed in with Google',
+                                  style: textTheme.labelSmall?.copyWith(
+                                    color: colors.success,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: VisionSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            cloud.displayName ?? 'Google Account',
-                            style: textTheme.titleSmall,
-                          ),
-                          Text(
-                            cloud.email ?? 'Signed in',
-                            style: textTheme.bodySmall,
-                          ),
-                        ],
+                      TextButton(
+                        onPressed: cloud.isBusy ? null : controller.signOut,
+                        child: const Text('Sign Out'),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: cloud.isBusy ? null : controller.signOut,
-                      child: const Text('Sign Out'),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: VisionSpacing.sm),
                 SwitchListTile(
