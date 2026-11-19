@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/theme/vision_colors.dart';
 import 'package:vision_ai/core/theme/vision_glass.dart';
@@ -89,8 +89,8 @@ class _SmartHomeScreenState extends ConsumerState<SmartHomeScreen> {
                       ),
                     ),
                     if (state.hasHaToken)
-                      Chip(
-                        label: const Text('Token Saved'),
+                      const Chip(
+                        label: Text('Token Saved'),
                         visualDensity: VisualDensity.compact,
                         side: BorderSide.none,
                       ),

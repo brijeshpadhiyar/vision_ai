@@ -88,6 +88,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         context.go(AppRoutes.automationPath);
       case HelpActionTarget.openPlanner:
         context.push(AppRoutes.plannerPath);
+      case HelpActionTarget.openSmartHome:
+        context.push(AppRoutes.smartHomePath);
+      case HelpActionTarget.openDeveloper:
+        context.push(AppRoutes.developerPath);
       case HelpActionTarget.openDiagnostics:
         context.push(AppRoutes.diagnosticsPath);
       case HelpActionTarget.openOnboarding:

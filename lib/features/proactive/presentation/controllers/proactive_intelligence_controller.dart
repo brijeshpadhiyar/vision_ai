@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/app/router/app_routes.dart';
 import 'package:vision_ai/features/planner/domain/entities/planner_task.dart';
@@ -69,7 +69,7 @@ abstract final class ProactiveIntelligenceEngine {
           ? 'Evening Wrap-Up'
           : 'Today\'s Focus';
       final detail = highPriorityCount > 0
-          ? '${pendingTasks.length} pending (${highPriorityCount} high priority). Tap to hear your spoken briefing.'
+          ? '${pendingTasks.length} pending ($highPriorityCount high priority). Tap to hear your spoken briefing.'
           : '${pendingTasks.length} task${pendingTasks.length == 1 ? '' : 's'} remaining today. Tap to hear your briefing.';
       suggestions.add(
         ProactiveSuggestion(

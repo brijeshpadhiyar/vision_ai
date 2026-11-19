@@ -24,7 +24,7 @@ void main() {
           id: 't1',
           title: 'Submit release notes',
           priority: PlannerPriority.high,
-          createdAtMillis: DateTime(2026, 11, 19, 8).millisecondsSinceEpoch,
+          createdAt: DateTime(2026, 11, 19, 8),
         ),
       ];
 

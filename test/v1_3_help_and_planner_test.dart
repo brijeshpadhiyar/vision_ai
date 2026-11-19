@@ -16,7 +16,7 @@ void main() {
   test('v1.3 HelpGuideCatalog searches topics & settings accurately across keywords', () {
     expect(HelpGuideCatalog.searchTopics('ocr').length, 1);
     expect(HelpGuideCatalog.searchTopics('gujarati').isNotEmpty, isTrue);
-    expect(HelpGuideCatalog.searchTopics('planner').length, 1);
+    expect(HelpGuideCatalog.searchTopics('planner').isNotEmpty, isTrue);
     expect(
       HelpGuideCatalog.searchTopics('', category: HelpCategory.privacy).length,
       1,

@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/app/router/app_routes.dart';
 import 'package:vision_ai/core/theme/vision_colors.dart';
@@ -162,7 +162,7 @@ class _DeveloperAssistantScreenState
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 100),
       itemCount: _templates.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final tpl = _templates[index];
         return VisionGlassCard(
