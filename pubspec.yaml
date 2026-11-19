@@ -100,17 +100,17 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/branding/vision_launcher_legacy.png"
-  adaptive_icon_background: "#080D18"
+  adaptive_icon_background: "#101016"
   adaptive_icon_foreground: "assets/branding/vision_icon_foreground.png"
-  min_sdk_android: 24
+  min_sdk_android: 26
 
 flutter_native_splash:
-  color: "#080D18"
+  color: "#101016"
   image: "assets/branding/vision_splash_icon.png"
   android_12:
-    color: "#080D18"
+    color: "#101016"
     image: "assets/branding/vision_splash_icon.png"
-    icon_background_color: "#080D18"
+    icon_background_color: "#101016"
   ios: false
   web: false
 
