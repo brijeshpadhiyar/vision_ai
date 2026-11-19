@@ -5,6 +5,7 @@ import 'package:vision_ai/core/utils/shared_preferences_provider.dart';
 import 'package:vision_ai/features/settings/data/datasources/settings_local_datasource.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
+import 'package:vision_ai/features/settings/domain/entities/assistant_identity.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
 import 'package:vision_ai/features/settings/domain/repositories/settings_repository.dart';
 
@@ -50,10 +51,6 @@ class SettingsRepositoryImpl implements SettingsRepository {
   }) => _localDataSource.writeProviderEnabled(provider, enabled: enabled);
 
   @override
-  Future<void> updateAutoRoutingEnabled({required bool enabled}) =>
-      _localDataSource.writeAutoRoutingEnabled(enabled: enabled);
-
-  @override
   Future<void> updateFallbackEnabled({required bool enabled}) =>
       _localDataSource.writeFallbackEnabled(enabled: enabled);
 
@@ -62,8 +59,28 @@ class SettingsRepositoryImpl implements SettingsRepository {
       _localDataSource.writeStreamingEnabled(enabled: enabled);
 
   @override
+  Future<void> updateSaveConversationHistory({required bool enabled}) =>
+      _localDataSource.writeSaveConversationHistory(enabled: enabled);
+
+  @override
   Future<void> updateVoiceLanguage(VoiceLanguage language) =>
       _localDataSource.writeVoiceLanguage(language);
+
+  @override
+  Future<void> updateAssistantIdentity(AssistantIdentity identity) =>
+      _localDataSource.writeAssistantIdentity(identity);
+
+  @override
+  Future<void> updateTtsVoiceName(String voiceName) =>
+      _localDataSource.writeTtsVoiceName(voiceName);
+
+  @override
+  Future<void> updateTtsSpeechRate(double rate) =>
+      _localDataSource.writeTtsSpeechRate(rate);
+
+  @override
+  Future<void> updateTtsPitch(double pitch) =>
+      _localDataSource.writeTtsPitch(pitch);
 
   @override
   Future<void> updateHapticFeedback({required bool enabled}) =>

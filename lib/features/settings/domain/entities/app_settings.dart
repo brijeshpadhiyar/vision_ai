@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
+import 'package:vision_ai/features/settings/domain/entities/assistant_identity.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
 
 /// Immutable domain model representing user-configurable VISION AI settings.
@@ -12,10 +13,14 @@ class AppSettings {
     this.selectedAiProvider = AiProviderType.gemini,
     this.providerModels = defaultProviderModels,
     this.enabledProviders = defaultEnabledProviders,
-    this.autoRoutingEnabled = false,
-    this.fallbackEnabled = true,
+    this.fallbackEnabled = false,
     this.streamingEnabled = true,
+    this.saveConversationHistory = false,
+    this.assistantIdentity = const AssistantIdentity(),
     this.selectedVoiceLanguage = VoiceLanguage.english,
+    this.ttsVoiceName = '',
+    this.ttsSpeechRate = 1.0,
+    this.ttsPitch = 1.0,
     this.hapticFeedbackEnabled = true,
     this.autoSpeakReplies = true,
     this.voiceEndpointSilenceMs = 3800,
@@ -53,17 +58,29 @@ class AppSettings {
   /// Providers currently enabled by the user.
   final Set<AiProviderType> enabledProviders;
 
-  /// Whether automatic routing selects the optimal enabled provider/model.
-  final bool autoRoutingEnabled;
-
-  /// Whether VISION may fall back to another enabled provider when primary fails.
+  /// Whether VISION may fall back to another enabled provider when primary fails (OFF by default).
   final bool fallbackEnabled;
 
   /// Whether responses stream incrementally over SSE when supported.
   final bool streamingEnabled;
 
-  /// Preferred voice interaction and TTS language (`en-IN`, `hi-IN`, `gu-IN`).
+  /// Whether conversation history is persisted locally across restarts (OFF by default: session-only).
+  final bool saveConversationHistory;
+
+  /// Customizable personality, style, greeting, and behaviour instructions (Module 01).
+  final AssistantIdentity assistantIdentity;
+
+  /// Preferred voice interaction and TTS language (`auto`, `en-IN`, `hi-IN`, `gu-IN`).
   final VoiceLanguage selectedVoiceLanguage;
+
+  /// Selected native Android TTS voice identifier (empty = system default for locale).
+  final String ttsVoiceName;
+
+  /// Native Android TTS speech rate multiplier (`0.5` - `2.0`).
+  final double ttsSpeechRate;
+
+  /// Native Android TTS voice pitch multiplier (`0.5` - `2.0`).
+  final double ttsPitch;
 
   /// Whether tactile haptic feedback is enabled on button interactions.
   final bool hapticFeedbackEnabled;
@@ -117,10 +134,14 @@ class AppSettings {
     AiProviderType? selectedAiProvider,
     Map<AiProviderType, String>? providerModels,
     Set<AiProviderType>? enabledProviders,
-    bool? autoRoutingEnabled,
     bool? fallbackEnabled,
     bool? streamingEnabled,
+    bool? saveConversationHistory,
+    AssistantIdentity? assistantIdentity,
     VoiceLanguage? selectedVoiceLanguage,
+    String? ttsVoiceName,
+    double? ttsSpeechRate,
+    double? ttsPitch,
     bool? hapticFeedbackEnabled,
     bool? autoSpeakReplies,
     int? voiceEndpointSilenceMs,
@@ -137,11 +158,16 @@ class AppSettings {
       selectedAiProvider: selectedAiProvider ?? this.selectedAiProvider,
       providerModels: providerModels ?? this.providerModels,
       enabledProviders: enabledProviders ?? this.enabledProviders,
-      autoRoutingEnabled: autoRoutingEnabled ?? this.autoRoutingEnabled,
       fallbackEnabled: fallbackEnabled ?? this.fallbackEnabled,
       streamingEnabled: streamingEnabled ?? this.streamingEnabled,
+      saveConversationHistory:
+          saveConversationHistory ?? this.saveConversationHistory,
+      assistantIdentity: assistantIdentity ?? this.assistantIdentity,
       selectedVoiceLanguage:
           selectedVoiceLanguage ?? this.selectedVoiceLanguage,
+      ttsVoiceName: ttsVoiceName ?? this.ttsVoiceName,
+      ttsSpeechRate: ttsSpeechRate ?? this.ttsSpeechRate,
+      ttsPitch: ttsPitch ?? this.ttsPitch,
       hapticFeedbackEnabled:
           hapticFeedbackEnabled ?? this.hapticFeedbackEnabled,
       autoSpeakReplies: autoSpeakReplies ?? this.autoSpeakReplies,
@@ -168,10 +194,14 @@ class AppSettings {
         other.selectedAiProvider == selectedAiProvider &&
         mapEquals(other.providerModels, providerModels) &&
         setEquals(other.enabledProviders, enabledProviders) &&
-        other.autoRoutingEnabled == autoRoutingEnabled &&
         other.fallbackEnabled == fallbackEnabled &&
         other.streamingEnabled == streamingEnabled &&
+        other.saveConversationHistory == saveConversationHistory &&
+        other.assistantIdentity == assistantIdentity &&
         other.selectedVoiceLanguage == selectedVoiceLanguage &&
+        other.ttsVoiceName == ttsVoiceName &&
+        other.ttsSpeechRate == ttsSpeechRate &&
+        other.ttsPitch == ttsPitch &&
         other.hapticFeedbackEnabled == hapticFeedbackEnabled &&
         other.autoSpeakReplies == autoSpeakReplies &&
         other.voiceEndpointSilenceMs == voiceEndpointSilenceMs &&
@@ -185,17 +215,21 @@ class AppSettings {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll(<Object?>[
     themeMode,
     selectedAiProvider,
     Object.hashAll(
       providerModels.entries.map((e) => Object.hash(e.key, e.value)),
     ),
     Object.hashAll(enabledProviders),
-    autoRoutingEnabled,
     fallbackEnabled,
     streamingEnabled,
+    saveConversationHistory,
+    assistantIdentity,
     selectedVoiceLanguage,
+    ttsVoiceName,
+    ttsSpeechRate,
+    ttsPitch,
     hapticFeedbackEnabled,
     autoSpeakReplies,
     voiceEndpointSilenceMs,
@@ -206,5 +240,5 @@ class AppSettings {
     directPhoneCallsEnabled,
     notificationListenerConsent,
     onboardingCompleted,
-  );
+  ]);
 }

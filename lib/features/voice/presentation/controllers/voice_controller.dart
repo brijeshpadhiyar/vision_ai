@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:vision_ai/core/errors/app_exception.dart';
+import 'package:vision_ai/core/intelligence/language_detector.dart';
 import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/app_logger.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
@@ -12,6 +13,7 @@ import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:vision_ai/features/voice/data/repositories/voice_repository_impl.dart';
+import 'package:vision_ai/features/voice/domain/entities/tts_voice_info.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
 import 'package:vision_ai/features/voice/domain/utils/wake_word_detector.dart';
 
@@ -657,10 +659,18 @@ class VoiceController extends Notifier<VoiceSessionState> {
       phase: VoiceListeningPhase.speaking,
     );
 
+    final resolvedTtsLanguage = LanguageDetector.resolveTtsLanguage(
+      cleaned,
+      configuredLanguage: settings.selectedVoiceLanguage,
+    );
+
     final ttsSw = Stopwatch()..start();
     final started = await voiceRepo.speak(
       text: cleaned,
-      language: settings.selectedVoiceLanguage,
+      language: resolvedTtsLanguage,
+      speechRate: settings.ttsSpeechRate,
+      pitch: settings.ttsPitch,
+      voiceName: settings.ttsVoiceName,
     );
     ttsSw.stop();
     ref
@@ -689,6 +699,32 @@ class VoiceController extends Notifier<VoiceSessionState> {
         .replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  /// Pauses active TTS playback so it can be resumed later.
+  Future<bool> pauseSpeaking() async {
+    final paused = await ref.read(voiceRepositoryProvider).pauseSpeaking();
+    if (paused) {
+      state = state.copyWith(isSpeaking: false, phase: VoiceListeningPhase.idle);
+    }
+    return paused;
+  }
+
+  /// Resumes previously paused TTS playback.
+  Future<bool> resumeSpeaking() async {
+    final resumed = await ref.read(voiceRepositoryProvider).resumeSpeaking();
+    if (resumed) {
+      state = state.copyWith(
+        isSpeaking: true,
+        phase: VoiceListeningPhase.speaking,
+      );
+    }
+    return resumed;
+  }
+
+  /// Lists installed native Android TTS voices for the requested or active locale.
+  Future<List<TtsVoiceInfo>> getAvailableVoices({String? locale}) {
+    return ref.read(voiceRepositoryProvider).getAvailableVoices(locale: locale);
   }
 
   /// Stops any active TTS playback.

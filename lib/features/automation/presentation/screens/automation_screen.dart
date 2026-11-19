@@ -15,6 +15,7 @@ import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/automation/presentation/controllers/automation_controller.dart';
 import 'package:vision_ai/features/automation/presentation/widgets/automation_action_prompt_card.dart';
+import 'package:vision_ai/features/automation/presentation/widgets/routines_section_card.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 
 /// Liquid Glass Android Device Automation & System Control Hub.
@@ -572,6 +573,8 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
               );
             },
           ),
+          const SizedBox(height: 16),
+          const RoutinesSectionCard(),
           const SizedBox(height: 16),
           _RecentActionsCard(entries: automationState.recentActions),
         ],

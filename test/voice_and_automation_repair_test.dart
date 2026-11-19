@@ -24,6 +24,7 @@ import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dar
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:vision_ai/features/voice/data/repositories/voice_repository_impl.dart';
+import 'package:vision_ai/features/voice/domain/entities/tts_voice_info.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
 import 'package:vision_ai/features/voice/domain/repositories/voice_repository.dart';
 import 'package:vision_ai/features/voice/presentation/controllers/voice_controller.dart';
@@ -109,7 +110,19 @@ class _RepairVoiceRepository implements VoiceRepository {
     required String text,
     required VoiceLanguage language,
     double speechRate = 1.0,
+    double pitch = 1.0,
+    String voiceName = '',
   }) async => true;
+
+  @override
+  Future<bool> pauseSpeaking() async => true;
+
+  @override
+  Future<bool> resumeSpeaking() async => true;
+
+  @override
+  Future<List<TtsVoiceInfo>> getAvailableVoices({String? locale}) async =>
+      const <TtsVoiceInfo>[];
 
   @override
   Future<void> stopSpeaking() async {}

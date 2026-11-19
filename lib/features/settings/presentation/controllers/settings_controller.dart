@@ -6,6 +6,7 @@ import 'package:vision_ai/features/chat/domain/entities/ai_model_config.dart';
 import 'package:vision_ai/features/settings/data/repositories/settings_repository_impl.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
+import 'package:vision_ai/features/settings/domain/entities/assistant_identity.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
 
 /// Global Riverpod provider exposing reactive [AppSettings] state.
@@ -117,20 +118,6 @@ class SettingsController extends Notifier<AppSettings> {
     );
   }
 
-  Future<void> setAutoRoutingEnabled({required bool enabled}) async {
-    if (state.autoRoutingEnabled == enabled) return;
-    final previous = state;
-    state = state.copyWith(autoRoutingEnabled: enabled);
-    await _persist(
-      () => ref
-          .read(settingsRepositoryProvider)
-          .updateAutoRoutingEnabled(enabled: enabled),
-      previous: previous,
-      logMessage: 'Automatic AI routing set to $enabled',
-      errorContext: 'auto-routing setting',
-    );
-  }
-
   Future<void> setFallbackEnabled({required bool enabled}) async {
     if (state.fallbackEnabled == enabled) return;
     final previous = state;
@@ -159,7 +146,21 @@ class SettingsController extends Notifier<AppSettings> {
     );
   }
 
-  /// Updates the active [VoiceLanguage] preference (`en-IN`, `hi-IN`, `gu-IN`).
+  Future<void> setSaveConversationHistory({required bool enabled}) async {
+    if (state.saveConversationHistory == enabled) return;
+    final previous = state;
+    state = state.copyWith(saveConversationHistory: enabled);
+    await _persist(
+      () => ref
+          .read(settingsRepositoryProvider)
+          .updateSaveConversationHistory(enabled: enabled),
+      previous: previous,
+      logMessage: 'Save conversation history set to $enabled',
+      errorContext: 'conversation history persistence setting',
+    );
+  }
+
+  /// Updates the active [VoiceLanguage] preference (`auto`, `en-IN`, `hi-IN`, `gu-IN`).
   Future<void> setVoiceLanguage(VoiceLanguage language) async {
     if (state.selectedVoiceLanguage == language) return;
     final previous = state;
@@ -169,6 +170,63 @@ class SettingsController extends Notifier<AppSettings> {
       previous: previous,
       logMessage: 'Voice language updated to ${language.displayName}',
       errorContext: 'voice language selection',
+    );
+  }
+
+  /// Updates customizable [AssistantIdentity] preferences (Module 01).
+  Future<void> setAssistantIdentity(AssistantIdentity identity) async {
+    if (state.assistantIdentity == identity) return;
+    final previous = state;
+    state = state.copyWith(assistantIdentity: identity);
+    await _persist(
+      () => ref
+          .read(settingsRepositoryProvider)
+          .updateAssistantIdentity(identity),
+      previous: previous,
+      logMessage: 'Assistant identity updated (${identity.personality.displayName})',
+      errorContext: 'assistant identity',
+    );
+  }
+
+  /// Updates the selected native Android TTS voice identifier (Module 02).
+  Future<void> setTtsVoiceName(String voiceName) async {
+    final trimmed = voiceName.trim();
+    if (state.ttsVoiceName == trimmed) return;
+    final previous = state;
+    state = state.copyWith(ttsVoiceName: trimmed);
+    await _persist(
+      () => ref.read(settingsRepositoryProvider).updateTtsVoiceName(trimmed),
+      previous: previous,
+      logMessage: 'TTS voice updated to ${trimmed.isEmpty ? 'default' : trimmed}',
+      errorContext: 'TTS voice selection',
+    );
+  }
+
+  /// Updates the TTS speech rate multiplier (`0.5` - `2.0`).
+  Future<void> setTtsSpeechRate(double rate) async {
+    final clamped = rate.clamp(0.5, 2.0);
+    if ((state.ttsSpeechRate - clamped).abs() < 0.01) return;
+    final previous = state;
+    state = state.copyWith(ttsSpeechRate: clamped);
+    await _persist(
+      () => ref.read(settingsRepositoryProvider).updateTtsSpeechRate(clamped),
+      previous: previous,
+      logMessage: 'TTS speech rate updated to ${clamped.toStringAsFixed(2)}x',
+      errorContext: 'TTS speech rate',
+    );
+  }
+
+  /// Updates the TTS voice pitch multiplier (`0.5` - `2.0`).
+  Future<void> setTtsPitch(double pitch) async {
+    final clamped = pitch.clamp(0.5, 2.0);
+    if ((state.ttsPitch - clamped).abs() < 0.01) return;
+    final previous = state;
+    state = state.copyWith(ttsPitch: clamped);
+    await _persist(
+      () => ref.read(settingsRepositoryProvider).updateTtsPitch(clamped),
+      previous: previous,
+      logMessage: 'TTS pitch updated to ${clamped.toStringAsFixed(2)}x',
+      errorContext: 'TTS pitch',
     );
   }
 

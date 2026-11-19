@@ -104,23 +104,29 @@ class DeviceNotificationSummary {
     required this.title,
     required this.text,
     required this.postedAtMillis,
+    this.key = '',
+    this.canReply = false,
   });
 
   factory DeviceNotificationSummary.fromMap(Map<Object?, Object?> raw) {
     return DeviceNotificationSummary(
+      key: (raw['key'] as String?) ?? '',
       appName: (raw['appName'] as String?) ?? 'App',
       packageName: (raw['packageName'] as String?) ?? '',
       title: (raw['title'] as String?) ?? '',
       text: (raw['text'] as String?) ?? '',
       postedAtMillis: (raw['postedAtMillis'] as num?)?.toInt() ?? 0,
+      canReply: (raw['canReply'] as bool?) ?? false,
     );
   }
 
+  final String key;
   final String appName;
   final String packageName;
   final String title;
   final String text;
   final int postedAtMillis;
+  final bool canReply;
 }
 
 /// Contextual telemetry snapshot of the Android / OPPO Reno 16 device.
@@ -271,8 +277,49 @@ class AutomationExecutionEntry {
     required this.result,
   });
 
+  factory AutomationExecutionEntry.fromJson(Map<String, dynamic> json) {
+    final wireId = (json['actionWireId'] as String?) ?? '';
+    final actionType = DeviceActionType.values.firstWhere(
+      (t) => t.wireId == wireId,
+      orElse: () => DeviceActionType.deviceStatus,
+    );
+    final statusName = (json['status'] as String?) ?? 'success';
+    final status = DeviceActionStatus.values.firstWhere(
+      (s) => s.name == statusName,
+      orElse: () => DeviceActionStatus.success,
+    );
+    return AutomationExecutionEntry(
+      id: (json['id'] as String?) ?? '',
+      timestamp:
+          DateTime.tryParse((json['timestamp'] as String?) ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      request: DeviceActionRequest(
+        type: actionType,
+        displaySummary: (json['requestSummary'] as String?) ?? '',
+        target: (json['target'] as String?) ?? '',
+      ),
+      result: DeviceActionResult(
+        success: (json['success'] as bool?) ?? false,
+        status: status,
+        actionType: actionType,
+        summary: (json['resultSummary'] as String?) ?? '',
+      ),
+    );
+  }
+
   final String id;
   final DateTime timestamp;
   final DeviceActionRequest request;
   final DeviceActionResult result;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'timestamp': timestamp.toIso8601String(),
+    'actionWireId': request.type.wireId,
+    'requestSummary': request.displaySummary,
+    'target': request.target,
+    'success': result.success,
+    'status': result.status.name,
+    'resultSummary': result.summary,
+  };
 }

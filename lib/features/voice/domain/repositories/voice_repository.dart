@@ -1,4 +1,5 @@
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
+import 'package:vision_ai/features/voice/domain/entities/tts_voice_info.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
 
 /// Domain contract for interacting with the native speech recognition, TTS,
@@ -34,7 +35,18 @@ abstract interface class VoiceRepository {
     required String text,
     required VoiceLanguage language,
     double speechRate = 1.0,
+    double pitch = 1.0,
+    String voiceName = '',
   });
+
+  /// Pauses active sentence-chunked TTS playback so it can be resumed later.
+  Future<bool> pauseSpeaking();
+
+  /// Resumes paused TTS playback from the interrupted sentence.
+  Future<bool> resumeSpeaking();
+
+  /// Lists installed native Android TTS voices filtered by [locale].
+  Future<List<TtsVoiceInfo>> getAvailableVoices({String? locale});
 
   /// Stops any active TTS playback.
   Future<void> stopSpeaking();

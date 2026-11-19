@@ -14,6 +14,7 @@ import 'package:vision_ai/core/widgets/vision_scaffold.dart';
 import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/automation/presentation/controllers/automation_controller.dart';
 import 'package:vision_ai/features/chat/domain/services/provider_health_manager.dart';
+import 'package:vision_ai/features/chat/presentation/controllers/usage_stats_controller.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/provider_connection_controller.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
@@ -61,8 +62,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       'generatedAt': DateTime.now().toIso8601String(),
       'activeProvider': settings.selectedAiProvider.id,
       'activeModel': settings.selectedModelId,
-      'autoRoutingEnabled': settings.autoRoutingEnabled,
+      'providerSelectionMode': 'manual',
       'fallbackEnabled': settings.fallbackEnabled,
+      'saveConversationHistory': settings.saveConversationHistory,
       'streamingEnabled': settings.streamingEnabled,
       'voiceLanguage': settings.selectedVoiceLanguage.localeCode,
       'networkOnline': _isOnline,
@@ -89,6 +91,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 connections[provider]?.connectionState.name ?? 'untested',
           },
       },
+      'usageStats': ref.read(usageStatsControllerProvider).toSanitizedReport(),
       'telemetry': snapshot.toSanitizedReport(),
     };
 

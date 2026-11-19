@@ -4,7 +4,6 @@ import 'package:vision_ai/core/errors/app_exception.dart';
 import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/secure_storage_provider.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_completion_request.dart';
-import 'package:vision_ai/features/chat/domain/entities/ai_model_config.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/repositories/ai_provider.dart';
 import 'package:vision_ai/features/chat/domain/services/provider_fallback_manager.dart';
@@ -33,23 +32,26 @@ typedef ResolvedRouteCandidate = ({
   AIProvider client,
 });
 
-/// Multi-provider AI router supporting manual selection, capability-aware
-/// task routing, circuit-breaker health tracking, and explicit fallback.
+/// Multi-provider AI router supporting strictly manual provider selection,
+/// circuit-breaker health tracking, usage recording, and opt-in fallback.
 class AIRouter {
   const AIRouter({
     required this._registry,
     required this._credentialStore,
     this._healthManager,
     this._telemetry,
+    this._onUsageRecorded,
   });
 
   final AIProviderRegistry _registry;
   final SecureCredentialStore _credentialStore;
   final ProviderHealthManager? _healthManager;
   final TelemetryNotifier? _telemetry;
+  final void Function(AiProviderType provider, String modelId, AIUsage? usage)?
+  _onUsageRecorded;
 
-  /// Resolves ordered `(provider, modelId)` candidates based on [settings],
-  /// task complexity, provider health, and stored API keys.
+  /// Resolves ordered `(provider, modelId)` candidates based on manual
+  /// [settings], opt-in fallback, provider health, and stored API keys.
   Future<List<ResolvedRouteCandidate>> resolveCandidates({
     required AppSettings settings,
     required String promptText,
@@ -60,15 +62,13 @@ class AIRouter {
     final orderedTargets = <AIRouteTarget>[];
     final primaryProvider = explicitProvider ?? settings.selectedAiProvider;
 
-    if (explicitProvider == null && settings.autoRoutingEnabled) {
-      orderedTargets.addAll(_computeAutoRouteOrder(settings, complexity));
-    } else if (settings.isProviderEnabled(primaryProvider)) {
+    if (settings.isProviderEnabled(primaryProvider)) {
       orderedTargets.add(
         AIRouteTarget(
           provider: primaryProvider,
           modelId:
               explicitModelId ?? settings.modelForProvider(primaryProvider),
-          reason: 'Primary selection',
+          reason: 'Manual selection',
         ),
       );
     }
@@ -79,7 +79,6 @@ class AIRouter {
         configuredEnabledProviders: AiProviderType.values
             .where(settings.isProviderEnabled)
             .toSet(),
-        autoRoutingEnabled: settings.autoRoutingEnabled,
         fallbackEnabled: settings.fallbackEnabled,
         complexity: complexity,
         healthManager: _healthManager,
@@ -142,12 +141,8 @@ class AIRouter {
         await resolveCandidates(
           settings: settings,
           promptText: promptText,
-          explicitProvider: settings.autoRoutingEnabled
-              ? null
-              : completionRequest.provider,
-          explicitModelId: settings.autoRoutingEnabled
-              ? null
-              : completionRequest.modelId,
+          explicitProvider: completionRequest.provider,
+          explicitModelId: completionRequest.modelId,
         );
     startupSw.stop();
     final startupMs = startupSw.elapsedMilliseconds;
@@ -183,8 +178,12 @@ class AIRouter {
           firstTokenMs: sw.elapsedMilliseconds,
           success: true,
         );
+        _onUsageRecorded?.call(
+          response.provider,
+          response.modelId,
+          response.usage,
+        );
         final notice = _buildRoutingNotice(
-          settings: settings,
           primary: primary,
           actual: candidate.target,
           isFallback: isFallback,
@@ -241,12 +240,8 @@ class AIRouter {
         await resolveCandidates(
           settings: settings,
           promptText: promptText,
-          explicitProvider: settings.autoRoutingEnabled
-              ? null
-              : completionRequest.provider,
-          explicitModelId: settings.autoRoutingEnabled
-              ? null
-              : completionRequest.modelId,
+          explicitProvider: completionRequest.provider,
+          explicitModelId: completionRequest.modelId,
         );
     startupSw.stop();
     final startupMs = startupSw.elapsedMilliseconds;
@@ -290,8 +285,8 @@ class AIRouter {
               success: true,
             );
             final r = chunk.response;
+            _onUsageRecorded?.call(r.provider, r.modelId, r.usage);
             final notice = _buildRoutingNotice(
-              settings: settings,
               primary: primary,
               actual: candidate.target,
               isFallback: isFallback,
@@ -342,48 +337,7 @@ class AIRouter {
     }
   }
 
-  List<AIRouteTarget> _computeAutoRouteOrder(
-    AppSettings settings,
-    TaskComplexityTier complexity,
-  ) {
-    final enabledProviders = AiProviderType.values
-        .where(settings.isProviderEnabled)
-        .toSet();
-    final ordered = ProviderFallbackManager.orderCandidates(
-      preferredProvider: settings.selectedAiProvider,
-      configuredEnabledProviders: enabledProviders,
-      autoRoutingEnabled: true,
-      fallbackEnabled: settings.fallbackEnabled,
-      complexity: complexity,
-      healthManager: _healthManager,
-    );
-
-    return ordered
-        .map((provider) {
-          final configuredModel = settings.modelForProvider(provider);
-          final recommended = AIModelRegistry.recommendModelFor(
-            provider,
-            complexity: complexity,
-            userSelectedModelId: configuredModel,
-          );
-          final reason = switch (complexity) {
-            TaskComplexityTier.deepReasoningCoding =>
-              'Routed for deep reasoning/coding',
-            TaskComplexityTier.balancedMultilingual =>
-              'Routed for multilingual conversation',
-            TaskComplexityTier.simpleFast => 'Routed for low-latency response',
-          };
-          return AIRouteTarget(
-            provider: provider,
-            modelId: recommended.modelId,
-            reason: reason,
-          );
-        })
-        .toList(growable: false);
-  }
-
   String? _buildRoutingNotice({
-    required AppSettings settings,
     required AIRouteTarget primary,
     required AIRouteTarget actual,
     required bool isFallback,
@@ -393,11 +347,6 @@ class AIRouter {
       return 'Fallback active: ${primary.provider.displayName} unavailable '
           '(${previousError?.kind.name ?? 'error'}). Answered using '
           '${actual.provider.displayName} (${actual.modelId}).';
-    }
-    if (settings.autoRoutingEnabled &&
-        (actual.provider != settings.selectedAiProvider ||
-            actual.modelId != settings.modelForProvider(actual.provider))) {
-      return '${actual.reason}: ${actual.provider.displayName} (${actual.modelId}).';
     }
     return null;
   }
@@ -418,6 +367,7 @@ extension on AiCompletionRequest {
       enableDeviceActions: enableDeviceActions,
       personalMemoryContext: personalMemoryContext,
       deviceContextSummary: deviceContextSummary,
+      assistantIdentity: assistantIdentity,
     );
   }
 }

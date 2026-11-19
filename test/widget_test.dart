@@ -29,6 +29,7 @@ import 'package:vision_ai/features/settings/domain/entities/voice_language.dart'
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:vision_ai/features/splash/presentation/screens/splash_screen.dart';
 import 'package:vision_ai/features/voice/data/repositories/voice_repository_impl.dart';
+import 'package:vision_ai/features/voice/domain/entities/tts_voice_info.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
 import 'package:vision_ai/features/voice/domain/repositories/voice_repository.dart';
 import 'package:vision_ai/features/voice/domain/utils/wake_word_detector.dart';
@@ -120,11 +121,23 @@ class _FakeVoiceRepository implements VoiceRepository {
     required String text,
     required VoiceLanguage language,
     double speechRate = 1.0,
+    double pitch = 1.0,
+    String voiceName = '',
   }) async {
     lastSpokenText = text;
     lastSpokenLanguage = language;
     return true;
   }
+
+  @override
+  Future<bool> pauseSpeaking() async => true;
+
+  @override
+  Future<bool> resumeSpeaking() async => true;
+
+  @override
+  Future<List<TtsVoiceInfo>> getAvailableVoices({String? locale}) async =>
+      const <TtsVoiceInfo>[];
 
   @override
   Future<void> stopSpeaking() async {}
@@ -973,10 +986,14 @@ void main() {
     expect(okNotif?.success, isTrue);
     expect(okNotif?.notifications.length, 1);
 
-    // WhatsApp contact resolution
-    final waRes = await controller.tryHandleNaturalCommand(
+    // WhatsApp requires confirmation under tiered trusted-commands policy, then executes on confirm
+    final waPrompt = await controller.tryHandleNaturalCommand(
       'whatsapp Mom saying Good evening',
     );
+    expect(waPrompt?.status, DeviceActionStatus.confirmationRequired);
+    expect(waPrompt?.actionType, DeviceActionType.sendWhatsapp);
+
+    final waRes = await controller.confirmPendingAction();
     expect(waRes?.success, isTrue);
     expect(waRes?.actionType, DeviceActionType.sendWhatsapp);
   });
@@ -1033,10 +1050,14 @@ void main() {
     expect(okNotif?.success, isTrue);
     expect(okNotif?.notifications.length, 1);
 
-    // WhatsApp contact resolution
-    final waRes = await controller.tryHandleNaturalCommand(
+    // WhatsApp requires confirmation under tiered trusted-commands policy, then executes on confirm
+    final waPrompt = await controller.tryHandleNaturalCommand(
       'whatsapp Mom saying Good evening',
     );
+    expect(waPrompt?.status, DeviceActionStatus.confirmationRequired);
+    expect(waPrompt?.actionType, DeviceActionType.sendWhatsapp);
+
+    final waRes = await controller.confirmPendingAction();
     expect(waRes?.success, isTrue);
     expect(waRes?.actionType, DeviceActionType.sendWhatsapp);
   });

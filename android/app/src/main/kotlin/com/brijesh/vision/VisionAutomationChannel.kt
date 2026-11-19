@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlarmManager
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.SearchManager
 import android.app.role.RoleManager
 import android.content.ActivityNotFoundException
@@ -227,6 +228,43 @@ class VisionAutomationChannel(
             "getRecentNotifications" -> {
                 val limit = call.argument<Int>("limit") ?: 10
                 handleGetRecentNotifications(limit, result)
+            }
+
+            "setBlockedNotificationPackages" -> {
+                val packages = call.argument<List<String>>("packages") ?: emptyList()
+                VisionNotificationListenerService.setBlockedPackages(packages.toSet())
+                result.success(true)
+            }
+
+            "openNotification" -> {
+                val key = call.argument<String>("key")?.trim() ?: ""
+                result.success(VisionNotificationListenerService.openNotification(key))
+            }
+
+            "dismissNotification" -> {
+                val key = call.argument<String>("key")?.trim() ?: ""
+                result.success(VisionNotificationListenerService.dismissNotification(key))
+            }
+
+            "replyNotification" -> {
+                val key = call.argument<String>("key")?.trim() ?: ""
+                val text = call.argument<String>("text")?.trim() ?: ""
+                result.success(
+                    VisionNotificationListenerService.replyNotification(activity, key, text),
+                )
+            }
+
+            "scheduleRoutineAlarm" -> {
+                val routineId = call.argument<String>("routineId")?.trim() ?: ""
+                val routineName = call.argument<String>("routineName")?.trim() ?: "Routine"
+                val hour = (call.argument<Int>("hour") ?: 8).coerceIn(0, 23)
+                val minute = (call.argument<Int>("minute") ?: 0).coerceIn(0, 59)
+                result.success(scheduleRoutineAlarm(routineId, routineName, hour, minute))
+            }
+
+            "cancelRoutineAlarm" -> {
+                val routineId = call.argument<String>("routineId")?.trim() ?: ""
+                result.success(cancelRoutineAlarm(routineId))
             }
 
             "isNetworkConnected" -> {
@@ -1349,6 +1387,72 @@ class VisionAutomationChannel(
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
             else -> "Connected"
         }
+    }
+
+    private fun scheduleRoutineAlarm(
+        routineId: String,
+        routineName: String,
+        hour: Int,
+        minute: Int,
+    ): Boolean {
+        if (routineId.isBlank()) return false
+        val alarmManager = activity.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return false
+        val intent = Intent(activity, VisionRoutineAlarmReceiver::class.java).apply {
+            putExtra(VisionRoutineAlarmReceiver.EXTRA_ROUTINE_ID, routineId)
+            putExtra(VisionRoutineAlarmReceiver.EXTRA_ROUTINE_NAME, routineName)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            activity,
+            routineId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val cal = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, hour)
+            set(java.util.Calendar.MINUTE, minute)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(java.util.Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    cal.timeInMillis,
+                    pendingIntent,
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    cal.timeInMillis,
+                    pendingIntent,
+                )
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+            }
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun cancelRoutineAlarm(routineId: String): Boolean {
+        if (routineId.isBlank()) return false
+        val alarmManager = activity.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return false
+        val intent = Intent(activity, VisionRoutineAlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            activity,
+            routineId.hashCode(),
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return true
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+        return true
     }
 
     fun dispose() {

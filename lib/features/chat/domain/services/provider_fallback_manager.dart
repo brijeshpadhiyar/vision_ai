@@ -8,13 +8,12 @@ import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dar
 abstract final class ProviderFallbackManager {
   /// Orders [configuredEnabledProviders] cleanly starting from [preferredProvider].
   ///
-  /// When [autoRoutingEnabled] is true and [preferredProvider] is currently in
-  /// cooldown or missing, healthy alternatives are prioritized first; otherwise
-  /// [preferredProvider] stays primary to avoid unpredictable switching.
+  /// [preferredProvider] always stays primary (manual selection). When
+  /// [fallbackEnabled] is true, healthy enabled alternatives are appended as
+  /// ordered fallback targets.
   static List<AiProviderType> orderCandidates({
     required AiProviderType preferredProvider,
     required Set<AiProviderType> configuredEnabledProviders,
-    required bool autoRoutingEnabled,
     required bool fallbackEnabled,
     required TaskComplexityTier complexity,
     ProviderHealthManager? healthManager,

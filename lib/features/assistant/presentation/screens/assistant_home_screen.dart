@@ -275,7 +275,9 @@ class _CompactHomeLayout extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        const AssistantGreetingHeader(),
+        AssistantGreetingHeader(
+          greeting: settings.assistantIdentity.effectiveGreeting,
+        ),
         const SizedBox(height: 14),
         Center(
           child: AssistantMicButton(
@@ -394,7 +396,9 @@ class _WideHomeLayout extends StatelessWidget {
                   onTap: onOrbTap,
                 ),
                 const SizedBox(height: 14),
-                const AssistantGreetingHeader(),
+                AssistantGreetingHeader(
+          greeting: settings.assistantIdentity.effectiveGreeting,
+        ),
                 const SizedBox(height: 14),
                 AssistantMicButton(
                   onPressed: onMicTap,

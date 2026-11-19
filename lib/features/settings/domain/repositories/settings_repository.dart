@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
+import 'package:vision_ai/features/settings/domain/entities/assistant_identity.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
 
 /// Contract for reading and persisting user preferences.
@@ -24,17 +25,29 @@ abstract interface class SettingsRepository {
     required bool enabled,
   });
 
-  /// Persists whether automatic AI routing is enabled.
-  Future<void> updateAutoRoutingEnabled({required bool enabled});
-
-  /// Persists whether fallback to another enabled provider is allowed.
+  /// Persists whether opt-in fallback to another enabled provider is allowed.
   Future<void> updateFallbackEnabled({required bool enabled});
 
   /// Persists whether streaming SSE responses are enabled.
   Future<void> updateStreamingEnabled({required bool enabled});
 
+  /// Persists whether conversation history should be saved across restarts.
+  Future<void> updateSaveConversationHistory({required bool enabled});
+
   /// Persists the preferred [VoiceLanguage].
   Future<void> updateVoiceLanguage(VoiceLanguage language);
+
+  /// Persists customizable [AssistantIdentity] preferences (Module 01).
+  Future<void> updateAssistantIdentity(AssistantIdentity identity);
+
+  /// Persists selected native Android TTS voice name (Module 02).
+  Future<void> updateTtsVoiceName(String voiceName);
+
+  /// Persists TTS speech rate (`0.5` - `2.0`).
+  Future<void> updateTtsSpeechRate(double rate);
+
+  /// Persists TTS voice pitch (`0.5` - `2.0`).
+  Future<void> updateTtsPitch(double pitch);
 
   /// Persists whether haptic feedback is enabled.
   Future<void> updateHapticFeedback({required bool enabled});

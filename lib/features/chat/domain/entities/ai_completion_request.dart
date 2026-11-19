@@ -4,6 +4,7 @@ import 'package:vision_ai/features/chat/domain/entities/ai_model_config.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
+import 'package:vision_ai/features/settings/domain/entities/assistant_identity.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
 
 /// Encapsulates a multi-turn completion request routed to an AI provider.
@@ -19,6 +20,7 @@ class AiCompletionRequest {
     this.enableDeviceActions = true,
     this.personalMemoryContext = '',
     this.deviceContextSummary = '',
+    this.assistantIdentity = const AssistantIdentity(),
   });
 
   final AiProviderType provider;
@@ -30,6 +32,7 @@ class AiCompletionRequest {
   final bool enableDeviceActions;
   final String personalMemoryContext;
   final String deviceContextSummary;
+  final AssistantIdentity assistantIdentity;
 
   String get resolvedModelId =>
       AIModelRegistry.normalizeModelId(provider, modelId);
@@ -117,7 +120,9 @@ class AiCompletionRequest {
         '7. Match the user\'s language naturally (English, Hindi, Gujarati, Hinglish, or Gujlish), defaulting to '
         '${responseLanguage.displayName} (${responseLanguage.nativeName}, '
         'locale ${responseLanguage.localeCode}) when unclear.',
-      );
+      )
+      ..writeln()
+      ..writeln(assistantIdentity.buildPromptBlock());
 
     if (deviceContextSummary.trim().isNotEmpty) {
       buffer

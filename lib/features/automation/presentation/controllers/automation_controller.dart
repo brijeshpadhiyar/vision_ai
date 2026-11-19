@@ -1,15 +1,22 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/constants/storage_keys.dart';
 import 'package:vision_ai/core/errors/app_exception.dart';
 import 'package:vision_ai/core/intelligence/command_normalizer.dart';
 import 'package:vision_ai/core/intelligence/conversation_context.dart';
 import 'package:vision_ai/core/intelligence/entity_extractor.dart';
 import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/app_logger.dart';
+import 'package:vision_ai/core/utils/shared_preferences_provider.dart';
 import 'package:vision_ai/features/automation/data/repositories/device_automation_repository_impl.dart';
+import 'package:vision_ai/features/automation/domain/entities/automation_routine.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/automation/domain/utils/device_intent_parser.dart';
+import 'package:vision_ai/features/automation/presentation/controllers/routines_controller.dart';
+import 'package:vision_ai/features/automation/presentation/controllers/trusted_commands_controller.dart';
 import 'package:vision_ai/features/contacts/data/repositories/contact_alias_repository.dart';
 import 'package:vision_ai/features/contacts/domain/entities/contact_resolution.dart';
 import 'package:vision_ai/features/contacts/domain/services/contact_resolver.dart';
@@ -115,12 +122,54 @@ final automationControllerProvider =
 /// Orchestrates permission-guarded Android system intents, contacts, calls,
 /// alarms, timers, app launching, and contextual device status.
 class AutomationController extends Notifier<AutomationState> {
-  static const int _maxHistoryEntries = 15;
+  static const int _maxHistoryEntries = 50;
 
   @override
   AutomationState build() {
     ref.watch(deviceAutomationRepositoryProvider);
-    return const AutomationState();
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final savedHistory = _decodeHistory(
+      prefs.getString(StorageKeys.automationExecutionHistory),
+    );
+    return AutomationState(recentActions: savedHistory);
+  }
+
+  /// Clears persisted and in-memory automation execution history.
+  Future<void> clearExecutionHistory() async {
+    state = state.copyWith(recentActions: const <AutomationExecutionEntry>[]);
+    await ref
+        .read(sharedPreferencesProvider)
+        .remove(StorageKeys.automationExecutionHistory);
+  }
+
+  Future<void> _persistHistory(List<AutomationExecutionEntry> history) async {
+    final encoded = jsonEncode(
+      history.map((e) => e.toJson()).toList(growable: false),
+    );
+    await ref
+        .read(sharedPreferencesProvider)
+        .setString(StorageKeys.automationExecutionHistory, encoded);
+  }
+
+  static List<AutomationExecutionEntry> _decodeHistory(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return const <AutomationExecutionEntry>[];
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List<Object?>) {
+        return const <AutomationExecutionEntry>[];
+      }
+      return List<AutomationExecutionEntry>.unmodifiable(
+        decoded
+            .whereType<Map<String, dynamic>>()
+            .map(AutomationExecutionEntry.fromJson)
+            .where((e) => e.id.isNotEmpty)
+            .take(_maxHistoryEntries),
+      );
+    } on FormatException {
+      return const <AutomationExecutionEntry>[];
+    }
   }
 
   /// Refreshes runtime Android permission status and live device telemetry.
@@ -175,19 +224,67 @@ class AutomationController extends Notifier<AutomationState> {
     }
   }
 
-  /// Attempts to parse and execute a direct natural-language device command.
+  /// Attempts to parse and execute a direct natural-language device command
+  /// or a matching user-defined [AutomationRoutine].
   ///
-  /// Returns `null` if [input] is not a recognized direct device command.
+  /// Returns `null` if [input] is not a recognized direct device command or routine.
   Future<DeviceActionResult?> tryHandleNaturalCommand(String input) async {
     final settings = ref.read(settingsControllerProvider);
     if (!settings.deviceActionsEnabled) {
       return null;
+    }
+    final matchingRoutine = ref
+        .read(routinesControllerProvider.notifier)
+        .findByVoiceTrigger(input);
+    if (matchingRoutine != null) {
+      return executeRoutine(matchingRoutine);
     }
     final parsed = DeviceIntentParser.parseLocalCommand(input);
     if (parsed == null) {
       return null;
     }
     return executeRequest(parsed);
+  }
+
+  /// Executes a user-defined [AutomationRoutine] step-by-step, preserving
+  /// confirmation gates for any sensitive steps unless the routine is trusted.
+  Future<DeviceActionResult> executeRoutine(
+    AutomationRoutine routine, {
+    bool confirmed = false,
+  }) async {
+    final parsedSteps = <DeviceActionRequest>[];
+    for (final stepText in routine.commandSteps) {
+      final parsed = DeviceIntentParser.parseLocalCommand(stepText);
+      if (parsed != null) {
+        parsedSteps.add(parsed);
+      }
+    }
+    if (parsedSteps.isEmpty) {
+      return DeviceActionResult(
+        success: false,
+        status: DeviceActionStatus.failed,
+        actionType: DeviceActionType.deviceStatus,
+        summary: 'Routine "${routine.name}" has no executable device steps.',
+      );
+    }
+    final primary = parsedSteps.first;
+    final chained = DeviceActionRequest(
+      type: primary.type,
+      displaySummary: 'Routine: ${routine.name}',
+      target: primary.target,
+      hour: primary.hour,
+      minute: primary.minute,
+      durationSeconds: primary.durationSeconds,
+      label: primary.label,
+      message: primary.message,
+      enabled: primary.enabled,
+      requiresConfirmation:
+          !routine.trusted && parsedSteps.any((s) => s.requiresConfirmation),
+      contactOrdinalIndex: primary.contactOrdinalIndex,
+      isTomorrow: primary.isTomorrow,
+      followUpActions: parsedSteps.skip(1).toList(growable: false),
+    );
+    return executeRequest(chained, confirmed: confirmed || routine.trusted);
   }
 
   /// Executes a structured [DeviceActionRequest] (including multi-step chains)
@@ -312,6 +409,7 @@ class AutomationController extends Notifier<AutomationState> {
         errorMessage: result.success ? null : result.summary,
         clearPending: result.success || confirmed,
       );
+      await _persistHistory(updatedHistory);
 
       logger.info('Device action [${request.type.wireId}]: ${result.summary}');
       return result;
@@ -420,12 +518,36 @@ class AutomationController extends Notifier<AutomationState> {
         );
 
       case DeviceActionType.sendSms:
+        if (!confirmed &&
+            !ref
+                .read(trustedCommandsControllerProvider)
+                .isActionTrusted(DeviceActionType.sendSms)) {
+          state = state.copyWith(pendingConfirmation: request);
+          return DeviceActionResult(
+            success: false,
+            status: DeviceActionStatus.confirmationRequired,
+            actionType: DeviceActionType.sendSms,
+            summary: 'Confirm before composing SMS to ${request.target}.',
+          );
+        }
         return _handleSmsRequest(
           request,
           alternativeQueries: alternativeQueries,
         );
 
       case DeviceActionType.sendWhatsapp:
+        if (!confirmed &&
+            !ref
+                .read(trustedCommandsControllerProvider)
+                .isActionTrusted(DeviceActionType.sendWhatsapp)) {
+          state = state.copyWith(pendingConfirmation: request);
+          return DeviceActionResult(
+            success: false,
+            status: DeviceActionStatus.confirmationRequired,
+            actionType: DeviceActionType.sendWhatsapp,
+            summary: 'Confirm before opening WhatsApp for ${request.target}.',
+          );
+        }
         return _handleWhatsAppRequest(
           request,
           alternativeQueries: alternativeQueries,
@@ -435,6 +557,18 @@ class AutomationController extends Notifier<AutomationState> {
         return _handleReadNotificationsRequest(settings);
 
       case DeviceActionType.openUrl:
+        if (!confirmed &&
+            !ref
+                .read(trustedCommandsControllerProvider)
+                .isActionTrusted(DeviceActionType.openUrl)) {
+          state = state.copyWith(pendingConfirmation: request);
+          return DeviceActionResult(
+            success: false,
+            status: DeviceActionStatus.confirmationRequired,
+            actionType: DeviceActionType.openUrl,
+            summary: 'Confirm before opening URL: ${request.target}.',
+          );
+        }
         return repo.openUrl(request.target);
 
       case DeviceActionType.toggleFlashlight:
@@ -836,7 +970,13 @@ class AutomationController extends Notifier<AutomationState> {
       );
     }
 
-    final items = await repo.getRecentNotifications(limit: 5);
+    final blockedPackages = ref
+        .read(trustedCommandsControllerProvider)
+        .blockedNotificationPackages;
+    final rawItems = await repo.getRecentNotifications(limit: 5);
+    final items = rawItems
+        .where((n) => !blockedPackages.contains(n.packageName))
+        .toList(growable: false);
     if (items.isEmpty) {
       return const DeviceActionResult(
         success: true,
@@ -875,12 +1015,19 @@ class AutomationController extends Notifier<AutomationState> {
   }
 
   /// Confirms and executes the currently queued [AutomationState.pendingConfirmation],
-  /// optionally persisting a user-confirmed voice alias when [saveAsAlias] is true.
+  /// optionally persisting a user-confirmed voice alias when [saveAsAlias] is true
+  /// or trusting the command category when [trustFuture] is true.
   Future<DeviceActionResult?> confirmPendingAction({
     bool saveAsAlias = false,
+    bool trustFuture = false,
   }) async {
     final pending = state.pendingConfirmation;
     if (pending == null) return null;
+    if (trustFuture) {
+      await ref
+          .read(trustedCommandsControllerProvider.notifier)
+          .trustAction(pending.type);
+    }
     if (saveAsAlias &&
         state.suggestedContact != null &&
         state.spokenContactQuery != null) {

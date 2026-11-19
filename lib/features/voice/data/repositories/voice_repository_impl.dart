@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
 import 'package:vision_ai/features/voice/data/datasources/voice_platform_datasource.dart';
+import 'package:vision_ai/features/voice/domain/entities/tts_voice_info.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
 import 'package:vision_ai/features/voice/domain/repositories/voice_repository.dart';
 
@@ -59,8 +60,25 @@ class VoiceRepositoryImpl implements VoiceRepository {
     required String text,
     required VoiceLanguage language,
     double speechRate = 1.0,
-  }) =>
-      _dataSource.speak(text: text, language: language, speechRate: speechRate);
+    double pitch = 1.0,
+    String voiceName = '',
+  }) => _dataSource.speak(
+    text: text,
+    language: language,
+    speechRate: speechRate,
+    pitch: pitch,
+    voiceName: voiceName,
+  );
+
+  @override
+  Future<bool> pauseSpeaking() => _dataSource.pauseSpeaking();
+
+  @override
+  Future<bool> resumeSpeaking() => _dataSource.resumeSpeaking();
+
+  @override
+  Future<List<TtsVoiceInfo>> getAvailableVoices({String? locale}) =>
+      _dataSource.getAvailableVoices(locale: locale);
 
   @override
   Future<void> stopSpeaking() => _dataSource.stopSpeaking();

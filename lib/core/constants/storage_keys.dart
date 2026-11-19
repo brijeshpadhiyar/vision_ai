@@ -18,17 +18,34 @@ abstract final class StorageKeys {
   static String enabledKeyForProvider(String providerId) =>
       '$providerEnabledPrefix$providerId';
 
-  /// Key for automatic multi-provider routing toggle.
-  static const String autoRoutingEnabled = 'vision_pref_auto_routing';
-
-  /// Key for provider fallback toggle.
+  /// Key for opt-in provider fallback toggle (OFF by default).
   static const String fallbackEnabled = 'vision_pref_provider_fallback';
+
+  /// Key for persisted per-provider/model request & token usage counters.
+  static const String aiUsageStats = 'vision_pref_ai_usage_stats';
+
+  /// Key for opt-in local conversation history persistence (OFF by default).
+  static const String saveConversationHistory = 'vision_pref_save_chat_history';
 
   /// Key for SSE streaming toggle.
   static const String streamingEnabled = 'vision_pref_streaming_enabled';
 
-  /// Key for persisted voice interaction language (`english`, `hindi`, `gujarati`).
+  /// Key for persisted voice interaction language (`auto`, `english`, `hindi`, `gujarati`).
   static const String selectedVoiceLanguage = 'vision_pref_voice_language';
+
+  /// Keys for Assistant Identity customization (Module 01).
+  static const String assistantPersonality = 'vision_pref_assistant_personality';
+  static const String assistantCommunicationStyle =
+      'vision_pref_assistant_style';
+  static const String assistantCustomGreeting =
+      'vision_pref_assistant_greeting';
+  static const String assistantCustomInstructions =
+      'vision_pref_assistant_instructions';
+
+  /// Keys for Voice Identity customization (Module 02).
+  static const String ttsVoiceName = 'vision_pref_tts_voice_name';
+  static const String ttsSpeechRate = 'vision_pref_tts_speech_rate';
+  static const String ttsPitch = 'vision_pref_tts_pitch';
 
   /// Key for persisted haptic feedback preference.
   static const String hapticFeedbackEnabled = 'vision_pref_haptic_feedback';
@@ -75,6 +92,21 @@ abstract final class StorageKeys {
 
   /// Key for user-confirmed Contact-ID voice alias mappings.
   static const String contactVoiceAliases = 'vision_pref_contact_voice_aliases';
+
+  /// Key for user-trusted sensitive Android command wire IDs (Module 10).
+  static const String trustedSensitiveCommands =
+      'vision_pref_trusted_sensitive_commands';
+
+  /// Key for per-app notification privacy blocklist package names (Module 15).
+  static const String blockedNotificationPackages =
+      'vision_pref_blocked_notification_packages';
+
+  /// Key for user-defined Trusted Routines JSON list (Module 17).
+  static const String automationRoutines = 'vision_pref_automation_routines';
+
+  /// Key for persisted automation execution history JSON list (Module 17).
+  static const String automationExecutionHistory =
+      'vision_pref_automation_history';
 
   /// Prefix used for storing encrypted provider API keys in Android Keystore.
   static const String secureApiKeyPrefix = 'vision_secure_api_key_';

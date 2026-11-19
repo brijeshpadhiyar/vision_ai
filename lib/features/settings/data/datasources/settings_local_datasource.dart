@@ -6,6 +6,7 @@ import 'package:vision_ai/core/errors/app_exception.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_model_config.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
+import 'package:vision_ai/features/settings/domain/entities/assistant_identity.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
 
 /// Local data source backed by [SharedPreferences] for persisting [AppSettings].
@@ -42,9 +43,27 @@ class SettingsLocalDataSource {
       }
     }
 
-    final autoRouting = _prefs.getBool(StorageKeys.autoRoutingEnabled) ?? false;
-    final fallback = _prefs.getBool(StorageKeys.fallbackEnabled) ?? true;
+    final fallback = _prefs.getBool(StorageKeys.fallbackEnabled) ?? false;
     final streaming = _prefs.getBool(StorageKeys.streamingEnabled) ?? true;
+    final saveHistory =
+        _prefs.getBool(StorageKeys.saveConversationHistory) ?? false;
+    final assistantIdentity = AssistantIdentity(
+      personality: AssistantPersonality.fromId(
+        _prefs.getString(StorageKeys.assistantPersonality),
+      ),
+      communicationStyle: CommunicationStyle.fromId(
+        _prefs.getString(StorageKeys.assistantCommunicationStyle),
+      ),
+      customGreeting:
+          _prefs.getString(StorageKeys.assistantCustomGreeting) ?? '',
+      customInstructions:
+          _prefs.getString(StorageKeys.assistantCustomInstructions) ?? '',
+    );
+    final ttsVoiceName = _prefs.getString(StorageKeys.ttsVoiceName) ?? '';
+    final ttsSpeechRate =
+        (_prefs.getDouble(StorageKeys.ttsSpeechRate) ?? 1.0).clamp(0.5, 2.0);
+    final ttsPitch =
+        (_prefs.getDouble(StorageKeys.ttsPitch) ?? 1.0).clamp(0.5, 2.0);
     final haptics = _prefs.getBool(StorageKeys.hapticFeedbackEnabled) ?? true;
     final autoSpeak = _prefs.getBool(StorageKeys.autoSpeakReplies) ?? true;
     final endpointSilenceMs =
@@ -73,10 +92,14 @@ class SettingsLocalDataSource {
       selectedAiProvider: AiProviderType.fromId(providerRaw),
       providerModels: Map<AiProviderType, String>.unmodifiable(models),
       enabledProviders: Set<AiProviderType>.unmodifiable(enabledProviders),
-      autoRoutingEnabled: autoRouting,
       fallbackEnabled: fallback,
       streamingEnabled: streaming,
+      saveConversationHistory: saveHistory,
+      assistantIdentity: assistantIdentity,
       selectedVoiceLanguage: VoiceLanguage.fromId(languageRaw),
+      ttsVoiceName: ttsVoiceName,
+      ttsSpeechRate: ttsSpeechRate,
+      ttsPitch: ttsPitch,
       hapticFeedbackEnabled: haptics,
       autoSpeakReplies: autoSpeak,
       voiceEndpointSilenceMs: endpointSilenceMs,
@@ -129,14 +152,6 @@ class SettingsLocalDataSource {
     );
   }
 
-  Future<void> writeAutoRoutingEnabled({required bool enabled}) async {
-    await _writeBool(
-      StorageKeys.autoRoutingEnabled,
-      enabled,
-      'Unable to save auto-routing preference.',
-    );
-  }
-
   Future<void> writeFallbackEnabled({required bool enabled}) async {
     await _writeBool(
       StorageKeys.fallbackEnabled,
@@ -153,12 +168,70 @@ class SettingsLocalDataSource {
     );
   }
 
+  Future<void> writeSaveConversationHistory({required bool enabled}) async {
+    await _writeBool(
+      StorageKeys.saveConversationHistory,
+      enabled,
+      'Unable to save conversation history preference.',
+    );
+    if (!enabled) {
+      await _prefs.remove(StorageKeys.chatHistory);
+    }
+  }
+
   Future<void> writeVoiceLanguage(VoiceLanguage language) async {
     await _writeString(
       StorageKeys.selectedVoiceLanguage,
       language.id,
       'Unable to save voice language preference.',
     );
+  }
+
+  Future<void> writeAssistantIdentity(AssistantIdentity identity) async {
+    await _writeString(
+      StorageKeys.assistantPersonality,
+      identity.personality.id,
+      'Unable to save assistant personality.',
+    );
+    await _writeString(
+      StorageKeys.assistantCommunicationStyle,
+      identity.communicationStyle.id,
+      'Unable to save communication style.',
+    );
+    await _writeString(
+      StorageKeys.assistantCustomGreeting,
+      identity.customGreeting.trim(),
+      'Unable to save custom greeting.',
+    );
+    await _writeString(
+      StorageKeys.assistantCustomInstructions,
+      identity.customInstructions.trim(),
+      'Unable to save custom instructions.',
+    );
+  }
+
+  Future<void> writeTtsVoiceName(String voiceName) async {
+    await _writeString(
+      StorageKeys.ttsVoiceName,
+      voiceName.trim(),
+      'Unable to save selected TTS voice.',
+    );
+  }
+
+  Future<void> writeTtsSpeechRate(double rate) async {
+    final clamped = rate.clamp(0.5, 2.0);
+    final success = await _prefs.setDouble(StorageKeys.ttsSpeechRate, clamped);
+    if (!success) {
+      throw const StorageException(message: 'Unable to save speech rate.');
+    }
+  }
+
+  Future<void> writeTtsPitch(double pitch) async {
+    final clamped = pitch.clamp(0.5, 2.0);
+    final success = await _prefs.setDouble(StorageKeys.ttsPitch, clamped);
+    if (!success) {
+      throw const StorageException(message: 'Unable to save voice pitch.');
+    }
   }
 
   Future<void> writeHapticFeedback({required bool enabled}) async {
@@ -260,10 +333,17 @@ class SettingsLocalDataSource {
       await _prefs.remove(StorageKeys.modelKeyForProvider(provider.id));
       await _prefs.remove(StorageKeys.enabledKeyForProvider(provider.id));
     }
-    await _prefs.remove(StorageKeys.autoRoutingEnabled);
     await _prefs.remove(StorageKeys.fallbackEnabled);
     await _prefs.remove(StorageKeys.streamingEnabled);
+    await _prefs.remove(StorageKeys.saveConversationHistory);
+    await _prefs.remove(StorageKeys.assistantPersonality);
+    await _prefs.remove(StorageKeys.assistantCommunicationStyle);
+    await _prefs.remove(StorageKeys.assistantCustomGreeting);
+    await _prefs.remove(StorageKeys.assistantCustomInstructions);
     await _prefs.remove(StorageKeys.selectedVoiceLanguage);
+    await _prefs.remove(StorageKeys.ttsVoiceName);
+    await _prefs.remove(StorageKeys.ttsSpeechRate);
+    await _prefs.remove(StorageKeys.ttsPitch);
     await _prefs.remove(StorageKeys.hapticFeedbackEnabled);
     await _prefs.remove(StorageKeys.autoSpeakReplies);
     await _prefs.remove(StorageKeys.voiceEndpointSilenceMs);

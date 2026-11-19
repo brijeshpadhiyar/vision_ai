@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:vision_ai/core/constants/app_constants.dart';
+import 'package:vision_ai/core/intelligence/language_detector.dart';
 import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/http_client_provider.dart';
 import 'package:vision_ai/core/utils/network_status_service.dart';
@@ -25,10 +26,12 @@ import 'package:vision_ai/features/chat/domain/services/ai_conversation_manager.
 import 'package:vision_ai/features/chat/domain/services/ai_router.dart';
 import 'package:vision_ai/features/chat/domain/services/provider_health_manager.dart';
 import 'package:vision_ai/features/chat/domain/services/task_complexity_classifier.dart';
+import 'package:vision_ai/features/chat/presentation/controllers/usage_stats_controller.dart';
 import 'package:vision_ai/features/memory/presentation/controllers/memory_controller.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
+import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 
 /// Provides the [ChatLocalDataSource] backed by [sharedPreferencesProvider].
 final chatLocalDataSourceProvider = Provider<ChatLocalDataSource>((ref) {
@@ -62,7 +65,7 @@ final aiProviderRegistryProvider = Provider<AIProviderRegistry>((ref) {
   return AIProviderRegistry(mapped);
 });
 
-/// Provides the [AIRouter] orchestrating multi-provider selection and fallback.
+/// Provides the [AIRouter] orchestrating manual provider selection and opt-in fallback.
 final aiRouterProvider = Provider<AIRouter>((ref) {
   final registry = ref.watch(aiProviderRegistryProvider);
   final credentialStore = ref.watch(secureCredentialStoreProvider);
@@ -73,6 +76,13 @@ final aiRouterProvider = Provider<AIRouter>((ref) {
     credentialStore: credentialStore,
     healthManager: healthManager,
     telemetry: telemetry,
+    onUsageRecorded: (provider, modelId, usage) {
+      unawaited(
+        ref
+            .read(usageStatsControllerProvider.notifier)
+            .recordUsage(provider: provider, modelId: modelId, usage: usage),
+      );
+    },
   );
 });
 
@@ -87,6 +97,8 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
     networkStatus,
     memoryContextReader: () =>
         ref.read(memoryControllerProvider).buildPromptContext(),
+    isHistoryPersistenceEnabled: () =>
+        ref.read(settingsControllerProvider).saveConversationHistory,
   );
 });
 
@@ -175,16 +187,26 @@ class ChatRepositoryImpl implements ChatRepository {
     this._router,
     this._networkStatusService, {
     this._memoryContextReader,
+    this._isHistoryPersistenceEnabled,
   }) : _conversationManager = AIConversationManager(
-         initialMessages: _localDataSource.readMessages(),
+         initialMessages: (_isHistoryPersistenceEnabled?.call() ?? false)
+             ? _localDataSource.readMessages()
+             : const <ChatMessage>[],
        );
 
   final ChatLocalDataSource _localDataSource;
   final AIRouter _router;
   final NetworkStatusService _networkStatusService;
   final String Function()? _memoryContextReader;
+  final bool Function()? _isHistoryPersistenceEnabled;
   final AIConversationManager _conversationManager;
   DeviceActionRequest? _pendingAiAction;
+
+  Future<void> _persistIfEnabled() async {
+    if (_isHistoryPersistenceEnabled?.call() ?? false) {
+      await _localDataSource.writeMessages(_conversationManager.messages);
+    }
+  }
 
   @override
   List<ChatMessage> getMessages() => _conversationManager.messages;
@@ -269,7 +291,7 @@ class ChatRepositoryImpl implements ChatRepository {
       modelId: modelId,
     );
     _conversationManager.addMessage(userMessage);
-    await _localDataSource.writeMessages(_conversationManager.messages);
+    await _persistIfEnabled();
     yield ChatMessagesUpdated(_conversationManager.messages);
 
     final contextWindow = _conversationManager.buildContextWindow(
@@ -286,14 +308,23 @@ class ChatRepositoryImpl implements ChatRepository {
       TaskComplexityTier.deepReasoningCoding => 2048,
     };
 
+    final resolvedResponseLanguage =
+        settings.selectedVoiceLanguage == VoiceLanguage.auto
+        ? LanguageDetector.detect(
+            trimmedPrompt,
+            fallback: VoiceLanguage.english,
+          )
+        : settings.selectedVoiceLanguage;
+
     final completionRequest = AiCompletionRequest(
       provider: provider,
       modelId: modelId,
       messages: contextWindow,
-      responseLanguage: settings.selectedVoiceLanguage,
+      responseLanguage: resolvedResponseLanguage,
       maxOutputTokens: tokenBudget,
       enableDeviceActions: attachTools,
       personalMemoryContext: _memoryContextReader?.call() ?? '',
+      assistantIdentity: settings.assistantIdentity,
     );
 
     if (!settings.streamingEnabled) {
@@ -309,7 +340,7 @@ class ChatRepositoryImpl implements ChatRepository {
         enableDeviceActions: settings.deviceActionsEnabled,
       );
       _conversationManager.addMessage(assistantMessage);
-      await _localDataSource.writeMessages(_conversationManager.messages);
+      await _persistIfEnabled();
       yield ChatMessagesUpdated(
         _conversationManager.messages,
         routingNotice: response.routingNotice,
@@ -368,7 +399,7 @@ class ChatRepositoryImpl implements ChatRepository {
             modelId: modelId,
           ),
         );
-        await _localDataSource.writeMessages(_conversationManager.messages);
+        await _persistIfEnabled();
       } else {
         _conversationManager.removeMessageById(streamMessageId);
       }
@@ -382,7 +413,7 @@ class ChatRepositoryImpl implements ChatRepository {
         enableDeviceActions: settings.deviceActionsEnabled,
       );
       _conversationManager.upsertStreamingAssistantMessage(finalMessage);
-      await _localDataSource.writeMessages(_conversationManager.messages);
+      await _persistIfEnabled();
       yield ChatMessagesUpdated(
         _conversationManager.messages,
         routingNotice: completedResponse.routingNotice,
@@ -496,7 +527,7 @@ class ChatRepositoryImpl implements ChatRepository {
         modelId: modelId ?? 'offline-local-intent',
       ),
     );
-    await _localDataSource.writeMessages(_conversationManager.messages);
+    await _persistIfEnabled();
     return getMessages();
   }
 

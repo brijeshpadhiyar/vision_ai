@@ -1043,7 +1043,6 @@ void main() {
         AiProviderType.openAi,
         AiProviderType.claude,
       },
-      autoRoutingEnabled: true,
       fallbackEnabled: true,
       complexity: TaskComplexityTier.simpleFast,
       healthManager: health,

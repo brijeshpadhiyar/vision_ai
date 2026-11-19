@@ -1,7 +1,11 @@
-/// Planned voice and conversational languages for VISION AI.
-///
-/// Note: Speech recognition and TTS engines are deferred to Phase 3.
+/// Supported voice and conversational languages for VISION AI (Module 05).
 enum VoiceLanguage {
+  auto(
+    id: 'auto',
+    displayName: 'Auto',
+    nativeName: 'Auto (EN / HI / GU)',
+    localeCode: 'en-IN',
+  ),
   english(
     id: 'english',
     displayName: 'English',

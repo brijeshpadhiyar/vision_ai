@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:vision_ai/core/constants/app_constants.dart';
 import 'package:vision_ai/core/errors/app_exception.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
+import 'package:vision_ai/features/voice/domain/entities/tts_voice_info.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
 
 /// Platform channel data source communicating with `VisionVoiceChannel.kt` on Android.
@@ -129,6 +130,8 @@ class VoicePlatformDataSource {
     required String text,
     required VoiceLanguage language,
     double speechRate = 1.0,
+    double pitch = 1.0,
+    String voiceName = '',
   }) async {
     try {
       final spoke = await _methodChannel.invokeMethod<bool>(
@@ -137,6 +140,8 @@ class VoicePlatformDataSource {
           'text': text,
           'locale': language.localeCode,
           'speechRate': speechRate,
+          'pitch': pitch,
+          'voiceName': voiceName,
         },
       );
       return spoke ?? false;
@@ -144,6 +149,47 @@ class VoicePlatformDataSource {
       return false;
     } on PlatformException {
       return false;
+    }
+  }
+
+  Future<bool> pauseSpeaking() async {
+    try {
+      final paused = await _methodChannel.invokeMethod<bool>('pauseSpeaking');
+      return paused ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<bool> resumeSpeaking() async {
+    try {
+      final resumed = await _methodChannel.invokeMethod<bool>('resumeSpeaking');
+      return resumed ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<List<TtsVoiceInfo>> getAvailableVoices({String? locale}) async {
+    try {
+      final raw = await _methodChannel.invokeMethod<List<Object?>>(
+        'getAvailableVoices',
+        <String, Object?>{'locale': locale},
+      );
+      if (raw == null) return const <TtsVoiceInfo>[];
+      return raw
+          .whereType<Map<Object?, Object?>>()
+          .map(TtsVoiceInfo.fromMap)
+          .where((v) => v.name.isNotEmpty)
+          .toList(growable: false);
+    } on MissingPluginException {
+      return const <TtsVoiceInfo>[];
+    } on PlatformException {
+      return const <TtsVoiceInfo>[];
     }
   }
 

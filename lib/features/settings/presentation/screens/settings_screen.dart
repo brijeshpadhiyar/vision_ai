@@ -16,9 +16,13 @@ import 'package:vision_ai/core/widgets/vision_scaffold.dart';
 import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/automation/presentation/controllers/automation_controller.dart';
+import 'package:vision_ai/features/automation/presentation/controllers/trusted_commands_controller.dart';
+import 'package:vision_ai/features/automation/presentation/widgets/trusted_commands_sheet.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_model_config.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
+import 'package:vision_ai/features/chat/domain/entities/ai_usage_stats.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
+import 'package:vision_ai/features/chat/presentation/controllers/usage_stats_controller.dart';
 import 'package:vision_ai/features/memory/presentation/controllers/memory_controller.dart';
 import 'package:vision_ai/features/memory/presentation/widgets/personal_memory_sheet.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
@@ -28,6 +32,8 @@ import 'package:vision_ai/features/settings/presentation/controllers/api_key_con
 import 'package:vision_ai/features/settings/presentation/controllers/provider_connection_controller.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/api_key_config_dialog.dart';
+import 'package:vision_ai/features/settings/presentation/widgets/assistant_identity_section.dart';
+import 'package:vision_ai/features/settings/presentation/widgets/coloros_setup_guide_sheet.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/settings_section_card.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/settings_tile.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
@@ -214,12 +220,77 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _openVoicePickerDialog(AppSettings settings) async {
+    final localeArg = settings.selectedVoiceLanguage == VoiceLanguage.auto
+        ? null
+        : settings.selectedVoiceLanguage.localeCode;
+    final voices = await ref
+        .read(voiceControllerProvider.notifier)
+        .getAvailableVoices(locale: localeArg);
+    if (!mounted) return;
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Select Native Android Voice'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(
+                  title: const Text('System Default Voice'),
+                  subtitle: const Text('Match active language automatically'),
+                  trailing: settings.ttsVoiceName.isEmpty
+                      ? const Icon(Icons.check_rounded)
+                      : null,
+                  onTap: () => Navigator.of(dialogContext).pop(''),
+                ),
+                if (voices.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text(
+                      'No extra Android TTS voices reported on this host. '
+                      'Installed voices appear on Android hardware.',
+                    ),
+                  )
+                else
+                  for (final voice in voices)
+                    ListTile(
+                      title: Text(voice.friendlyLabel),
+                      subtitle: Text(voice.name),
+                      trailing: settings.ttsVoiceName == voice.name
+                          ? const Icon(Icons.check_rounded)
+                          : null,
+                      onTap: () => Navigator.of(dialogContext).pop(voice.name),
+                    ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+    if (selected != null) {
+      await ref
+          .read(settingsControllerProvider.notifier)
+          .setTtsVoiceName(selected);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsControllerProvider);
     final controller = ref.read(settingsControllerProvider.notifier);
     final voiceState = ref.watch(voiceControllerProvider);
     final chatState = ref.watch(chatControllerProvider);
+    final usageStats = ref.watch(usageStatsControllerProvider);
     final memoryState = ref.watch(memoryControllerProvider);
     final automationState = ref.watch(automationControllerProvider);
     final keyStatusAsync = ref.watch(apiKeyStatusControllerProvider);
@@ -290,10 +361,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
 
           if (showAi) ...[
+            AssistantIdentitySection(
+              identity: settings.assistantIdentity,
+              onIdentityChanged: (identity) async {
+                _triggerHaptic(settings);
+                await controller.setAssistantIdentity(identity);
+              },
+            ),
+            const SizedBox(height: 20),
             _MultiProviderAiSection(
               settings: settings,
               keyMap: keyMap,
               connectionMap: connectionMap,
+              usageStats: usageStats,
               onSelectDefaultProvider: (provider) async {
                 _triggerHaptic(settings);
                 await controller.setAiProvider(provider);
@@ -307,12 +387,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onConfigureKey: (provider, hasKey) =>
                   _openApiKeyDialog(provider, hasKey, settings),
               onTestConnection: _testProvider,
-              onAutoRoutingChanged: (enabled) =>
-                  controller.setAutoRoutingEnabled(enabled: enabled),
               onFallbackChanged: (enabled) =>
                   controller.setFallbackEnabled(enabled: enabled),
               onStreamingChanged: (enabled) =>
                   controller.setStreamingEnabled(enabled: enabled),
+              onResetUsage: () async {
+                _triggerHaptic(settings);
+                await ref
+                    .read(usageStatsControllerProvider.notifier)
+                    .clearUsage();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Local AI usage counters cleared.'),
+                    ),
+                  );
+                }
+              },
             ),
             const SizedBox(height: 20),
           ],
@@ -328,6 +419,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   controller.setAutoSpeakReplies(enabled: enabled),
               onEndpointSilenceChanged: (silenceMs) =>
                   controller.setVoiceEndpointSilenceMs(silenceMs),
+              onSpeechRateChanged: (rate) => controller.setTtsSpeechRate(rate),
+              onPitchChanged: (pitch) => controller.setTtsPitch(pitch),
+              onSelectVoice: () => _openVoicePickerDialog(settings),
+              onPreviewVoice: () => ref
+                  .read(voiceControllerProvider.notifier)
+                  .speakReply(
+                    'Hello, I am VISION. Your intelligence. Your assistant.',
+                  ),
             ),
             const SizedBox(height: 20),
             _WakeWordSection(
@@ -416,6 +515,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                 );
               },
+              onOpenColorOsGuide: () {
+                _triggerHaptic(settings);
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => VisionGlassBottomSheet(
+                    child: ColorOsSetupGuideSheet(
+                      isDefaultAssistant: voiceState.isDefaultAssistant,
+                      onOpenBatterySettings: () {
+                        unawaited(
+                          ref
+                              .read(automationControllerProvider.notifier)
+                              .executeRequest(
+                                const DeviceActionRequest(
+                                  type: DeviceActionType.openSettings,
+                                  target: 'battery_optimization',
+                                  displaySummary:
+                                      'Open battery optimization settings',
+                                ),
+                              ),
+                        );
+                      },
+                      onRequestDefaultAssistant: () {
+                        unawaited(
+                          ref
+                              .read(voiceControllerProvider.notifier)
+                              .requestDefaultAssistantRole(),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 20),
             _DeviceAutomationSection(
@@ -443,12 +576,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _triggerHaptic(settings);
                 context.go(AppRoutes.automationPath);
               },
+              onManageTrustedCommands: () {
+                _triggerHaptic(settings);
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const VisionGlassBottomSheet(
+                    child: TrustedCommandsSheet(),
+                  ),
+                );
+              },
+              trustedCount: ref
+                  .watch(trustedCommandsControllerProvider)
+                  .trustedSensitiveActions
+                  .length,
+              blockedNotifCount: ref
+                  .watch(trustedCommandsControllerProvider)
+                  .blockedNotificationPackages
+                  .length,
             ),
             const SizedBox(height: 20),
             _MemorySection(
               messageCount: chatState.messages.length,
+              saveConversationHistory: settings.saveConversationHistory,
               personalMemoryEnabled: memoryState.memoryEnabled,
               personalMemoryCount: memoryState.entries.length,
+              onSaveConversationHistoryChanged: (enabled) async {
+                _triggerHaptic(settings);
+                await controller.setSaveConversationHistory(enabled: enabled);
+              },
               onManagePersonalMemory: () {
                 _triggerHaptic(settings);
                 showModalBottomSheet<void>(
@@ -672,19 +829,21 @@ class _MultiProviderAiSection extends StatelessWidget {
     required this.settings,
     required this.keyMap,
     required this.connectionMap,
+    required this.usageStats,
     required this.onSelectDefaultProvider,
     required this.onToggleProviderEnabled,
     required this.onChooseModel,
     required this.onConfigureKey,
     required this.onTestConnection,
-    required this.onAutoRoutingChanged,
     required this.onFallbackChanged,
     required this.onStreamingChanged,
+    required this.onResetUsage,
   });
 
   final AppSettings settings;
   final Map<AiProviderType, bool> keyMap;
   final Map<AiProviderType, ProviderRuntimeStatus> connectionMap;
+  final UsageStatsState usageStats;
   final ValueChanged<AiProviderType> onSelectDefaultProvider;
   final void Function(AiProviderType provider, bool enabled)
   onToggleProviderEnabled;
@@ -692,16 +851,16 @@ class _MultiProviderAiSection extends StatelessWidget {
   onChooseModel;
   final void Function(AiProviderType provider, bool hasKey) onConfigureKey;
   final ValueChanged<AiProviderType> onTestConnection;
-  final ValueChanged<bool> onAutoRoutingChanged;
   final ValueChanged<bool> onFallbackChanged;
   final ValueChanged<bool> onStreamingChanged;
+  final VoidCallback onResetUsage;
 
   @override
   Widget build(BuildContext context) {
     return SettingsSectionCard(
       title: 'AI Providers',
       icon: Icons.hub_outlined,
-      subtitle: 'Configure Gemini, OpenAI, and Claude models, encrypted keys, routing, and real connection probes.',
+      subtitle: 'Manual provider & model selection across Gemini, OpenAI, and Claude with encrypted keys and local usage tracking.',
       children: [
         for (final provider in AiProviderType.values)
           _ProviderCardBlock(
@@ -719,19 +878,9 @@ class _MultiProviderAiSection extends StatelessWidget {
             onTestConnection: () => onTestConnection(provider),
           ),
         SettingsTile(
-          icon: Icons.auto_awesome_mosaic_outlined,
-          title: 'Automatic AI Routing',
-          subtitle: 'Route complex reasoning/coding vs quick queries automatically across enabled providers',
-          trailing: Switch.adaptive(
-            value: settings.autoRoutingEnabled,
-            onChanged: onAutoRoutingChanged,
-          ),
-          onTap: () => onAutoRoutingChanged(!settings.autoRoutingEnabled),
-        ),
-        SettingsTile(
           icon: Icons.alt_route_rounded,
-          title: 'Provider Fallback',
-          subtitle: 'Fall back to another enabled provider if primary fails (always informs you)',
+          title: 'Opt-In Provider Fallback',
+          subtitle: 'OFF by default. When enabled, falls back to another enabled provider if your selected provider fails (always displays a notice)',
           trailing: Switch.adaptive(
             value: settings.fallbackEnabled,
             onChanged: onFallbackChanged,
@@ -747,6 +896,19 @@ class _MultiProviderAiSection extends StatelessWidget {
             onChanged: onStreamingChanged,
           ),
           onTap: () => onStreamingChanged(!settings.streamingEnabled),
+        ),
+        SettingsTile(
+          icon: Icons.bar_chart_rounded,
+          title: 'Local Usage Counters',
+          subtitle:
+              '${usageStats.totalRequests} request${usageStats.totalRequests == 1 ? '' : 's'} • '
+              '${usageStats.totalInputTokens} in / ${usageStats.totalOutputTokens} out tokens',
+          trailing: usageStats.totalRequests > 0
+              ? TextButton(
+                  onPressed: onResetUsage,
+                  child: const Text('Reset'),
+                )
+              : null,
         ),
       ],
     );
@@ -924,12 +1086,20 @@ class _VoiceAndLanguageSection extends StatelessWidget {
     required this.onLanguageSelected,
     required this.onAutoSpeakChanged,
     required this.onEndpointSilenceChanged,
+    required this.onSpeechRateChanged,
+    required this.onPitchChanged,
+    required this.onSelectVoice,
+    required this.onPreviewVoice,
   });
 
   final AppSettings settings;
   final ValueChanged<VoiceLanguage> onLanguageSelected;
   final ValueChanged<bool> onAutoSpeakChanged;
   final ValueChanged<int> onEndpointSilenceChanged;
+  final ValueChanged<double> onSpeechRateChanged;
+  final ValueChanged<double> onPitchChanged;
+  final VoidCallback onSelectVoice;
+  final VoidCallback onPreviewVoice;
 
   @override
   Widget build(BuildContext context) {
@@ -1006,8 +1176,73 @@ class _VoiceAndLanguageSection extends StatelessWidget {
                 onChanged: (value) =>
                     onEndpointSilenceChanged(value.round()),
               ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Speech Rate',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: VisionColors.primaryText(brightness),
+                    ),
+                  ),
+                  Text(
+                    '${settings.ttsSpeechRate.toStringAsFixed(2)}x',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: accent),
+                  ),
+                ],
+              ),
+              Slider(
+                value: settings.ttsSpeechRate.clamp(0.5, 2.0),
+                min: 0.5,
+                max: 2.0,
+                divisions: 15,
+                onChanged: onSpeechRateChanged,
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Voice Pitch',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: VisionColors.primaryText(brightness),
+                    ),
+                  ),
+                  Text(
+                    '${settings.ttsPitch.toStringAsFixed(2)}x',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: accent),
+                  ),
+                ],
+              ),
+              Slider(
+                value: settings.ttsPitch.clamp(0.5, 2.0),
+                min: 0.5,
+                max: 2.0,
+                divisions: 15,
+                onChanged: onPitchChanged,
+              ),
             ],
           ),
+        ),
+        SettingsTile(
+          icon: Icons.record_voice_over_outlined,
+          title: 'Native Android TTS Voice',
+          subtitle: settings.ttsVoiceName.isEmpty
+              ? 'System default voice (auto-matched to language)'
+              : settings.ttsVoiceName,
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onSelectVoice,
+        ),
+        SettingsTile(
+          icon: Icons.play_circle_outline_rounded,
+          title: 'Preview Voice',
+          subtitle: 'Speak a short sample using your active voice, rate, and pitch',
+          trailing: const Icon(Icons.volume_up_rounded, size: 18),
+          onTap: onPreviewVoice,
         ),
       ],
     );
@@ -1118,6 +1353,7 @@ class _PermissionsSection extends StatelessWidget {
     required this.onRequestCall,
     required this.onRequestDefaultAssistant,
     required this.onOpenBatteryOptimization,
+    required this.onOpenColorOsGuide,
   });
 
   final VoiceSessionState voiceState;
@@ -1127,6 +1363,7 @@ class _PermissionsSection extends StatelessWidget {
   final VoidCallback onRequestCall;
   final VoidCallback onRequestDefaultAssistant;
   final VoidCallback onOpenBatteryOptimization;
+  final VoidCallback onOpenColorOsGuide;
 
   @override
   Widget build(BuildContext context) {
@@ -1196,6 +1433,13 @@ class _PermissionsSection extends StatelessWidget {
           trailing: const Icon(Icons.open_in_new_rounded, size: 18),
           onTap: onOpenBatteryOptimization,
         ),
+        SettingsTile(
+          icon: Icons.checklist_rounded,
+          title: 'OPPO Reno 16 / ColorOS Setup Guide',
+          subtitle: 'Step-by-step Auto-launch, Recents lock & post-reboot recovery',
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onOpenColorOsGuide,
+        ),
       ],
     );
   }
@@ -1208,6 +1452,9 @@ class _DeviceAutomationSection extends StatelessWidget {
     required this.onDirectCallsChanged,
     required this.onNotificationConsentChanged,
     required this.onOpenDeviceControlHub,
+    required this.onManageTrustedCommands,
+    required this.trustedCount,
+    required this.blockedNotifCount,
   });
 
   final AppSettings settings;
@@ -1215,6 +1462,9 @@ class _DeviceAutomationSection extends StatelessWidget {
   final ValueChanged<bool> onDirectCallsChanged;
   final ValueChanged<bool> onNotificationConsentChanged;
   final VoidCallback onOpenDeviceControlHub;
+  final VoidCallback onManageTrustedCommands;
+  final int trustedCount;
+  final int blockedNotifCount;
 
   @override
   Widget build(BuildContext context) {
@@ -1257,6 +1507,15 @@ class _DeviceAutomationSection extends StatelessWidget {
           ),
         ),
         SettingsTile(
+          icon: Icons.verified_user_outlined,
+          title: 'Trusted Commands & Notification Privacy',
+          subtitle:
+              '$trustedCount trusted sensitive command${trustedCount == 1 ? '' : 's'} • '
+              '$blockedNotifCount blocked app${blockedNotifCount == 1 ? '' : 's'}',
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onManageTrustedCommands,
+        ),
+        SettingsTile(
           icon: Icons.phonelink_setup_rounded,
           title: 'Open Device Control Hub',
           subtitle: 'Inspect OPPO Reno 16 telemetry and execute system actions',
@@ -1271,15 +1530,19 @@ class _DeviceAutomationSection extends StatelessWidget {
 class _MemorySection extends StatelessWidget {
   const _MemorySection({
     required this.messageCount,
+    required this.saveConversationHistory,
     required this.personalMemoryEnabled,
     required this.personalMemoryCount,
+    required this.onSaveConversationHistoryChanged,
     required this.onManagePersonalMemory,
     required this.onClearMemory,
   });
 
   final int messageCount;
+  final bool saveConversationHistory;
   final bool personalMemoryEnabled;
   final int personalMemoryCount;
+  final ValueChanged<bool> onSaveConversationHistoryChanged;
   final VoidCallback onManagePersonalMemory;
   final VoidCallback onClearMemory;
 
@@ -1288,29 +1551,42 @@ class _MemorySection extends StatelessWidget {
     return SettingsSectionCard(
       title: 'Memory',
       icon: Icons.psychology_outlined,
-      subtitle: 'Local conversation history & explicit personalization memory',
+      subtitle: 'Current-session context by default with opt-in history & personalization',
       children: [
+        SettingsTile(
+          icon: Icons.save_outlined,
+          title: 'Save Conversation History',
+          subtitle: saveConversationHistory
+              ? 'Enabled • Chat turns persist locally across app restarts'
+              : 'Disabled (Default) • Current session only; cleared on restart',
+          trailing: Switch.adaptive(
+            value: saveConversationHistory,
+            onChanged: onSaveConversationHistoryChanged,
+          ),
+          onTap: () =>
+              onSaveConversationHistoryChanged(!saveConversationHistory),
+        ),
         SettingsTile(
           icon: Icons.manage_accounts_outlined,
           title: 'Personalization Memory',
           subtitle:
-              '${personalMemoryEnabled ? 'Enabled' : 'Disabled'} • '
+              '${personalMemoryEnabled ? 'Enabled' : 'Disabled (Default)'} • '
               '$personalMemoryCount saved preference${personalMemoryCount == 1 ? '' : 's'} (view, edit, delete)',
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: onManagePersonalMemory,
         ),
         SettingsTile(
           icon: Icons.history_rounded,
-          title: 'Stored Conversation Messages',
+          title: 'Session Conversation Messages',
           subtitle:
-              '$messageCount message${messageCount == 1 ? '' : 's'} stored locally • '
+              '$messageCount message${messageCount == 1 ? '' : 's'} in current session • '
               '${AppConstants.maxContextMessages}-message rolling AI context window',
         ),
         SettingsTile(
           icon: Icons.delete_sweep_outlined,
           iconColor: VisionColors.error,
-          title: 'Clear Conversation Memory',
-          subtitle: 'Delete all locally persisted chat turns across providers',
+          title: 'Clear Session & Saved History',
+          subtitle: 'Reset current session context and delete any saved transcript',
           onTap: messageCount > 0 ? onClearMemory : null,
         ),
       ],

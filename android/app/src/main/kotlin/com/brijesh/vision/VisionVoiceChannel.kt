@@ -66,7 +66,17 @@ class VisionVoiceChannel(
     private var isTtsReady = false
     private var isListening = false
     private var isSpeaking = false
+    private var isTtsPaused = false
     private var currentPhase = "idle"
+
+    // Sentence-chunked TTS state for clean pause / resume (Module 02)
+    private var ttsChunks: List<String> = emptyList()
+    private var ttsCurrentChunkIndex = 0
+    private var ttsSessionToken = 0L
+    private var lastTtsLocaleTag = "en-IN"
+    private var lastTtsSpeechRate = 1.0f
+    private var lastTtsPitch = 1.0f
+    private var lastTtsVoiceName = ""
 
     // Multi-segment utterance accumulation & endpointing state
     private var activeSessionId = 0L
@@ -129,7 +139,20 @@ class VisionVoiceChannel(
                     }
 
                     override fun onDone(utteranceId: String?) {
+                        if (utteranceId == null || !utteranceId.startsWith("vision_tts_${ttsSessionToken}_")) {
+                            return
+                        }
+                        if (isTtsPaused) return
+                        val nextIdx = ttsCurrentChunkIndex + 1
+                        if (nextIdx < ttsChunks.size) {
+                            ttsCurrentChunkIndex = nextIdx
+                            mainHandler.post { speakCurrentChunk() }
+                            return
+                        }
+                        ttsChunks = emptyList()
+                        ttsCurrentChunkIndex = 0
                         isSpeaking = false
+                        isTtsPaused = false
                         if (!isListening) {
                             currentPhase = "idle"
                         }
@@ -139,7 +162,11 @@ class VisionVoiceChannel(
 
                     @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
+                        if (isTtsPaused) return
+                        ttsChunks = emptyList()
+                        ttsCurrentChunkIndex = 0
                         isSpeaking = false
+                        isTtsPaused = false
                         if (!isListening) {
                             currentPhase = "idle"
                         }
@@ -207,11 +234,29 @@ class VisionVoiceChannel(
             "speak" -> {
                 val text = call.argument<String>("text") ?: ""
                 val localeTag = call.argument<String>("locale") ?: "en-IN"
-                val rate = call.argument<Double>("speechRate") ?: 1.0
-                val spoke = speakText(text, localeTag, rate.toFloat())
+                val rate = (call.argument<Double>("speechRate") ?: 1.0).toFloat().coerceIn(0.5f, 2.0f)
+                val pitch = (call.argument<Double>("pitch") ?: 1.0).toFloat().coerceIn(0.5f, 2.0f)
+                val voiceName = call.argument<String>("voiceName") ?: ""
+                val spoke = speakText(text, localeTag, rate, pitch, voiceName)
                 result.success(spoke)
             }
+            "pauseSpeaking" -> {
+                val paused = pauseTtsPlayback()
+                result.success(paused)
+            }
+            "resumeSpeaking" -> {
+                val resumed = resumeTtsPlayback()
+                result.success(resumed)
+            }
+            "getAvailableVoices" -> {
+                val localeFilter = call.argument<String>("locale")
+                result.success(listAvailableTtsVoices(localeFilter))
+            }
             "stopSpeaking" -> {
+                ttsSessionToken += 1L
+                ttsChunks = emptyList()
+                ttsCurrentChunkIndex = 0
+                isTtsPaused = false
                 textToSpeech?.stop()
                 isSpeaking = false
                 if (!isListening) {
@@ -652,7 +697,13 @@ class VisionVoiceChannel(
         resumeWakeServiceIfRunning()
     }
 
-    private fun speakText(text: String, localeTag: String, speechRate: Float): Boolean {
+    private fun speakText(
+        text: String,
+        localeTag: String,
+        speechRate: Float,
+        pitch: Float = 1.0f,
+        voiceName: String = "",
+    ): Boolean {
         val tts = textToSpeech
         if (!isTtsReady || tts == null || text.isBlank()) {
             return false
@@ -664,28 +715,162 @@ class VisionVoiceChannel(
         }
         pauseWakeServiceIfRunning()
 
-        val locale = Locale.forLanguageTag(localeTag)
-        val availability = tts.isLanguageAvailable(locale)
-        if (availability >= TextToSpeech.LANG_AVAILABLE) {
-            tts.language = locale
-        } else {
-            tts.language = Locale.US
-        }
+        lastTtsLocaleTag = localeTag
+        lastTtsSpeechRate = speechRate.coerceIn(0.5f, 2.0f)
+        lastTtsPitch = pitch.coerceIn(0.5f, 2.0f)
+        lastTtsVoiceName = voiceName.trim()
 
-        tts.setSpeechRate(speechRate)
-        val utteranceId = "vision_tts_${System.currentTimeMillis()}"
+        applyTtsVoiceConfig(tts, lastTtsLocaleTag, lastTtsSpeechRate, lastTtsPitch, lastTtsVoiceName)
+
+        ttsSessionToken += 1L
+        ttsChunks = splitTtsChunks(text)
+        ttsCurrentChunkIndex = 0
+        isTtsPaused = false
+        if (ttsChunks.isEmpty()) return false
+
         isSpeaking = true
         currentPhase = "speaking"
         emitState()
-        val status = tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-        if (status == TextToSpeech.ERROR) {
+        return speakCurrentChunk()
+    }
+
+    private fun applyTtsVoiceConfig(
+        tts: TextToSpeech,
+        localeTag: String,
+        speechRate: Float,
+        pitch: Float,
+        voiceName: String,
+    ) {
+        val locale = Locale.forLanguageTag(localeTag)
+        var appliedCustomVoice = false
+        if (voiceName.isNotEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            val matched = try {
+                tts.voices?.firstOrNull { it.name == voiceName }
+            } catch (_: Exception) {
+                null
+            }
+            if (matched != null && matched.locale.language.equals(locale.language, ignoreCase = true)) {
+                tts.voice = matched
+                appliedCustomVoice = true
+            }
+        }
+        if (!appliedCustomVoice) {
+            val availability = tts.isLanguageAvailable(locale)
+            if (availability >= TextToSpeech.LANG_AVAILABLE) {
+                tts.language = locale
+            } else {
+                tts.language = Locale.US
+            }
+        }
+        tts.setSpeechRate(speechRate)
+        tts.setPitch(pitch)
+    }
+
+    private fun speakCurrentChunk(): Boolean {
+        val tts = textToSpeech ?: return false
+        if (ttsCurrentChunkIndex !in ttsChunks.indices) {
             isSpeaking = false
+            isTtsPaused = false
+            if (!isListening) currentPhase = "idle"
+            emitState()
+            resumeWakeServiceIfRunning()
+            return false
+        }
+        val chunk = ttsChunks[ttsCurrentChunkIndex]
+        val utteranceId = "vision_tts_${ttsSessionToken}_$ttsCurrentChunkIndex"
+        val status = tts.speak(chunk, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+        if (status == TextToSpeech.ERROR) {
+            ttsChunks = emptyList()
+            ttsCurrentChunkIndex = 0
+            isSpeaking = false
+            isTtsPaused = false
             currentPhase = "idle"
             emitState()
             resumeWakeServiceIfRunning()
             return false
         }
         return true
+    }
+
+    private fun pauseTtsPlayback(): Boolean {
+        if (!isSpeaking || ttsChunks.isEmpty()) return false
+        isTtsPaused = true
+        isSpeaking = false
+        textToSpeech?.stop()
+        if (!isListening) {
+            currentPhase = "idle"
+        }
+        emitState()
+        return true
+    }
+
+    private fun resumeTtsPlayback(): Boolean {
+        val tts = textToSpeech ?: return false
+        if (!isTtsPaused || ttsChunks.isEmpty() || ttsCurrentChunkIndex !in ttsChunks.indices) {
+            return false
+        }
+        if (isListening) {
+            cancelSpeechListening()
+        }
+        pauseWakeServiceIfRunning()
+        applyTtsVoiceConfig(tts, lastTtsLocaleTag, lastTtsSpeechRate, lastTtsPitch, lastTtsVoiceName)
+        ttsSessionToken += 1L
+        isTtsPaused = false
+        isSpeaking = true
+        currentPhase = "speaking"
+        emitState()
+        return speakCurrentChunk()
+    }
+
+    private fun splitTtsChunks(text: String): List<String> {
+        val cleaned = text.trim()
+        if (cleaned.isEmpty()) return emptyList()
+        val rawParts = cleaned
+            .split(Regex("(?<=[.!?।\\n])\\s+"))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        return if (rawParts.isEmpty()) listOf(cleaned) else rawParts
+    }
+
+    private fun listAvailableTtsVoices(localeFilter: String?): List<Map<String, Any?>> {
+        val tts = textToSpeech
+        if (!isTtsReady || tts == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            return emptyList()
+        }
+        val targetLang = localeFilter
+            ?.takeIf { it.isNotBlank() && !it.equals("auto", ignoreCase = true) }
+            ?.let { Locale.forLanguageTag(it).language }
+        val allowedLanguages = setOf("en", "hi", "gu")
+        val voices = try {
+            tts.voices ?: emptySet()
+        } catch (_: Exception) {
+            emptySet()
+        }
+        return voices
+            .filter { voice ->
+                val lang = voice.locale?.language?.lowercase() ?: ""
+                if (targetLang != null && targetLang.isNotBlank()) {
+                    lang == targetLang.lowercase()
+                } else {
+                    lang in allowedLanguages
+                }
+            }
+            .sortedWith(
+                compareBy<android.speech.tts.Voice>(
+                    { it.isNetworkConnectionRequired },
+                    { -it.quality },
+                    { it.name },
+                ),
+            )
+            .take(30)
+            .map { voice ->
+                mapOf(
+                    "name" to voice.name,
+                    "locale" to voice.locale.toLanguageTag(),
+                    "quality" to voice.quality,
+                    "networkRequired" to voice.isNetworkConnectionRequired,
+                )
+            }
     }
 
     private fun createRecognitionListener(sessionId: Long): RecognitionListener {
