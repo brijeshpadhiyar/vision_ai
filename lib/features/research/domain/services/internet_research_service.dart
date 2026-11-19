@@ -57,10 +57,12 @@ class InternetResearchService {
       );
     }
 
-    final results = await Future.wait<List<ResearchSource>>(<Future<List<ResearchSource>>>[
-      _queryDuckDuckGo(query, timeout: timeout),
-      _queryWikipedia(query, timeout: timeout),
-    ]);
+    final results = await Future.wait<List<ResearchSource>>(
+      <Future<List<ResearchSource>>>[
+        _queryDuckDuckGo(query, timeout: timeout),
+        _queryWikipedia(query, timeout: timeout),
+      ],
+    );
 
     final seenUrls = <String>{};
     final merged = <ResearchSource>[];
@@ -174,7 +176,8 @@ class InternetResearchService {
 
       final sources = <ResearchSource>[];
       for (var i = 0; i < titles.length && i < urls.length; i++) {
-        final snippet = i < descriptions.length && descriptions[i].trim().isNotEmpty
+        final snippet =
+            i < descriptions.length && descriptions[i].trim().isNotEmpty
             ? descriptions[i].trim()
             : 'Wikipedia article on ${titles[i]}.';
         sources.add(

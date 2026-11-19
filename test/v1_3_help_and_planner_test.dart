@@ -27,30 +27,33 @@ void main() {
     expect(keyMatches.first.id, 'set_ai_keys');
   });
 
-  testWidgets('v1.3 HelpCenterScreen renders Setup Readiness and filters live search', (tester) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    );
-    addTearDown(container.dispose);
+  testWidgets(
+    'v1.3 HelpCenterScreen renders Setup Readiness and filters live search',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: HelpCenterScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: HelpCenterScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('HELP & USER GUIDE'), findsOneWidget);
-    expect(find.text('Quick Setup Readiness'), findsOneWidget);
+      expect(find.text('HELP & USER GUIDE'), findsOneWidget);
+      expect(find.text('Quick Setup Readiness'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'OCR');
-    await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'OCR');
+      await tester.pumpAndSettle();
 
-    expect(find.text('Camera, Gallery & Offline ML Kit OCR'), findsOneWidget);
-  });
+      expect(find.text('Camera, Gallery & Offline ML Kit OCR'), findsOneWidget);
+    },
+  );
 
   test('v1.3 DailyPlannerController persists tasks, sorts by priority, and builds spoken briefing', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -98,7 +101,9 @@ void main() {
     );
   });
 
-  testWidgets('v1.3 DailyPlannerScreen renders tasks and toggles completion', (tester) async {
+  testWidgets('v1.3 DailyPlannerScreen renders tasks and toggles completion', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(

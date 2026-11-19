@@ -145,10 +145,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.helpPath,
         name: AppRoutes.helpName,
-        pageBuilder: (context, state) => _fadeSlidePage(
-          key: state.pageKey,
-          child: const HelpCenterScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadeSlidePage(key: state.pageKey, child: const HelpCenterScreen()),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
@@ -163,10 +161,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.smartHomePath,
         name: AppRoutes.smartHomeName,
-        pageBuilder: (context, state) => _fadeSlidePage(
-          key: state.pageKey,
-          child: const SmartHomeScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadeSlidePage(key: state.pageKey, child: const SmartHomeScreen()),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,

@@ -174,8 +174,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             tooltip: 'Help & User Guide',
           ),
           IconButton(
-            onPressed: () =>
-                setState(() => _useToolkitView = !_useToolkitView),
+            onPressed: () => setState(() => _useToolkitView = !_useToolkitView),
             icon: Icon(
               _useToolkitView
                   ? Icons.chat_bubble_outline_rounded
@@ -294,159 +293,160 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               )
             else ...[
-            Expanded(
-              child: chatState.messages.isEmpty
-                  ? _EmptyChatView(
-                      provider: activeProvider,
-                      modelId: activeModelId,
-                      hasApiKey: hasActiveKey,
-                      onSelectPrompt: (prompt) {
-                        _inputController.text = prompt;
-                        _inputController.selection = TextSelection.fromPosition(
-                          TextPosition(offset: prompt.length),
-                        );
-                      },
-                      onConfigureKey: () =>
-                          _openKeyDialog(activeProvider, hasActiveKey),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount:
-                          chatState.messages.length +
-                          (waitingForFirstToken ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (waitingForFirstToken &&
-                            index == chatState.messages.length) {
-                          return _ThinkingShimmerBubble(
-                            providerName: activeProvider.displayName,
-                          );
-                        }
-                        final msg = chatState.messages[index];
-                        final isLastAssistant = index == lastAssistantIndex;
-                        return ChatMessageBubble(
-                          message: msg,
-                          isSpeaking: voiceState.isSpeaking,
-                          isStreaming:
-                              chatState.isLoading &&
-                              isLastAssistant &&
-                              !waitingForFirstToken,
-                          onSpeak: () => ref
-                              .read(voiceControllerProvider.notifier)
-                              .speakReply(msg.content),
-                          onCitationTap: (url) => unawaited(
-                            ref
-                                .read(automationControllerProvider.notifier)
-                                .executeRequest(
-                                  DeviceActionRequest(
-                                    type: DeviceActionType.openUrl,
-                                    target: url,
-                                    displaySummary: 'Open research source',
+              Expanded(
+                child: chatState.messages.isEmpty
+                    ? _EmptyChatView(
+                        provider: activeProvider,
+                        modelId: activeModelId,
+                        hasApiKey: hasActiveKey,
+                        onSelectPrompt: (prompt) {
+                          _inputController.text = prompt;
+                          _inputController.selection =
+                              TextSelection.fromPosition(
+                                TextPosition(offset: prompt.length),
+                              );
+                        },
+                        onConfigureKey: () =>
+                            _openKeyDialog(activeProvider, hasActiveKey),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount:
+                            chatState.messages.length +
+                            (waitingForFirstToken ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (waitingForFirstToken &&
+                              index == chatState.messages.length) {
+                            return _ThinkingShimmerBubble(
+                              providerName: activeProvider.displayName,
+                            );
+                          }
+                          final msg = chatState.messages[index];
+                          final isLastAssistant = index == lastAssistantIndex;
+                          return ChatMessageBubble(
+                            message: msg,
+                            isSpeaking: voiceState.isSpeaking,
+                            isStreaming:
+                                chatState.isLoading &&
+                                isLastAssistant &&
+                                !waitingForFirstToken,
+                            onSpeak: () => ref
+                                .read(voiceControllerProvider.notifier)
+                                .speakReply(msg.content),
+                            onCitationTap: (url) => unawaited(
+                              ref
+                                  .read(automationControllerProvider.notifier)
+                                  .executeRequest(
+                                    DeviceActionRequest(
+                                      type: DeviceActionType.openUrl,
+                                      target: url,
+                                      displaySummary: 'Open research source',
+                                    ),
                                   ),
-                                ),
+                            ),
+                            onRegenerate:
+                                (isLastAssistant && !chatState.isLoading)
+                                ? () => unawaited(
+                                    ref
+                                        .read(chatControllerProvider.notifier)
+                                        .regenerateLastResponse(),
+                                  )
+                                : null,
+                          );
+                        },
+                      ),
+              ),
+              if (automationState.pendingConfirmation != null ||
+                  automationState.contactChoices.isNotEmpty ||
+                  automationState.contactSearchResults.isNotEmpty ||
+                  (automationState.lastResult?.requiresPermission == true)) ...[
+                const SizedBox(height: 8),
+                AutomationActionPromptCard(
+                  automationState: automationState,
+                  compact: true,
+                  onConfirm: () => unawaited(
+                    ref
+                        .read(automationControllerProvider.notifier)
+                        .confirmPendingAction(),
+                  ),
+                  onConfirmAndSaveAlias: () => unawaited(
+                    ref
+                        .read(automationControllerProvider.notifier)
+                        .confirmPendingAction(saveAsAlias: true),
+                  ),
+                  onCancel: () => ref
+                      .read(automationControllerProvider.notifier)
+                      .cancelPendingAction(),
+                  onSelectContact: (contact) => unawaited(
+                    ref
+                        .read(automationControllerProvider.notifier)
+                        .selectContactForPendingAction(contact),
+                  ),
+                  onGrantPermission: (permission) => unawaited(
+                    ref
+                        .read(automationControllerProvider.notifier)
+                        .requestPermission(permission),
+                  ),
+                  onCallContact: (contact) => unawaited(
+                    ref
+                        .read(automationControllerProvider.notifier)
+                        .executeRequest(
+                          DeviceActionRequest(
+                            type: DeviceActionType.callPhone,
+                            target: contact.phoneNumber,
+                            displaySummary: 'Call ${contact.name}',
                           ),
-                          onRegenerate:
-                              (isLastAssistant && !chatState.isLoading)
-                              ? () => unawaited(
-                                  ref
-                                      .read(chatControllerProvider.notifier)
-                                      .regenerateLastResponse(),
-                                )
-                              : null,
-                        );
-                      },
-                    ),
-            ),
-            if (automationState.pendingConfirmation != null ||
-                automationState.contactChoices.isNotEmpty ||
-                automationState.contactSearchResults.isNotEmpty ||
-                (automationState.lastResult?.requiresPermission == true)) ...[
-              const SizedBox(height: 8),
-              AutomationActionPromptCard(
-                automationState: automationState,
-                compact: true,
-                onConfirm: () => unawaited(
-                  ref
-                      .read(automationControllerProvider.notifier)
-                      .confirmPendingAction(),
-                ),
-                onConfirmAndSaveAlias: () => unawaited(
-                  ref
-                      .read(automationControllerProvider.notifier)
-                      .confirmPendingAction(saveAsAlias: true),
-                ),
-                onCancel: () => ref
-                    .read(automationControllerProvider.notifier)
-                    .cancelPendingAction(),
-                onSelectContact: (contact) => unawaited(
-                  ref
-                      .read(automationControllerProvider.notifier)
-                      .selectContactForPendingAction(contact),
-                ),
-                onGrantPermission: (permission) => unawaited(
-                  ref
-                      .read(automationControllerProvider.notifier)
-                      .requestPermission(permission),
-                ),
-                onCallContact: (contact) => unawaited(
-                  ref
-                      .read(automationControllerProvider.notifier)
-                      .executeRequest(
-                        DeviceActionRequest(
-                          type: DeviceActionType.callPhone,
-                          target: contact.phoneNumber,
-                          displaySummary: 'Call ${contact.name}',
                         ),
-                      ),
-                ),
-                onMessageContact: (contact) => unawaited(
-                  ref
-                      .read(automationControllerProvider.notifier)
-                      .executeRequest(
-                        DeviceActionRequest(
-                          type: DeviceActionType.sendSms,
-                          target: contact.phoneNumber,
-                          displaySummary: 'Compose SMS to ${contact.name}',
+                  ),
+                  onMessageContact: (contact) => unawaited(
+                    ref
+                        .read(automationControllerProvider.notifier)
+                        .executeRequest(
+                          DeviceActionRequest(
+                            type: DeviceActionType.sendSms,
+                            target: contact.phoneNumber,
+                            displaySummary: 'Compose SMS to ${contact.name}',
+                          ),
                         ),
-                      ),
+                  ),
+                  onClearSearchResults: () => ref
+                      .read(automationControllerProvider.notifier)
+                      .clearContactSearchResults(),
                 ),
-                onClearSearchResults: () => ref
-                    .read(automationControllerProvider.notifier)
-                    .clearContactSearchResults(),
+              ],
+              const SizedBox(height: 6),
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: keyboardOpen ? 6 : VisionSpacing.navBarClearance - 14,
+                ),
+                child: ChatInputBar(
+                  controller: _inputController,
+                  isLoading: chatState.isLoading,
+                  isListening: voiceState.isListening,
+                  webResearchEnabled: chatState.webResearchEnabled,
+                  pendingImage: chatState.pendingImage,
+                  providerName: activeProvider.displayName,
+                  onSend: _handleSend,
+                  onCancel: () => ref
+                      .read(chatControllerProvider.notifier)
+                      .cancelActiveRequest(),
+                  onVoiceTap: () => ref
+                      .read(voiceControllerProvider.notifier)
+                      .toggleVoiceCapture(),
+                  onCameraTap: _handleCapturePhoto,
+                  onGalleryTap: _handlePickGallery,
+                  onClearImage: () => ref
+                      .read(chatControllerProvider.notifier)
+                      .clearPendingImage(),
+                  onExtractOcr: () => ref
+                      .read(chatControllerProvider.notifier)
+                      .extractTextFromPendingImage(),
+                  onToggleWebResearch: () => ref
+                      .read(chatControllerProvider.notifier)
+                      .toggleWebResearch(),
+                ),
               ),
-            ],
-            const SizedBox(height: 6),
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: keyboardOpen ? 6 : VisionSpacing.navBarClearance - 14,
-              ),
-              child: ChatInputBar(
-                controller: _inputController,
-                isLoading: chatState.isLoading,
-                isListening: voiceState.isListening,
-                webResearchEnabled: chatState.webResearchEnabled,
-                pendingImage: chatState.pendingImage,
-                providerName: activeProvider.displayName,
-                onSend: _handleSend,
-                onCancel: () => ref
-                    .read(chatControllerProvider.notifier)
-                    .cancelActiveRequest(),
-                onVoiceTap: () => ref
-                    .read(voiceControllerProvider.notifier)
-                    .toggleVoiceCapture(),
-                onCameraTap: _handleCapturePhoto,
-                onGalleryTap: _handlePickGallery,
-                onClearImage: () => ref
-                    .read(chatControllerProvider.notifier)
-                    .clearPendingImage(),
-                onExtractOcr: () => ref
-                    .read(chatControllerProvider.notifier)
-                    .extractTextFromPendingImage(),
-                onToggleWebResearch: () => ref
-                    .read(chatControllerProvider.notifier)
-                    .toggleWebResearch(),
-              ),
-            ),
             ],
           ],
         ),

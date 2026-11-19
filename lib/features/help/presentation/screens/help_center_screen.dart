@@ -92,8 +92,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
               VisionGlassInput(
                 controller: _searchController,
                 prefixIcon: const Icon(Icons.search_rounded),
-                hintText:
-                    'Search any feature, setting, or command (e.g. API key, OCR, Gujarati)...',
+                hintText: 'Search any feature, setting, or command (e.g. API key, OCR, Gujarati)...',
                 suffixIcon: _query.isNotEmpty
                     ? IconButton(
                         tooltip: 'Clear search',
@@ -277,9 +276,8 @@ class _SetupReadinessCard extends StatelessWidget {
             children: [
               Text(
                 'Quick Setup Readiness',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
               ),
               VisionStatusBadge(
                 label: '$completed / 4 Ready',
@@ -391,15 +389,13 @@ class _HelpTopicCard extends StatelessWidget {
           ),
           title: Text(
             topic.title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
           subtitle: Text(
             topic.subtitle,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: VisionColors.secondaryText(brightness),
-            ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: VisionColors.secondaryText(brightness)),
           ),
           children: [
             const Divider(height: 12),

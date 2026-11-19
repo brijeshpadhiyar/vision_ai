@@ -60,10 +60,12 @@ class SettingsLocalDataSource {
           _prefs.getString(StorageKeys.assistantCustomInstructions) ?? '',
     );
     final ttsVoiceName = _prefs.getString(StorageKeys.ttsVoiceName) ?? '';
-    final ttsSpeechRate =
-        (_prefs.getDouble(StorageKeys.ttsSpeechRate) ?? 1.0).clamp(0.5, 2.0);
-    final ttsPitch =
-        (_prefs.getDouble(StorageKeys.ttsPitch) ?? 1.0).clamp(0.5, 2.0);
+    final ttsSpeechRate = (_prefs.getDouble(StorageKeys.ttsSpeechRate) ?? 1.0)
+        .clamp(0.5, 2.0);
+    final ttsPitch = (_prefs.getDouble(StorageKeys.ttsPitch) ?? 1.0).clamp(
+      0.5,
+      2.0,
+    );
     final haptics = _prefs.getBool(StorageKeys.hapticFeedbackEnabled) ?? true;
     final autoSpeak = _prefs.getBool(StorageKeys.autoSpeakReplies) ?? true;
     final endpointSilenceMs =

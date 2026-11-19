@@ -15,8 +15,7 @@ class TtsVoiceInfo {
       name: (raw['name'] as String?) ?? '',
       locale: (raw['locale'] as String?) ?? 'en-IN',
       quality: (raw['quality'] as num?)?.toInt() ?? 300,
-      isNetworkConnectionRequired:
-          (raw['networkRequired'] as bool?) ?? false,
+      isNetworkConnectionRequired: (raw['networkRequired'] as bool?) ?? false,
     );
   }
 

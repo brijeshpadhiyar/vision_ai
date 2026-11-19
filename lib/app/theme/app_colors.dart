@@ -15,13 +15,13 @@ abstract final class AppColors {
   static const Color darkBackground = VisionColors.backgroundPrimary;
   static const Color darkSurface = VisionColors.backgroundSecondary;
   static const Color darkSurfaceElevated = VisionColors.backgroundElevated;
-  static const Color darkBorder = Color(0x28FFFFFF);
+  static const Color darkBorder = VisionColors.darkBorder;
 
   static const Color lightBackground = VisionColors.lightBackgroundPrimary;
   static const Color lightSurface = VisionColors.lightBackgroundElevated;
   static const Color lightSurfaceElevated =
       VisionColors.lightBackgroundSecondary;
-  static const Color lightBorder = Color(0x1F0A1220);
+  static const Color lightBorder = VisionColors.lightBorder;
 
   static const Color cyanAccent = VisionColors.accentPrimary;
   static const Color cyanPrimaryDark = VisionColors.accentPrimary;

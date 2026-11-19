@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
-import 'package:vision_ai/app/theme/app_colors.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
 
 /// Vector-accurate geometric VISION V-Iris brand mark rendered synchronously.
 class VisionBrandLogo extends StatelessWidget {
@@ -50,24 +50,26 @@ class _VisionBrandLogoPainter extends CustomPainter {
     canvas.save();
     canvas.scale(scale, scale);
 
-    final primaryCyan = isDarkBackground
-        ? AppColors.brandAccentPrimary
-        : const Color(0xFF0095D9);
-    final midBlue = isDarkBackground
-        ? const Color(0xFF1EA8FF)
-        : const Color(0xFF1A75FF);
-    final secondaryBlue = isDarkBackground
-        ? AppColors.brandAccentSecondary
-        : const Color(0xFF2958E8);
+    final primaryViolet = isDarkBackground
+        ? VisionColors.darkPrimary
+        : VisionColors.lightPrimary;
+    final midRose = isDarkBackground
+        ? VisionColors.darkTertiary
+        : VisionColors.lightTertiary;
+    final secondaryMint = isDarkBackground
+        ? VisionColors.darkSecondary
+        : VisionColors.lightSecondary;
+    const coreDark = VisionColors.darkBackground;
+    const coreSurface = VisionColors.darkSurface;
 
     if (showAmbientGlow) {
       final haloPaint = Paint()
         ..shader =
             RadialGradient(
               colors: [
-                primaryCyan.withValues(alpha: 0.22),
-                secondaryBlue.withValues(alpha: 0.06),
-                secondaryBlue.withValues(alpha: 0.0),
+                primaryViolet.withValues(alpha: 0.24),
+                secondaryMint.withValues(alpha: 0.08),
+                secondaryMint.withValues(alpha: 0.0),
               ],
               stops: const [0.0, 0.60, 1.0],
             ).createShader(
@@ -91,7 +93,7 @@ class _VisionBrandLogoPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: const Alignment(-0.7, -0.7),
         end: const Alignment(0.7, 0.7),
-        colors: [primaryCyan, midBlue, secondaryBlue],
+        colors: [primaryViolet, midRose, secondaryMint],
         stops: const [0.0, 0.52, 1.0],
       ).createShader(const Rect.fromLTWH(88, 112, 336, 336));
     canvas.drawPath(vPath, vPaint);
@@ -108,8 +110,8 @@ class _VisionBrandLogoPainter extends CustomPainter {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          const Color(0xFF8AF0FF).withValues(alpha: 0.72),
-          primaryCyan.withValues(alpha: 0.0),
+          VisionColors.accentIce.withValues(alpha: 0.72),
+          primaryViolet.withValues(alpha: 0.0),
         ],
       ).createShader(const Rect.fromLTWH(88, 112, 156, 320));
     canvas.drawPath(facetPath, facetPaint);
@@ -120,10 +122,7 @@ class _VisionBrandLogoPainter extends CustomPainter {
       ..cubicTo(194, 142, 318, 142, 360, 202)
       ..cubicTo(318, 262, 194, 262, 152, 202)
       ..close();
-    canvas.drawPath(
-      outerCradle,
-      Paint()..color = AppColors.brandBackgroundPrimary,
-    );
+    canvas.drawPath(outerCradle, Paint()..color = coreDark);
 
     // Precision eye aperture fill and rim.
     final eyeAperture = Path()
@@ -131,10 +130,7 @@ class _VisionBrandLogoPainter extends CustomPainter {
       ..cubicTo(197, 147, 315, 147, 354, 202)
       ..cubicTo(315, 257, 197, 257, 158, 202)
       ..close();
-    canvas.drawPath(
-      eyeAperture,
-      Paint()..color = AppColors.brandBackgroundSecondary,
-    );
+    canvas.drawPath(eyeAperture, Paint()..color = coreSurface);
     canvas.drawPath(
       eyeAperture,
       Paint()
@@ -142,7 +138,7 @@ class _VisionBrandLogoPainter extends CustomPainter {
         ..strokeWidth = 7.5
         ..strokeJoin = StrokeJoin.round
         ..shader = LinearGradient(
-          colors: [primaryCyan, const Color(0xFF8AF0FF), secondaryBlue],
+          colors: [primaryViolet, VisionColors.accentIce, secondaryMint],
           stops: const [0.0, 0.5, 1.0],
         ).createShader(const Rect.fromLTWH(158, 150, 196, 104)),
     );
@@ -154,7 +150,7 @@ class _VisionBrandLogoPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.75
-        ..color = primaryCyan.withValues(alpha: 0.55),
+        ..color = primaryViolet.withValues(alpha: 0.55),
     );
 
     // Luminous AI iris.
@@ -164,10 +160,10 @@ class _VisionBrandLogoPainter extends CustomPainter {
             center: const Alignment(0.0, -0.08),
             radius: 0.54,
             colors: [
-              const Color(0xFFE6FCFF),
-              primaryCyan,
-              secondaryBlue,
-              const Color(0xFF163E9E),
+              VisionColors.darkTextPrimary,
+              primaryViolet,
+              midRose,
+              VisionColors.darkPrimaryContainer,
             ],
             stops: const [0.0, 0.30, 0.74, 1.0],
           ).createShader(
@@ -176,22 +172,18 @@ class _VisionBrandLogoPainter extends CustomPainter {
     canvas.drawCircle(const Offset(256, 202), 26, irisPaint);
 
     // Deep obsidian pupil core.
-    canvas.drawCircle(
-      const Offset(256, 202),
-      11.5,
-      Paint()..color = AppColors.brandBackgroundPrimary,
-    );
+    canvas.drawCircle(const Offset(256, 202), 11.5, Paint()..color = coreDark);
 
     // Specular awareness highlights.
     canvas.drawCircle(
       const Offset(262.5, 194.5),
       4.6,
-      Paint()..color = AppColors.brandTextPrimary,
+      Paint()..color = VisionColors.darkTextPrimary,
     );
     canvas.drawCircle(
       const Offset(247.5, 209.5),
       1.9,
-      Paint()..color = const Color(0xFF8AF0FF).withValues(alpha: 0.85),
+      Paint()..color = VisionColors.accentIce.withValues(alpha: 0.85),
     );
 
     // Precision apex anchor.
@@ -203,7 +195,7 @@ class _VisionBrandLogoPainter extends CustomPainter {
       ..close();
     canvas.drawPath(
       apexPath,
-      Paint()..color = AppColors.brandBackgroundPrimary.withValues(alpha: 0.55),
+      Paint()..color = VisionColors.darkBackground.withValues(alpha: 0.55),
     );
 
     canvas.restore();

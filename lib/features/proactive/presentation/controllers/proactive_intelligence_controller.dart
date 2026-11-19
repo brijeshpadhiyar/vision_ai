@@ -20,7 +20,9 @@ abstract final class ProactiveIntelligenceEngine {
     Set<String> dismissedIds = const <String>{},
   }) {
     final suggestions = <ProactiveSuggestion>[];
-    final pendingTasks = tasks.where((t) => !t.completed).toList(growable: false);
+    final pendingTasks = tasks
+        .where((t) => !t.completed)
+        .toList(growable: false);
     final highPriorityCount = pendingTasks
         .where((t) => t.priority == PlannerPriority.high)
         .length;
@@ -31,8 +33,7 @@ abstract final class ProactiveIntelligenceEngine {
         ProactiveSuggestion(
           id: 'low_battery',
           title: 'Battery at $batteryPercent%',
-          subtitle:
-              'Power is getting low. Review battery settings or keep VISION standby lightweight.',
+          subtitle: 'Power is getting low. Review battery settings or keep VISION standby lightweight.',
           icon: Icons.battery_alert_rounded,
           actionLabel: 'Battery',
           actionType: ProactiveActionType.openBatterySettings,
@@ -47,8 +48,7 @@ abstract final class ProactiveIntelligenceEngine {
         const ProactiveSuggestion(
           id: 'setup_provider',
           title: 'Finish AI Provider Setup',
-          subtitle:
-              'Add an API key (Gemini, OpenAI, Claude) or switch to On-Device Edge AI to unlock full chat.',
+          subtitle: 'Add an API key (Gemini, OpenAI, Claude) or switch to On-Device Edge AI to unlock full chat.',
           icon: Icons.vpn_key_rounded,
           actionLabel: 'Setup',
           actionType: ProactiveActionType.openRoute,
@@ -92,8 +92,7 @@ abstract final class ProactiveIntelligenceEngine {
         const ProactiveSuggestion(
           id: 'plan_your_day',
           title: 'Plan Your Day',
-          subtitle:
-              'Your Daily Planner is clear. Add today\'s top priorities or say "Add task ...".',
+          subtitle: 'Your Daily Planner is clear. Add today\'s top priorities or say "Add task ...".',
           icon: Icons.edit_calendar_rounded,
           actionLabel: 'Planner',
           actionType: ProactiveActionType.openRoute,
@@ -109,8 +108,7 @@ abstract final class ProactiveIntelligenceEngine {
         const ProactiveSuggestion(
           id: 'explore_help',
           title: 'Explore Voice Commands & Guides',
-          subtitle:
-              'Try Maps navigation, YouTube search, Smart Home scenes, or Offline OCR.',
+          subtitle: 'Try Maps navigation, YouTube search, Smart Home scenes, or Offline OCR.',
           icon: Icons.tips_and_updates_outlined,
           actionLabel: 'Guide',
           actionType: ProactiveActionType.openRoute,
@@ -120,10 +118,11 @@ abstract final class ProactiveIntelligenceEngine {
       );
     }
 
-    final filtered = suggestions
-        .where((s) => !dismissedIds.contains(s.id))
-        .toList(growable: false)
-      ..sort((a, b) => b.priority.compareTo(a.priority));
+    final filtered =
+        suggestions
+            .where((s) => !dismissedIds.contains(s.id))
+            .toList(growable: false)
+          ..sort((a, b) => b.priority.compareTo(a.priority));
     return filtered;
   }
 }

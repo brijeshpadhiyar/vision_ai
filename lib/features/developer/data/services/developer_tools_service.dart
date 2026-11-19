@@ -17,7 +17,10 @@ abstract final class DeveloperToolsService {
   static DevToolResult formatJson(String input) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) {
-      return const DevToolResult(success: false, output: 'Enter JSON to format.');
+      return const DevToolResult(
+        success: false,
+        output: 'Enter JSON to format.',
+      );
     }
     try {
       final decoded = jsonDecode(trimmed);
@@ -53,10 +56,7 @@ abstract final class DeveloperToolsService {
       final bytes = base64Decode(normalized);
       return DevToolResult(success: true, output: utf8.decode(bytes));
     } catch (e) {
-      return DevToolResult(
-        success: false,
-        output: 'Invalid Base64: $e',
-      );
+      return DevToolResult(success: false, output: 'Invalid Base64: $e');
     }
   }
 
@@ -84,10 +84,7 @@ abstract final class DeveloperToolsService {
         output: 'HEADER:\n$header\n\nPAYLOAD:\n$payload',
       );
     } catch (e) {
-      return DevToolResult(
-        success: false,
-        output: 'Unable to decode JWT: $e',
-      );
+      return DevToolResult(success: false, output: 'Unable to decode JWT: $e');
     }
   }
 
@@ -112,7 +109,9 @@ abstract final class DeveloperToolsService {
       final buffer = StringBuffer('${matches.length} match(es) found:\n');
       for (var i = 0; i < matches.length; i++) {
         final m = matches[i];
-        buffer.writeln('[${i + 1}] "${m.group(0)}" (index ${m.start}..${m.end})');
+        buffer.writeln(
+          '[${i + 1}] "${m.group(0)}" (index ${m.start}..${m.end})',
+        );
       }
       return DevToolResult(success: true, output: buffer.toString().trim());
     } on FormatException catch (e) {

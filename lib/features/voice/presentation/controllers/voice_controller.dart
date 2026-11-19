@@ -161,10 +161,7 @@ class VoiceController extends Notifier<VoiceSessionState> {
       case VoiceOverlayPromptEvent(:final prompt, :final hypotheses):
         if (prompt.trim().isNotEmpty) {
           unawaited(
-            _dispatchVoiceCommandToAi(
-              prompt.trim(),
-              hypotheses: hypotheses,
-            ),
+            _dispatchVoiceCommandToAi(prompt.trim(), hypotheses: hypotheses),
           );
         }
 
@@ -539,8 +536,7 @@ class VoiceController extends Notifier<VoiceSessionState> {
         hasMicPermission: false,
         isWakeWordArmed: false,
         phase: VoiceListeningPhase.error,
-        errorMessage:
-            'Microphone permission is required for "Hey VISION" wake-word standby.',
+        errorMessage: 'Microphone permission is required for "Hey VISION" wake-word standby.',
       );
       return;
     }
@@ -705,7 +701,10 @@ class VoiceController extends Notifier<VoiceSessionState> {
   Future<bool> pauseSpeaking() async {
     final paused = await ref.read(voiceRepositoryProvider).pauseSpeaking();
     if (paused) {
-      state = state.copyWith(isSpeaking: false, phase: VoiceListeningPhase.idle);
+      state = state.copyWith(
+        isSpeaking: false,
+        phase: VoiceListeningPhase.idle,
+      );
     }
     return paused;
   }

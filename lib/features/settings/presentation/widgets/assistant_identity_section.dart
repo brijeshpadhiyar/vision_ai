@@ -80,9 +80,8 @@ class AssistantIdentitySection extends StatelessWidget {
             children: [
               Text(
                 'Personality Preset',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: VisionColors.primaryText(brightness),
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: VisionColors.primaryText(brightness)),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -102,9 +101,8 @@ class AssistantIdentitySection extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 'Communication Style',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: VisionColors.primaryText(brightness),
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: VisionColors.primaryText(brightness)),
               ),
               const SizedBox(height: 8),
               Wrap(

@@ -92,10 +92,7 @@ abstract final class AIModelRegistry {
       modelId: 'gemini-nano',
       displayName: 'Gemini Nano (On-Device)',
       endpointUrl: 'on-device://android-aicore/gemini-nano',
-      capabilities: <AiCapability>{
-        AiCapability.text,
-        AiCapability.streaming,
-      },
+      capabilities: <AiCapability>{AiCapability.text, AiCapability.streaming},
       contextWindowTokens: 4096,
       maxOutputTokens: 1024,
       isDefault: true,

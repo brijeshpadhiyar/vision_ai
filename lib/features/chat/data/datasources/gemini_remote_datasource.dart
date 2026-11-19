@@ -294,7 +294,8 @@ class GeminiProvider implements AIProvider, AiProviderClient {
     return genai.GenerativeModel(
       model: normalized,
       apiKey: apiKey,
-      systemInstruction: systemInstruction != null && systemInstruction.isNotEmpty
+      systemInstruction:
+          systemInstruction != null && systemInstruction.isNotEmpty
           ? genai.Content.system(systemInstruction)
           : null,
     );

@@ -4,9 +4,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:vision_ai/app/router/app_router.dart';
 import 'package:vision_ai/app/theme/app_theme.dart';
 import 'package:vision_ai/core/constants/app_constants.dart';
+import 'package:vision_ai/core/theme/vision_motion.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 
-/// Root widget configuring themes, routing, and global providers for VISION AI.
+/// Root widget configuring Midnight Violet & Pearl Lavender themes, smooth
+/// [AnimatedTheme] transitions, routing, and global providers for VISION AI.
 class VisionApp extends ConsumerWidget {
   const VisionApp({super.key});
 
@@ -23,6 +25,8 @@ class VisionApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
+      themeAnimationDuration: VisionMotion.standard,
+      themeAnimationCurve: VisionMotion.standardCurve,
       routerConfig: router,
     );
   }

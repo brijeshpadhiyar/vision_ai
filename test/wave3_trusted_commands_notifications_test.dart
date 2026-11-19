@@ -8,17 +8,44 @@ import 'package:vision_ai/features/automation/domain/entities/trusted_command_po
 import 'package:vision_ai/features/automation/presentation/controllers/trusted_commands_controller.dart';
 
 void main() {
-  test('Wave 3 TrustedCommandPolicy classifies safe vs sensitive tiers accurately', () {
-    expect(TrustedCommandPolicy.isSensitive(DeviceActionType.setAlarm), isFalse);
-    expect(TrustedCommandPolicy.isSensitive(DeviceActionType.launchApp), isFalse);
-    expect(TrustedCommandPolicy.isSensitive(DeviceActionType.toggleFlashlight), isFalse);
+  test(
+    'Wave 3 TrustedCommandPolicy classifies safe vs sensitive tiers accurately',
+    () {
+      expect(
+        TrustedCommandPolicy.isSensitive(DeviceActionType.setAlarm),
+        isFalse,
+      );
+      expect(
+        TrustedCommandPolicy.isSensitive(DeviceActionType.launchApp),
+        isFalse,
+      );
+      expect(
+        TrustedCommandPolicy.isSensitive(DeviceActionType.toggleFlashlight),
+        isFalse,
+      );
 
-    expect(TrustedCommandPolicy.isSensitive(DeviceActionType.callPhone), isTrue);
-    expect(TrustedCommandPolicy.isSensitive(DeviceActionType.sendSms), isTrue);
-    expect(TrustedCommandPolicy.isSensitive(DeviceActionType.sendWhatsapp), isTrue);
-    expect(TrustedCommandPolicy.isSensitive(DeviceActionType.readNotifications), isTrue);
-    expect(TrustedCommandPolicy.isSensitive(DeviceActionType.openUrl), isTrue);
-  });
+      expect(
+        TrustedCommandPolicy.isSensitive(DeviceActionType.callPhone),
+        isTrue,
+      );
+      expect(
+        TrustedCommandPolicy.isSensitive(DeviceActionType.sendSms),
+        isTrue,
+      );
+      expect(
+        TrustedCommandPolicy.isSensitive(DeviceActionType.sendWhatsapp),
+        isTrue,
+      );
+      expect(
+        TrustedCommandPolicy.isSensitive(DeviceActionType.readNotifications),
+        isTrue,
+      );
+      expect(
+        TrustedCommandPolicy.isSensitive(DeviceActionType.openUrl),
+        isTrue,
+      );
+    },
+  );
 
   test('Wave 3 TrustedCommandsController grants, persists, and revokes trust & notification blocklist', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});

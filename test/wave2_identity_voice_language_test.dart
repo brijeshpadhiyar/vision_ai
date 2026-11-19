@@ -34,8 +34,9 @@ void main() {
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
     );
     addTearDown(reloaded.dispose);
-    final loadedIdentity =
-        reloaded.read(settingsControllerProvider).assistantIdentity;
+    final loadedIdentity = reloaded
+        .read(settingsControllerProvider)
+        .assistantIdentity;
 
     expect(loadedIdentity, custom);
     expect(loadedIdentity.effectiveGreeting, 'Welcome back, Brijesh');
@@ -47,7 +48,10 @@ void main() {
       assistantIdentity: loadedIdentity,
     );
     expect(req.systemInstruction, contains('Personality (Professional)'));
-    expect(req.systemInstruction, contains('Communication style (Direct & Brief)'));
+    expect(
+      req.systemInstruction,
+      contains('Communication style (Direct & Brief)'),
+    );
     expect(req.systemInstruction, contains('Always reply in IST timezone.'));
   });
 
@@ -75,11 +79,26 @@ void main() {
   });
 
   test('Wave 2 LanguageDetector detects English, Hindi, Gujarati, Hinglish, and Gujlish accurately', () {
-    expect(LanguageDetector.detect('Set an alarm for 7 AM'), VoiceLanguage.english);
-    expect(LanguageDetector.detect('नमस्ते, आज का मौसम कैसा है?'), VoiceLanguage.hindi);
-    expect(LanguageDetector.detect('નમસ્તે, તમે કેમ છો?'), VoiceLanguage.gujarati);
-    expect(LanguageDetector.detect('namaste mujhe weather batao'), VoiceLanguage.hindi);
-    expect(LanguageDetector.detect('tame kem cho mane time boljo'), VoiceLanguage.gujarati);
+    expect(
+      LanguageDetector.detect('Set an alarm for 7 AM'),
+      VoiceLanguage.english,
+    );
+    expect(
+      LanguageDetector.detect('नमस्ते, आज का मौसम कैसा है?'),
+      VoiceLanguage.hindi,
+    );
+    expect(
+      LanguageDetector.detect('નમસ્તે, તમે કેમ છો?'),
+      VoiceLanguage.gujarati,
+    );
+    expect(
+      LanguageDetector.detect('namaste mujhe weather batao'),
+      VoiceLanguage.hindi,
+    );
+    expect(
+      LanguageDetector.detect('tame kem cho mane time boljo'),
+      VoiceLanguage.gujarati,
+    );
 
     // TTS language switching automatically matches native script even if configured=english
     expect(

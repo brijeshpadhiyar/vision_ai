@@ -29,20 +29,13 @@ class DeviceSetupGuideSheet extends StatelessWidget {
 
   String _batteryInstructions() {
     return switch (_oemSkin) {
-      'ColorOS' || 'Realme UI' =>
-        'Settings → Apps → VISION → Battery usage → Enable "Allow background activity" & "Allow foreground activity".',
-      'OxygenOS' =>
-        'Settings → Apps → App management → VISION → Battery usage → Allow background activity.',
-      'One UI' =>
-        'Settings → Apps → VISION → Battery → Select "Unrestricted" and remove VISION from Sleeping / Deep sleeping apps.',
-      'HyperOS / MIUI' =>
-        'Settings → Apps → Manage apps → VISION → Battery saver → Select "No restrictions".',
-      'Funtouch OS' =>
-        'Settings → Apps → VISION → Battery → Select "Unrestricted" / Allow high background power consumption.',
-      'Nothing OS' =>
-        'Settings → Apps → VISION → App battery usage → Allow background usage (Unrestricted).',
-      _ =>
-        'Settings → Apps → VISION → App battery usage → Set to "Unrestricted" so background standby stays active.',
+      'ColorOS' || 'Realme UI' => 'Settings → Apps → VISION → Battery usage → Enable "Allow background activity" & "Allow foreground activity".',
+      'OxygenOS' => 'Settings → Apps → App management → VISION → Battery usage → Allow background activity.',
+      'One UI' => 'Settings → Apps → VISION → Battery → Select "Unrestricted" and remove VISION from Sleeping / Deep sleeping apps.',
+      'HyperOS / MIUI' => 'Settings → Apps → Manage apps → VISION → Battery saver → Select "No restrictions".',
+      'Funtouch OS' => 'Settings → Apps → VISION → Battery → Select "Unrestricted" / Allow high background power consumption.',
+      'Nothing OS' => 'Settings → Apps → VISION → App battery usage → Allow background usage (Unrestricted).',
+      _ => 'Settings → Apps → VISION → App battery usage → Set to "Unrestricted" so background standby stays active.',
     };
   }
 
@@ -52,12 +45,9 @@ class DeviceSetupGuideSheet extends StatelessWidget {
         'Enable "Allow auto-launch" in App Info, then open Recent Apps → tap ⋮ on VISION → Lock so $_oemSkin does not kill standby.',
       'HyperOS / MIUI' =>
         'Enable "Autostart" in App Info and lock VISION in Recent Apps so $_oemSkin keeps wake-word standby alive.',
-      'One UI' =>
-        'In Recent Apps, tap the VISION app icon → "Keep open" to prevent One UI memory management from stopping standby.',
-      'Funtouch OS' =>
-        'Enable "Autostart" in iManager / App Info and lock VISION in Recent Apps.',
-      _ =>
-        'Avoid force-stopping VISION from App Info, and lock it in Recent Apps if your device aggressively closes background apps.',
+      'One UI' => 'In Recent Apps, tap the VISION app icon → "Keep open" to prevent One UI memory management from stopping standby.',
+      'Funtouch OS' => 'Enable "Autostart" in iManager / App Info and lock VISION in Recent Apps.',
+      _ => 'Avoid force-stopping VISION from App Info, and lock it in Recent Apps if your device aggressively closes background apps.',
     };
   }
 
@@ -86,9 +76,8 @@ class DeviceSetupGuideSheet extends StatelessWidget {
             Text(
               'Tailored steps for your installed $_deviceName ($_oemSkin) so '
               '"Hey VISION", scheduled routines, and lock-screen activation stay reliable.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: VisionColors.secondaryText(brightness),
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: VisionColors.secondaryText(brightness)),
             ),
             const SizedBox(height: 14),
             _GuideStepTile(
@@ -176,9 +165,8 @@ class _GuideStepTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   description,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: VisionColors.secondaryText(brightness),
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: VisionColors.secondaryText(brightness)),
                 ),
               ],
             ),

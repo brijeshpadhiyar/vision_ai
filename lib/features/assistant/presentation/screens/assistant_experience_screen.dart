@@ -238,7 +238,8 @@ class _AssistantExperienceScreenState
       VisionOrbState.listening => VisionColors.success,
       VisionOrbState.thinking => VisionColors.accentSecondary,
       VisionOrbState.speaking => VisionColors.accentPrimary,
-      VisionOrbState.error => VisionColors.error,
+      VisionOrbState.error => VisionColors.semanticError(brightness),
+      VisionOrbState.offline => VisionColors.mutedText(brightness),
       VisionOrbState.idle => VisionColors.primaryAccent(brightness),
     };
 
@@ -366,7 +367,8 @@ class _AssistantExperienceScreenState
                                           voiceState.phase ==
                                           VoiceListeningPhase.endpointing,
                                       segmentCount: voiceState.segmentCount,
-                                      onFinishTap: voiceState.isListening &&
+                                      onFinishTap:
+                                          voiceState.isListening &&
                                               voiceState.liveTranscript
                                                   .trim()
                                                   .isNotEmpty

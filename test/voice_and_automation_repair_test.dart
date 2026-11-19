@@ -409,213 +409,204 @@ void main() {
     voiceRepo.dispose();
   });
 
-  test(
-    'Priority 1: Voice state machine maps phases, forwards configurable pause silence, and supports Done/Cancel',
-    () async {
-      final container = makeContainer();
-      addTearDown(container.dispose);
+  test('Priority 1: Voice state machine maps phases, forwards configurable pause silence, and supports Done/Cancel', () async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
 
-      // Update pause tolerance setting (clamped 2000..6500ms)
-      await container
-          .read(settingsControllerProvider.notifier)
-          .setVoiceEndpointSilenceMs(4500);
+    // Update pause tolerance setting (clamped 2000..6500ms)
+    await container
+        .read(settingsControllerProvider.notifier)
+        .setVoiceEndpointSilenceMs(4500);
+    expect(
+      container.read(settingsControllerProvider).voiceEndpointSilenceMs,
+      4500,
+    );
+
+    final voiceNotifier = container.read(voiceControllerProvider.notifier);
+    await voiceNotifier.startCommandListening();
+    expect(voiceRepo.lastEndpointSilenceMs, 4500);
+    expect(
+      container.read(voiceControllerProvider).phase,
+      VoiceListeningPhase.listeningCommand,
+    );
+
+    // Emit multi-segment partial + endpointing transitions
+    voiceRepo.controller.add(
+      const VoiceTranscriptEvent(
+        text: 'Hey VISION please call',
+        isFinal: false,
+        segmentCount: 1,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    var vs = container.read(voiceControllerProvider);
+    expect(vs.phase, VoiceListeningPhase.partialTranscription);
+    expect(vs.segmentCount, 1);
+
+    voiceRepo.controller.add(
+      const VoiceStateChangedEvent(
+        isListening: true,
+        isSpeaking: false,
+        phase: 'endpointing',
+        segmentCount: 1,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    vs = container.read(voiceControllerProvider);
+    expect(vs.phase, VoiceListeningPhase.endpointing);
+
+    // User continues speaking second segment after pause
+    voiceRepo.controller.add(
+      const VoiceTranscriptEvent(
+        text: 'Hey VISION please call Soel Kht',
+        isFinal: false,
+        segmentCount: 2,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(container.read(voiceControllerProvider).segmentCount, 2);
+
+    // Manual Done triggers finalizing + stopListening
+    await voiceNotifier.finishListening();
+    expect(voiceRepo.stopCalled, isTrue);
+    expect(
+      container.read(voiceControllerProvider).phase,
+      VoiceListeningPhase.finalizing,
+    );
+
+    // Cancel transitions cleanly without executing partial text
+    await voiceNotifier.startCommandListening();
+    voiceRepo.controller.add(
+      const VoiceTranscriptEvent(
+        text: 'turn flashlight on',
+        isFinal: false,
+        segmentCount: 1,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await voiceNotifier.cancelListening();
+    expect(voiceRepo.cancelCalled, isTrue);
+    expect(autoRepo.lastFlashlightState, isNull);
+  });
+
+  test('Priority 2 & 4: Pronunciation fixes, indic phrases, hypothesis recovery, clarification follow-up & false-positive guards', () {
+    expect(CommandNormalizer.normalize('Whats app').canonicalText, 'whatsapp');
+    final whatsAppOpen = IntentEngine.analyze('Open Whats app');
+    expect(whatsAppOpen.request?.type, DeviceActionType.launchApp);
+    expect(whatsAppOpen.request?.target.toLowerCase(), 'whatsapp');
+    expect(whatsAppOpen.originalTranscript, 'Open Whats app');
+
+    final waTypo = IntentEngine.analyze('watsapp Mom saying hello');
+    expect(waTypo.request?.type, DeviceActionType.sendWhatsapp);
+    expect(waTypo.request?.target.toLowerCase(), 'mom');
+    expect(waTypo.request?.message?.toLowerCase(), 'hello');
+
+    final calTypo = IntentEngine.analyze('cal Tisha');
+    expect(calTypo.request?.type, DeviceActionType.callPhone);
+    expect(calTypo.request?.target.toLowerCase(), 'tisha');
+
+    final hindiCall = IntentEngine.analyze('phone lagao Soel');
+    expect(hindiCall.request?.type, DeviceActionType.callPhone);
+    expect(hindiCall.request?.target.toLowerCase(), 'soel');
+
+    final gujAlarm = IntentEngine.analyze('alarm muk 7 vage');
+    expect(gujAlarm.request?.type, DeviceActionType.setAlarm);
+    expect(gujAlarm.request?.hour, 7);
+    expect(gujAlarm.request?.minute, 0);
+
+    final gujTomorrow = IntentEngine.analyze('kal savare 7 vage');
+    expect(gujTomorrow.request?.type, DeviceActionType.setAlarm);
+    expect(gujTomorrow.request?.hour, 7);
+    expect(gujTomorrow.request?.isTomorrow, isTrue);
+
+    // Multi-hypothesis ASR recovery without altering originalTranscript
+    final recovered = IntentEngine.analyzeWithHypotheses(const <String>[
+      'all tisha',
+      'call Tisha',
+    ]);
+    expect(recovered.request?.type, DeviceActionType.callPhone);
+    expect(recovered.request?.target.toLowerCase(), 'tisha');
+    expect(recovered.originalTranscript, 'all tisha');
+
+    // Pending clarification follow-up ("Set alarm" -> "7 AM")
+    final clarify = IntentEngine.analyze('Set alarm');
+    expect(clarify.needsClarification, isTrue);
+    final followUp = IntentEngine.analyze(
+      '7 AM',
+      context: ConversationIntelligenceContext(
+        pendingClarificationIntentId: clarify.intentId,
+        pendingClarificationPrompt: clarify.clarificationPrompt,
+      ),
+    );
+    expect(followUp.request?.type, DeviceActionType.setAlarm);
+    expect(followUp.request?.hour, 7);
+    expect(followUp.request?.minute, 0);
+
+    // Informational questions must go to AI (general_query), never trigger device actions
+    for (final query in const <String>[
+      'what is whatsapp',
+      'my phone is slow',
+      'Explain Flutter Riverpod',
+      'how long is a marathon',
+    ]) {
+      final qRes = IntentEngine.analyze(query);
       expect(
-        container.read(settingsControllerProvider).voiceEndpointSilenceMs,
-        4500,
+        qRes.shouldHandleLocally,
+        isFalse,
+        reason: 'Expected general_query for "$query", got ${qRes.intentId}',
       );
+    }
+  });
 
-      final voiceNotifier = container.read(voiceControllerProvider.notifier);
-      await voiceNotifier.startCommandListening();
-      expect(voiceRepo.lastEndpointSilenceMs, 4500);
-      expect(
-        container.read(voiceControllerProvider).phase,
-        VoiceListeningPhase.listeningCommand,
-      );
+  test('Priority 3 & 6: Phonetic cancel via "No", multi-step confirmation preserves followUpActions, and isTomorrow propagates', () async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    final auto = container.read(automationControllerProvider.notifier);
 
-      // Emit multi-segment partial + endpointing transitions
-      voiceRepo.controller.add(
-        const VoiceTranscriptEvent(
-          text: 'Hey VISION please call',
-          isFinal: false,
-          segmentCount: 1,
-        ),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      var vs = container.read(voiceControllerProvider);
-      expect(vs.phase, VoiceListeningPhase.partialTranscription);
-      expect(vs.segmentCount, 1);
+    // 1. Uncertain contact confirmation cancelled cleanly by natural "No"
+    final firstCall = await auto.tryHandleNaturalCommand('Call Shohil Jht');
+    expect(firstCall?.status, DeviceActionStatus.confirmationRequired);
+    expect(firstCall?.summary, 'Did you mean Soel Kht?');
 
-      voiceRepo.controller.add(
-        const VoiceStateChangedEvent(
-          isListening: true,
-          isSpeaking: false,
-          phase: 'endpointing',
-          segmentCount: 1,
-        ),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      vs = container.read(voiceControllerProvider);
-      expect(vs.phase, VoiceListeningPhase.endpointing);
+    final noIntent = IntentEngine.analyze(
+      'No',
+      context: ConversationIntelligenceContext(
+        pendingAction: container
+            .read(automationControllerProvider)
+            .pendingConfirmation,
+      ),
+    );
+    expect(noIntent.request?.type, DeviceActionType.cancelAction);
+    final cancelled = await auto.executeRequest(noIntent.request!);
+    expect(cancelled.success, isTrue);
+    expect(autoRepo.lastCalledNumber, isNull);
+    expect(
+      container.read(automationControllerProvider).pendingConfirmation,
+      isNull,
+    );
 
-      // User continues speaking second segment after pause
-      voiceRepo.controller.add(
-        const VoiceTranscriptEvent(
-          text: 'Hey VISION please call Soel Kht',
-          isFinal: false,
-          segmentCount: 2,
-        ),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(container.read(voiceControllerProvider).segmentCount, 2);
+    // 2. Multi-step command holds Step 1 for confirmation & executes Step 2 after confirm
+    await container
+        .read(settingsControllerProvider.notifier)
+        .setDirectPhoneCallsEnabled(enabled: true);
+    final multiStep = await auto.tryHandleNaturalCommand(
+      'Call Tisha Patel and then turn flashlight on',
+    );
+    expect(multiStep?.status, DeviceActionStatus.confirmationRequired);
+    expect(autoRepo.lastFlashlightState, isNull);
 
-      // Manual Done triggers finalizing + stopListening
-      await voiceNotifier.finishListening();
-      expect(voiceRepo.stopCalled, isTrue);
-      expect(
-        container.read(voiceControllerProvider).phase,
-        VoiceListeningPhase.finalizing,
-      );
+    final done = await auto.confirmPendingAction();
+    expect(done?.success, isTrue);
+    expect(autoRepo.lastCalledNumber, '+919825099999');
+    expect(autoRepo.lastFlashlightState, isTrue);
 
-      // Cancel transitions cleanly without executing partial text
-      await voiceNotifier.startCommandListening();
-      voiceRepo.controller.add(
-        const VoiceTranscriptEvent(
-          text: 'turn flashlight on',
-          isFinal: false,
-          segmentCount: 1,
-        ),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      await voiceNotifier.cancelListening();
-      expect(voiceRepo.cancelCalled, isTrue);
-      expect(autoRepo.lastFlashlightState, isNull);
-    },
-  );
-
-  test(
-    'Priority 2 & 4: Pronunciation fixes, indic phrases, hypothesis recovery, clarification follow-up & false-positive guards',
-    () {
-      expect(CommandNormalizer.normalize('Whats app').canonicalText, 'whatsapp');
-      final whatsAppOpen = IntentEngine.analyze('Open Whats app');
-      expect(whatsAppOpen.request?.type, DeviceActionType.launchApp);
-      expect(whatsAppOpen.request?.target.toLowerCase(), 'whatsapp');
-      expect(whatsAppOpen.originalTranscript, 'Open Whats app');
-
-      final waTypo = IntentEngine.analyze('watsapp Mom saying hello');
-      expect(waTypo.request?.type, DeviceActionType.sendWhatsapp);
-      expect(waTypo.request?.target.toLowerCase(), 'mom');
-      expect(waTypo.request?.message?.toLowerCase(), 'hello');
-
-      final calTypo = IntentEngine.analyze('cal Tisha');
-      expect(calTypo.request?.type, DeviceActionType.callPhone);
-      expect(calTypo.request?.target.toLowerCase(), 'tisha');
-
-      final hindiCall = IntentEngine.analyze('phone lagao Soel');
-      expect(hindiCall.request?.type, DeviceActionType.callPhone);
-      expect(hindiCall.request?.target.toLowerCase(), 'soel');
-
-      final gujAlarm = IntentEngine.analyze('alarm muk 7 vage');
-      expect(gujAlarm.request?.type, DeviceActionType.setAlarm);
-      expect(gujAlarm.request?.hour, 7);
-      expect(gujAlarm.request?.minute, 0);
-
-      final gujTomorrow = IntentEngine.analyze('kal savare 7 vage');
-      expect(gujTomorrow.request?.type, DeviceActionType.setAlarm);
-      expect(gujTomorrow.request?.hour, 7);
-      expect(gujTomorrow.request?.isTomorrow, isTrue);
-
-      // Multi-hypothesis ASR recovery without altering originalTranscript
-      final recovered = IntentEngine.analyzeWithHypotheses(const <String>[
-        'all tisha',
-        'call Tisha',
-      ]);
-      expect(recovered.request?.type, DeviceActionType.callPhone);
-      expect(recovered.request?.target.toLowerCase(), 'tisha');
-      expect(recovered.originalTranscript, 'all tisha');
-
-      // Pending clarification follow-up ("Set alarm" -> "7 AM")
-      final clarify = IntentEngine.analyze('Set alarm');
-      expect(clarify.needsClarification, isTrue);
-      final followUp = IntentEngine.analyze(
-        '7 AM',
-        context: ConversationIntelligenceContext(
-          pendingClarificationIntentId: clarify.intentId,
-          pendingClarificationPrompt: clarify.clarificationPrompt,
-        ),
-      );
-      expect(followUp.request?.type, DeviceActionType.setAlarm);
-      expect(followUp.request?.hour, 7);
-      expect(followUp.request?.minute, 0);
-
-      // Informational questions must go to AI (general_query), never trigger device actions
-      for (final query in const <String>[
-        'what is whatsapp',
-        'my phone is slow',
-        'Explain Flutter Riverpod',
-        'how long is a marathon',
-      ]) {
-        final qRes = IntentEngine.analyze(query);
-        expect(
-          qRes.shouldHandleLocally,
-          isFalse,
-          reason: 'Expected general_query for "$query", got ${qRes.intentId}',
-        );
-      }
-    },
-  );
-
-  test(
-    'Priority 3 & 6: Phonetic cancel via "No", multi-step confirmation preserves followUpActions, and isTomorrow propagates',
-    () async {
-      final container = makeContainer();
-      addTearDown(container.dispose);
-      final auto = container.read(automationControllerProvider.notifier);
-
-      // 1. Uncertain contact confirmation cancelled cleanly by natural "No"
-      final firstCall = await auto.tryHandleNaturalCommand('Call Shohil Jht');
-      expect(firstCall?.status, DeviceActionStatus.confirmationRequired);
-      expect(firstCall?.summary, 'Did you mean Soel Kht?');
-
-      final noIntent = IntentEngine.analyze(
-        'No',
-        context: ConversationIntelligenceContext(
-          pendingAction: container
-              .read(automationControllerProvider)
-              .pendingConfirmation,
-        ),
-      );
-      expect(noIntent.request?.type, DeviceActionType.cancelAction);
-      final cancelled = await auto.executeRequest(noIntent.request!);
-      expect(cancelled.success, isTrue);
-      expect(autoRepo.lastCalledNumber, isNull);
-      expect(
-        container.read(automationControllerProvider).pendingConfirmation,
-        isNull,
-      );
-
-      // 2. Multi-step command holds Step 1 for confirmation & executes Step 2 after confirm
-      await container
-          .read(settingsControllerProvider.notifier)
-          .setDirectPhoneCallsEnabled(enabled: true);
-      final multiStep = await auto.tryHandleNaturalCommand(
-        'Call Tisha Patel and then turn flashlight on',
-      );
-      expect(multiStep?.status, DeviceActionStatus.confirmationRequired);
-      expect(autoRepo.lastFlashlightState, isNull);
-
-      final done = await auto.confirmPendingAction();
-      expect(done?.success, isTrue);
-      expect(autoRepo.lastCalledNumber, '+919825099999');
-      expect(autoRepo.lastFlashlightState, isTrue);
-
-      // 3. "kal savare 7 vage" propagates isTomorrow = true to native repository
-      final alarmRes = await auto.tryHandleNaturalCommand('kal savare 7 vage');
-      expect(alarmRes?.success, isTrue);
-      expect(autoRepo.lastAlarmHour, 7);
-      expect(autoRepo.lastAlarmMinute, 0);
-      expect(autoRepo.lastAlarmTomorrow, isTrue);
-    },
-  );
+    // 3. "kal savare 7 vage" propagates isTomorrow = true to native repository
+    final alarmRes = await auto.tryHandleNaturalCommand('kal savare 7 vage');
+    expect(alarmRes?.success, isTrue);
+    expect(autoRepo.lastAlarmHour, 7);
+    expect(autoRepo.lastAlarmMinute, 0);
+    expect(autoRepo.lastAlarmTomorrow, isTrue);
+  });
 
   testWidgets(
     'UI: AutomationActionPromptCard hides duplicate Confirm button on alias suggestion & AssistantExperienceScreen shows endpointing controls',

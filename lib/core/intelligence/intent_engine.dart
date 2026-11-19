@@ -114,6 +114,7 @@ abstract final class IntentEngine {
       steps: primary.steps,
     );
   }
+
   /// Evaluates [rawInput] with optional [context], handling single or multi-step
   /// local commands without calling external AI providers.
   static IntentResolution analyze(

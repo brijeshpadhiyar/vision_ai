@@ -201,13 +201,15 @@ class DeviceStatusSnapshot {
   }
 
   /// Resolved OEM ROM skin label for the installed device.
-  String get resolvedOemSkin =>
-      oemSkin.trim().isNotEmpty
-          ? oemSkin.trim()
-          : detectOemSkin(manufacturer, isColorOsHint: isColorOs);
+  String get resolvedOemSkin => oemSkin.trim().isNotEmpty
+      ? oemSkin.trim()
+      : detectOemSkin(manufacturer, isColorOsHint: isColorOs);
 
   /// Classifies the OEM ROM skin from [manufacturer] name.
-  static String detectOemSkin(String manufacturer, {bool isColorOsHint = false}) {
+  static String detectOemSkin(
+    String manufacturer, {
+    bool isColorOsHint = false,
+  }) {
     final lower = manufacturer.trim().toLowerCase();
     if (lower.contains('oppo')) return 'ColorOS';
     if (lower.contains('realme')) return 'Realme UI';

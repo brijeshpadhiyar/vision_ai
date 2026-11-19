@@ -69,75 +69,84 @@ void main() {
     expect(pixel.deviceDisplayName, 'Google Pixel 9');
   });
 
-  testWidgets('v1.1 DeviceSetupGuideSheet adapts title and steps to detected Samsung One UI', (tester) async {
-    const samsung = DeviceStatusSnapshot(
-      manufacturer: 'Samsung',
-      model: 'Galaxy S25',
-      androidVersion: '15',
-      sdkInt: 35,
-      batteryLevel: 80,
-      isCharging: false,
-      networkType: 'Wi-Fi',
-      ringerMode: 'normal',
-      isColorOs: false,
-      oemSkin: 'One UI',
-    );
+  testWidgets(
+    'v1.1 DeviceSetupGuideSheet adapts title and steps to detected Samsung One UI',
+    (tester) async {
+      const samsung = DeviceStatusSnapshot(
+        manufacturer: 'Samsung',
+        model: 'Galaxy S25',
+        androidVersion: '15',
+        sdkInt: 35,
+        batteryLevel: 80,
+        isCharging: false,
+        networkType: 'Wi-Fi',
+        ringerMode: 'normal',
+        isColorOs: false,
+        oemSkin: 'One UI',
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DeviceSetupGuideSheet(
-            deviceStatus: samsung,
-            isDefaultAssistant: false,
-            onOpenBatterySettings: () {},
-            onRequestDefaultAssistant: () {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DeviceSetupGuideSheet(
+              deviceStatus: samsung,
+              isDefaultAssistant: false,
+              onOpenBatterySettings: () {},
+              onRequestDefaultAssistant: () {},
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('Samsung Galaxy S25 • One UI Guide'), findsOneWidget);
-    expect(find.textContaining('Sleeping / Deep sleeping apps'), findsOneWidget);
-  });
+      expect(find.text('Samsung Galaxy S25 • One UI Guide'), findsOneWidget);
+      expect(
+        find.textContaining('Sleeping / Deep sleeping apps'),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('v1.1 PrivacyDashboardScreen renders security posture and revokes trusted commands', (tester) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    );
-    addTearDown(container.dispose);
+  testWidgets(
+    'v1.1 PrivacyDashboardScreen renders security posture and revokes trusted commands',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
 
-    await container
-        .read(trustedCommandsControllerProvider.notifier)
-        .trustAction(DeviceActionType.sendWhatsapp);
+      await container
+          .read(trustedCommandsControllerProvider.notifier)
+          .trustAction(DeviceActionType.sendWhatsapp);
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: PrivacyDashboardScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: PrivacyDashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('PRIVACY & SECURITY'), findsOneWidget);
-    expect(find.text('SECURITY POSTURE'), findsOneWidget);
-    expect(find.text('Android Keystore Encryption'), findsOneWidget);
+      expect(find.text('PRIVACY & SECURITY'), findsOneWidget);
+      expect(find.text('SECURITY POSTURE'), findsOneWidget);
+      expect(find.text('Android Keystore Encryption'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.text('Revoke All Trusted Commands'),
-      300,
-    );
-    await tester.ensureVisible(find.text('Revoke All Trusted Commands'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Revoke All Trusted Commands'));
-    await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Revoke All Trusted Commands'),
+        300,
+      );
+      await tester.ensureVisible(find.text('Revoke All Trusted Commands'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Revoke All Trusted Commands'));
+      await tester.pumpAndSettle();
 
-    expect(
-      container
-          .read(trustedCommandsControllerProvider)
-          .trustedSensitiveActions,
-      isEmpty,
-    );
-  });
+      expect(
+        container
+            .read(trustedCommandsControllerProvider)
+            .trustedSensitiveActions,
+        isEmpty,
+      );
+    },
+  );
 }

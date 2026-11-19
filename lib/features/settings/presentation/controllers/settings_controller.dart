@@ -183,7 +183,8 @@ class SettingsController extends Notifier<AppSettings> {
           .read(settingsRepositoryProvider)
           .updateAssistantIdentity(identity),
       previous: previous,
-      logMessage: 'Assistant identity updated (${identity.personality.displayName})',
+      logMessage:
+          'Assistant identity updated (${identity.personality.displayName})',
       errorContext: 'assistant identity',
     );
   }
@@ -197,7 +198,8 @@ class SettingsController extends Notifier<AppSettings> {
     await _persist(
       () => ref.read(settingsRepositoryProvider).updateTtsVoiceName(trimmed),
       previous: previous,
-      logMessage: 'TTS voice updated to ${trimmed.isEmpty ? 'default' : trimmed}',
+      logMessage:
+          'TTS voice updated to ${trimmed.isEmpty ? 'default' : trimmed}',
       errorContext: 'TTS voice selection',
     );
   }

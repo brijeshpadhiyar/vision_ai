@@ -109,7 +109,12 @@ abstract final class IntentClassifier {
 
     // Complete pending clarification turn ("What time?" -> "7 AM", "Who?" -> "Soel Kht")
     if (context.pendingClarificationIntentId != null) {
-      final followUp = _resolvePendingClarification(cmd, canonical, lower, context);
+      final followUp = _resolvePendingClarification(
+        cmd,
+        canonical,
+        lower,
+        context,
+      );
       if (followUp != null) return followUp;
     }
 
@@ -368,7 +373,9 @@ abstract final class IntentClassifier {
         }
       case 'send_sms':
       case 'send_whatsapp':
-        final target = cmd.cleanedText.replaceAll(RegExp(r'[\.\?!,]+$'), '').trim();
+        final target = cmd.cleanedText
+            .replaceAll(RegExp(r'[\.\?!,]+$'), '')
+            .trim();
         if (target.isNotEmpty && cmd.tokens.length <= 4) {
           final isWa = context.pendingClarificationIntentId == 'send_whatsapp';
           return IntentClassification(
@@ -515,9 +522,8 @@ abstract final class IntentClassifier {
     String lower,
   ) {
     final text = '$canonical $lower';
-    final hasExplicitAlarmWord = RegExp(
-      r'\balarm\b|अलार्म|अलाउम|અલાર્મ|એલાર્મ',
-    ).hasMatch(text);
+    final hasExplicitAlarmWord = RegExp(r'\balarm\b|अलार्म|अलाउम|અલાર્મ|એલાર્મ')
+        .hasMatch(text);
     final hasWakePhrase = RegExp(
       r'\bwake\s+me(?:\s+up)?\b|\butha\s*(?:dena|do)\b|\buthadje\b',
       caseSensitive: false,
@@ -723,7 +729,10 @@ abstract final class IntentClassifier {
           r'\b(?:send|message|msg|text|saying|that|to|kar|bhej|bhejo|moklo|ne|ko)\b|करो|भेजो|કરો|મોકલો|ને|કો',
           caseSensitive: false,
         ).hasMatch(text) ||
-        RegExp(r'^(?:whatsapp|wa)\s+[a-zA-Z\u0900-\u097F\u0A80-\u0AFF]+', caseSensitive: false).hasMatch(canonical);
+        RegExp(
+          r'^(?:whatsapp|wa)\s+[a-zA-Z\u0900-\u097F\u0A80-\u0AFF]+',
+          caseSensitive: false,
+        ).hasMatch(canonical);
     if (!hasMessagingAction) {
       return null;
     }

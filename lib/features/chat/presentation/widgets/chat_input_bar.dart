@@ -83,7 +83,10 @@ class ChatInputBar extends StatelessWidget {
                   if (onExtractOcr != null)
                     TextButton.icon(
                       onPressed: isLoading ? null : onExtractOcr,
-                      icon: const Icon(Icons.document_scanner_outlined, size: 16),
+                      icon: const Icon(
+                        Icons.document_scanner_outlined,
+                        size: 16,
+                      ),
                       label: const Text('Read Text (OCR)'),
                     ),
                   if (onClearImage != null)
@@ -137,7 +140,9 @@ class ChatInputBar extends StatelessWidget {
                       ),
                       selected: webResearchEnabled,
                       visualDensity: VisualDensity.compact,
-                      onSelected: isLoading ? null : (_) => onToggleWebResearch!(),
+                      onSelected: isLoading
+                          ? null
+                          : (_) => onToggleWebResearch!(),
                     ),
                 ],
               ),
@@ -146,105 +151,108 @@ class ChatInputBar extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-          if (onVoiceTap != null) ...[
-            VisionGlassIconButton(
-              icon: isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
-              tooltip: isListening ? 'Stop voice input' : 'Speak prompt',
-              iconColor: isListening
-                  ? VisionColors.success
-                  : VisionColors.primaryAccent(brightness),
-              glowColor: VisionColors.success,
-              isActive: isListening,
-              onPressed: isLoading ? null : onVoiceTap,
-            ),
-            const SizedBox(width: 6),
-          ],
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: !isLoading,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSend(),
-              style: theme.textTheme.bodyLarge?.copyWith(fontSize: 15),
-              decoration: InputDecoration(
-                hintText: isListening
-                    ? 'Listening for voice prompt...'
-                    : 'Ask $providerName...',
-                hintStyle: theme.textTheme.bodyMedium,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 11,
+              if (onVoiceTap != null) ...[
+                VisionGlassIconButton(
+                  icon: isListening
+                      ? Icons.stop_rounded
+                      : Icons.mic_none_rounded,
+                  tooltip: isListening ? 'Stop voice input' : 'Speak prompt',
+                  iconColor: isListening
+                      ? VisionColors.success
+                      : VisionColors.primaryAccent(brightness),
+                  glowColor: VisionColors.success,
+                  isActive: isListening,
+                  onPressed: isLoading ? null : onVoiceTap,
+                ),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: !isLoading,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => onSend(),
+                  style: theme.textTheme.bodyLarge?.copyWith(fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: isListening
+                        ? 'Listening for voice prompt...'
+                        : 'Ask $providerName...',
+                    hintStyle: theme.textTheme.bodyMedium,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 11,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Semantics(
-            button: true,
-            label: isLoading
-                ? 'Stop AI response generation'
-                : 'Send message to VISION',
-            child: Tooltip(
-              message: isLoading ? 'Stop generation' : 'Send',
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: isLoading ? onCancel : onSend,
-                  customBorder: const CircleBorder(),
-                  child: AnimatedContainer(
-                    duration: VisionAnimations.resolveDuration(
-                      context,
-                      VisionAnimations.micro,
-                    ),
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isLoading
-                            ? [VisionColors.warning, VisionColors.error]
-                            : [
-                                VisionColors.accentPrimary,
-                                VisionColors.accentSecondary,
-                              ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              (isLoading
-                                      ? VisionColors.error
-                                      : VisionColors.accentPrimary)
-                                  .withValues(alpha: 0.35),
-                          blurRadius: 12,
+              const SizedBox(width: 6),
+              Semantics(
+                button: true,
+                label: isLoading
+                    ? 'Stop AI response generation'
+                    : 'Send message to VISION',
+                child: Tooltip(
+                  message: isLoading ? 'Stop generation' : 'Send',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: isLoading ? onCancel : onSend,
+                      customBorder: const CircleBorder(),
+                      child: AnimatedContainer(
+                        duration: VisionAnimations.resolveDuration(
+                          context,
+                          VisionAnimations.micro,
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Icon(
-                        isLoading
-                            ? Icons.stop_rounded
-                            : Icons.arrow_upward_rounded,
-                        size: 22,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? VisionColors.backgroundPrimary
-                            : Colors.white,
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: isLoading
+                                ? [VisionColors.warning, VisionColors.error]
+                                : [
+                                    VisionColors.accentPrimary,
+                                    VisionColors.accentSecondary,
+                                  ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  (isLoading
+                                          ? VisionColors.error
+                                          : VisionColors.accentPrimary)
+                                      .withValues(alpha: 0.35),
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Icon(
+                            isLoading
+                                ? Icons.stop_rounded
+                                : Icons.arrow_upward_rounded,
+                            size: 22,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? VisionColors.backgroundPrimary
+                                : Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
         ],
       ),
     );

@@ -63,9 +63,7 @@ class ModelUsageEntry {
 /// Aggregated local AI usage state across providers and models.
 @immutable
 class UsageStatsState {
-  const UsageStatsState({
-    this.entries = const <String, ModelUsageEntry>{},
-  });
+  const UsageStatsState({this.entries = const <String, ModelUsageEntry>{}});
 
   final Map<String, ModelUsageEntry> entries;
 
@@ -81,10 +79,11 @@ class UsageStatsState {
   int get totalTokens => totalInputTokens + totalOutputTokens;
 
   List<ModelUsageEntry> entriesForProvider(String providerId) {
-    final matching = entries.values
-        .where((entry) => entry.providerId == providerId)
-        .toList(growable: false)
-      ..sort((a, b) => b.lastUsedAt.compareTo(a.lastUsedAt));
+    final matching =
+        entries.values
+            .where((entry) => entry.providerId == providerId)
+            .toList(growable: false)
+          ..sort((a, b) => b.lastUsedAt.compareTo(a.lastUsedAt));
     return matching;
   }
 

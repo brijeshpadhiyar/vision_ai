@@ -117,18 +117,21 @@ class _AlwaysOnlineService extends NetworkStatusService {
 }
 
 void main() {
-  test('Wave 1 defaults: fallbackEnabled=false & saveConversationHistory=false', () async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    );
-    addTearDown(container.dispose);
+  test(
+    'Wave 1 defaults: fallbackEnabled=false & saveConversationHistory=false',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
 
-    final settings = container.read(settingsControllerProvider);
-    expect(settings.fallbackEnabled, isFalse);
-    expect(settings.saveConversationHistory, isFalse);
-  });
+      final settings = container.read(settingsControllerProvider);
+      expect(settings.fallbackEnabled, isFalse);
+      expect(settings.saveConversationHistory, isFalse);
+    },
+  );
 
   test('Wave 1 AIRouter stays strictly manual when fallbackEnabled=false and records usage', () async {
     final recorded = <(AiProviderType, String, AIUsage?)>[];

@@ -780,8 +780,7 @@ class AutomationController extends Notifier<AutomationState> {
         success: false,
         status: DeviceActionStatus.permissionRequired,
         actionType: DeviceActionType.sendWhatsapp,
-        summary:
-            'Contacts permission is required to look up a recipient for WhatsApp.',
+        summary: 'Contacts permission is required to look up a recipient for WhatsApp.',
         requiresPermission: true,
         missingPermission: AutomationPermission.readContacts,
       );
@@ -1072,7 +1071,8 @@ class AutomationController extends Notifier<AutomationState> {
         _ => 'Call ${contact.name} (${contact.phoneNumber})',
       },
       requiresConfirmation: false,
-      followUpActions: pending?.followUpActions ?? const <DeviceActionRequest>[],
+      followUpActions:
+          pending?.followUpActions ?? const <DeviceActionRequest>[],
     );
     state = state.copyWith(
       clearPending: true,

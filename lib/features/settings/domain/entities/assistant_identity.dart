@@ -11,17 +11,20 @@ enum AssistantPersonality {
   professional(
     id: 'professional',
     displayName: 'Professional',
-    promptGuidance: 'Use a polished, objective, executive tone with crisp precision.',
+    promptGuidance:
+        'Use a polished, objective, executive tone with crisp precision.',
   ),
   friendly(
     id: 'friendly',
     displayName: 'Friendly',
-    promptGuidance: 'Use a warm, approachable, conversational tone while staying helpful.',
+    promptGuidance:
+        'Use a warm, approachable, conversational tone while staying helpful.',
   ),
   concise(
     id: 'concise',
     displayName: 'Concise',
-    promptGuidance: 'Be ultra-brief and straight to the point with minimal filler.',
+    promptGuidance:
+        'Be ultra-brief and straight to the point with minimal filler.',
   );
 
   const AssistantPersonality({
@@ -47,7 +50,8 @@ enum CommunicationStyle {
   conversational(
     id: 'conversational',
     displayName: 'Conversational',
-    promptGuidance: 'Prefer natural spoken phrasing suitable for voice-first playback.',
+    promptGuidance:
+        'Prefer natural spoken phrasing suitable for voice-first playback.',
   ),
   direct(
     id: 'direct',
@@ -57,7 +61,8 @@ enum CommunicationStyle {
   detailed(
     id: 'detailed',
     displayName: 'Detailed & Structured',
-    promptGuidance: 'Provide well-structured explanations with key steps or bullet points.',
+    promptGuidance:
+        'Provide well-structured explanations with key steps or bullet points.',
   );
 
   const CommunicationStyle({
@@ -103,11 +108,17 @@ class AssistantIdentity {
   String buildPromptBlock() {
     final buffer = StringBuffer()
       ..writeln('ASSISTANT IDENTITY & STYLE:')
-      ..writeln('- Personality (${personality.displayName}): ${personality.promptGuidance}')
-      ..writeln('- Communication style (${communicationStyle.displayName}): ${communicationStyle.promptGuidance}');
+      ..writeln(
+        '- Personality (${personality.displayName}): ${personality.promptGuidance}',
+      )
+      ..writeln(
+        '- Communication style (${communicationStyle.displayName}): ${communicationStyle.promptGuidance}',
+      );
     final trimmedInstructions = customInstructions.trim();
     if (trimmedInstructions.isNotEmpty) {
-      buffer.writeln('- User custom behaviour instructions: $trimmedInstructions');
+      buffer.writeln(
+        '- User custom behaviour instructions: $trimmedInstructions',
+      );
     }
     return buffer.toString().trim();
   }

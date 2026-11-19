@@ -47,36 +47,31 @@ class _DeveloperAssistantScreenState
       title: 'Debug Error / Stack Trace',
       subtitle: 'Diagnose root cause & propose a minimal fix',
       icon: Icons.bug_report_outlined,
-      prefix:
-          'Act as a senior software engineer. Diagnose the root cause of this error and give a minimal, production-safe fix:\n\n',
+      prefix: 'Act as a senior software engineer. Diagnose the root cause of this error and give a minimal, production-safe fix:\n\n',
     ),
     _DevPromptTemplate(
       title: 'Code Review & Refactor',
       subtitle: 'Spot bugs, edge cases, and performance bottlenecks',
       icon: Icons.rate_review_outlined,
-      prefix:
-          'Review this code for bugs, security issues, and performance improvements. Keep feedback concise and actionable:\n\n',
+      prefix: 'Review this code for bugs, security issues, and performance improvements. Keep feedback concise and actionable:\n\n',
     ),
     _DevPromptTemplate(
       title: 'Flutter / Dart Helper',
       subtitle: 'Widgets, Riverpod state, GoRouter, or performance',
       icon: Icons.flutter_dash_outlined,
-      prefix:
-          'Write clean, null-safe Flutter/Dart code following Material 3 & Riverpod best practices for:\n\n',
+      prefix: 'Write clean, null-safe Flutter/Dart code following Material 3 & Riverpod best practices for:\n\n',
     ),
     _DevPromptTemplate(
       title: 'Kotlin / Android Helper',
       subtitle: 'Intents, Services, Permissions, MethodChannels',
       icon: Icons.android_outlined,
-      prefix:
-          'Write modern, safe Kotlin Android code (API 26–35 compatible) for:\n\n',
+      prefix: 'Write modern, safe Kotlin Android code (API 26–35 compatible) for:\n\n',
     ),
     _DevPromptTemplate(
       title: 'Generate Unit Tests',
       subtitle: 'Cover happy paths, edge cases, and failure states',
       icon: Icons.verified_outlined,
-      prefix:
-          'Write comprehensive unit tests covering normal cases, boundary values, and error handling for:\n\n',
+      prefix: 'Write comprehensive unit tests covering normal cases, boundary values, and error handling for:\n\n',
     ),
   ];
 
@@ -154,11 +149,7 @@ class _DeveloperAssistantScreenState
     );
   }
 
-  Widget _buildPromptsTab(
-    BuildContext context,
-    ThemeData theme,
-    Color accent,
-  ) {
+  Widget _buildPromptsTab(BuildContext context, ThemeData theme, Color accent) {
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 100),
       itemCount: _templates.length,
@@ -329,7 +320,10 @@ class _DeveloperAssistantScreenState
                 const SizedBox(height: 6),
                 SelectableText(
                   _toolResult!.output,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12.5,
+                  ),
                 ),
               ],
             ),
@@ -365,7 +359,10 @@ class _DeveloperAssistantScreenState
               children: [
                 Icon(Icons.code_rounded, size: 34, color: accent),
                 const SizedBox(height: 8),
-                Text('No saved snippets yet', style: theme.textTheme.titleSmall),
+                Text(
+                  'No saved snippets yet',
+                  style: theme.textTheme.titleSmall,
+                ),
                 const SizedBox(height: 4),
                 Text(
                   'Store frequently used Dart, Kotlin, SQL, or shell commands locally for one-tap copy.',
@@ -401,7 +398,9 @@ class _DeveloperAssistantScreenState
                           icon: const Icon(Icons.copy_rounded, size: 18),
                           tooltip: 'Copy Code',
                           onPressed: () {
-                            Clipboard.setData(ClipboardData(text: snippet.code));
+                            Clipboard.setData(
+                              ClipboardData(text: snippet.code),
+                            );
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Copied "${snippet.title}".'),
@@ -410,10 +409,15 @@ class _DeveloperAssistantScreenState
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                          ),
                           tooltip: 'Delete Snippet',
                           onPressed: () => ref
-                              .read(developerSnippetsControllerProvider.notifier)
+                              .read(
+                                developerSnippetsControllerProvider.notifier,
+                              )
                               .deleteSnippet(snippet.id),
                         ),
                       ],

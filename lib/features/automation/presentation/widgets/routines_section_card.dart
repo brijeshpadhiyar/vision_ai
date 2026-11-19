@@ -189,18 +189,16 @@ class RoutinesSectionCard extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(
             'Chain multi-step voice commands into reusable routines with optional daily schedules.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: VisionColors.secondaryText(brightness),
-            ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: VisionColors.secondaryText(brightness)),
           ),
           if (routines.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Text(
                 'No routines yet. Tap Add to create your first routine.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: VisionColors.secondaryText(brightness),
-                ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: VisionColors.secondaryText(brightness)),
               ),
             )
           else
@@ -225,9 +223,9 @@ class RoutinesSectionCard extends ConsumerWidget {
                             .read(automationControllerProvider.notifier)
                             .executeRoutine(routine);
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(res.summary)),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(res.summary)));
                         }
                       },
                     ),

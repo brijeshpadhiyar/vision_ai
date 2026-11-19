@@ -50,16 +50,17 @@ class RoutinesController extends Notifier<List<AutomationRoutine>> {
 
   /// Deletes a routine by [routineId] and cancels any scheduled Android alarm.
   Future<void> deleteRoutine(String routineId) async {
-    final next = state
-        .where((r) => r.id != routineId)
-        .toList(growable: false);
+    final next = state.where((r) => r.id != routineId).toList(growable: false);
     state = List<AutomationRoutine>.unmodifiable(next);
     await _persist(next);
     await _cancelNativeSchedule(routineId);
   }
 
   /// Toggles whether a routine is marked trusted.
-  Future<void> setRoutineTrusted(String routineId, {required bool trusted}) async {
+  Future<void> setRoutineTrusted(
+    String routineId, {
+    required bool trusted,
+  }) async {
     final idx = state.indexWhere((r) => r.id == routineId);
     if (idx == -1) return;
     final updated = state[idx].copyWith(trusted: trusted);
@@ -91,10 +92,9 @@ class RoutinesController extends Notifier<List<AutomationRoutine>> {
 
   Future<void> _cancelNativeSchedule(String routineId) async {
     try {
-      await _channel.invokeMethod<bool>(
-        'cancelRoutineAlarm',
-        <String, Object>{'routineId': routineId},
-      );
+      await _channel.invokeMethod<bool>('cancelRoutineAlarm', <String, Object>{
+        'routineId': routineId,
+      });
     } on MissingPluginException {
       // Ignore on non-Android test hosts.
     } on PlatformException {

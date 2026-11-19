@@ -7,7 +7,7 @@ import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_colors.dart';
 
 /// Operational visual states of the animated [VisionAiOrb].
-enum VisionOrbState { idle, listening, thinking, speaking, error }
+enum VisionOrbState { idle, listening, thinking, speaking, error, offline }
 
 /// Premium multi-state animated AI orb powered by [CustomPainter] and isolated
 /// inside a [RepaintBoundary] for sustained 60 FPS performance on Android.
@@ -84,6 +84,7 @@ class _VisionAiOrbState extends State<VisionAiOrb>
         VisionOrbState.thinking => const Duration(milliseconds: 1900),
         VisionOrbState.speaking => const Duration(milliseconds: 2400),
         VisionOrbState.error => const Duration(milliseconds: 4200),
+        VisionOrbState.offline => const Duration(milliseconds: 9000),
       };
       if (!_orbitController.isAnimating) {
         _orbitController.repeat();
@@ -123,6 +124,7 @@ class _VisionAiOrbState extends State<VisionAiOrb>
       VisionOrbState.thinking => 'Thinking',
       VisionOrbState.speaking => 'Speaking',
       VisionOrbState.error => 'Attention needed',
+      VisionOrbState.offline => 'Offline',
     };
 
     final orb = RepaintBoundary(
@@ -197,36 +199,41 @@ class _VisionOrbPainter extends CustomPainter {
     final minDim = math.min(size.width, size.height);
     final isDark = brightness == Brightness.dark;
 
-    // Palette per state
+    // Midnight Violet + Pearl Lavender state palettes
     final (
       Color primary,
       Color secondary,
       Color highlight,
     ) = switch (orbState) {
       VisionOrbState.idle => (
-        VisionColors.accentPrimary,
-        VisionColors.accentSecondary,
+        VisionColors.primaryAccent(brightness),
+        VisionColors.tertiaryAccent(brightness),
         VisionColors.accentIce,
       ),
       VisionOrbState.listening => (
-        VisionColors.success,
-        VisionColors.accentPrimary,
-        const Color(0xFFA7FFE4),
+        VisionColors.secondaryAccent(brightness),
+        VisionColors.primaryAccent(brightness),
+        VisionColors.darkSecondary,
       ),
       VisionOrbState.thinking => (
-        VisionColors.accentSecondary,
-        const Color(0xFF7B61FF),
-        VisionColors.accentPrimary,
+        VisionColors.primaryAccent(brightness),
+        VisionColors.tertiaryAccent(brightness),
+        VisionColors.secondaryAccent(brightness),
       ),
       VisionOrbState.speaking => (
-        VisionColors.accentPrimary,
-        const Color(0xFF39A2FF),
-        const Color(0xFFD6FCFF),
+        VisionColors.primaryAccent(brightness),
+        VisionColors.secondaryAccent(brightness),
+        VisionColors.accentIce,
       ),
       VisionOrbState.error => (
-        VisionColors.error,
-        VisionColors.warning,
-        const Color(0xFFFFC1C8),
+        VisionColors.semanticError(brightness),
+        VisionColors.semanticWarning(brightness),
+        VisionColors.darkTertiary,
+      ),
+      VisionOrbState.offline => (
+        VisionColors.mutedText(brightness),
+        VisionColors.borderColor(brightness),
+        VisionColors.secondaryText(brightness),
       ),
     };
 
@@ -246,7 +253,7 @@ class _VisionOrbPainter extends CustomPainter {
         0.04 + (math.sin(wave * math.pi * 2).abs() * 0.08) + audioLevel * 0.12,
       VisionOrbState.thinking => 0.03 * math.sin(wave * math.pi * 2),
       VisionOrbState.error => 0.02 * math.sin(wave * math.pi * 4),
-      VisionOrbState.idle => 0.0,
+      VisionOrbState.idle || VisionOrbState.offline => 0.0,
     };
 
     final coreRadius = baseRadius * (0.94 + breath * 0.07 + audioBoost);

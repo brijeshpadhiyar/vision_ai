@@ -1,11 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 /// Action kind triggered when a user taps a Proactive Intelligence suggestion card.
-enum ProactiveActionType {
-  speakBriefing,
-  openRoute,
-  openBatterySettings,
-}
+enum ProactiveActionType { speakBriefing, openRoute, openBatterySettings }
 
 /// A contextual, locally generated smart suggestion displayed on the Home screen.
 @immutable

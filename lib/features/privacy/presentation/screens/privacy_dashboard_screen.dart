@@ -387,7 +387,8 @@ class _PrivacyDashboardScreenState
           SettingsSectionCard(
             title: 'Local Data & Footprint',
             icon: Icons.storage_rounded,
-            subtitle: 'Inspect and clear locally stored session & activity data',
+            subtitle:
+                'Inspect and clear locally stored session & activity data',
             children: [
               SettingsTile(
                 icon: Icons.chat_bubble_outline_rounded,
@@ -413,8 +414,7 @@ class _PrivacyDashboardScreenState
                 icon: Icons.delete_forever_outlined,
                 iconColor: VisionColors.error,
                 title: 'Clear All Local Activity Data',
-                subtitle:
-                    'Clears chat transcript, execution history & usage counters (keeps API keys & routines)',
+                subtitle: 'Clears chat transcript, execution history & usage counters (keeps API keys & routines)',
                 onTap: _confirmClearAllLocalActivity,
               ),
             ],

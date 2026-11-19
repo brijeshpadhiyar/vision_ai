@@ -167,9 +167,8 @@ class _DailyPlannerScreenState extends ConsumerState<DailyPlannerScreen> {
         );
     await ref.read(voiceControllerProvider.notifier).speakReply(briefing);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(briefing)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(briefing)));
     }
   }
 
@@ -308,10 +307,7 @@ class _DailyPlannerScreenState extends ConsumerState<DailyPlannerScreen> {
           else
             for (final task in visibleTasks) ...[
               VisionGlassCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: ListTile(
                   leading: Checkbox(
                     value: task.completed,

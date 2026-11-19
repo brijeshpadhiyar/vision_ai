@@ -34,7 +34,8 @@ abstract final class StorageKeys {
   static const String selectedVoiceLanguage = 'vision_pref_voice_language';
 
   /// Keys for Assistant Identity customization (Module 01).
-  static const String assistantPersonality = 'vision_pref_assistant_personality';
+  static const String assistantPersonality =
+      'vision_pref_assistant_personality';
   static const String assistantCommunicationStyle =
       'vision_pref_assistant_style';
   static const String assistantCustomGreeting =

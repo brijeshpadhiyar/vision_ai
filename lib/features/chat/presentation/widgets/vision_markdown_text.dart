@@ -345,8 +345,8 @@ class _GlassCodeBlock extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: VisionRadii.mdBorder,
         color: isDark
-            ? const Color(0xFF03060E).withValues(alpha: 0.85)
-            : const Color(0xFF0D172A).withValues(alpha: 0.94),
+            ? VisionColors.darkSecondaryBackground
+            : VisionColors.darkSurface,
         border: Border.all(
           color: VisionColors.glassBorder(Brightness.dark, opacity: 0.18),
         ),
@@ -437,7 +437,7 @@ class _GlassCodeBlock extends StatelessWidget {
                 fontFamily: 'monospace',
                 fontSize: 13,
                 height: 1.45,
-                color: Color(0xFFE6F1FF),
+                color: VisionColors.darkTextPrimary,
               ),
             ),
           ),

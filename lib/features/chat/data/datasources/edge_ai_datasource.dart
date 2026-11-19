@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_edge_ai/engine.dart'
-    show Message, RuntimeConfig;
+import 'package:flutter_edge_ai/engine.dart' show Message, RuntimeConfig;
 import 'package:flutter_edge_ai/flutter_edge_ai.dart' show FlutterEdgeAi;
 import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart'
     show BuiltInAi, BuiltInAiAvailability, BuiltInAiEngine, BuiltInAiModels;
@@ -90,7 +89,8 @@ class EdgeAiProvider implements AIProvider, AiProviderClient {
       );
     }
 
-    final spec = BuiltInAiModels.forCurrentPlatform ?? BuiltInAiModels.geminiNano;
+    final spec =
+        BuiltInAiModels.forCurrentPlatform ?? BuiltInAiModels.geminiNano;
     final model = await const BuiltInAiEngine().createModel(
       spec,
       const RuntimeConfig(modelPath: 'gemini-nano', maxTokens: 1024),
@@ -146,7 +146,8 @@ class EdgeAiProvider implements AIProvider, AiProviderClient {
       );
     }
 
-    final spec = BuiltInAiModels.forCurrentPlatform ?? BuiltInAiModels.geminiNano;
+    final spec =
+        BuiltInAiModels.forCurrentPlatform ?? BuiltInAiModels.geminiNano;
     final model = await const BuiltInAiEngine().createModel(
       spec,
       const RuntimeConfig(modelPath: 'gemini-nano', maxTokens: 1024),

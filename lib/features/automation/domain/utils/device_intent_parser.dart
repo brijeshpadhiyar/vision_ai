@@ -32,10 +32,10 @@ abstract final class DeviceIntentParser {
     if (alternativeTranscripts.isEmpty) {
       return IntentEngine.analyze(input, context: context);
     }
-    return IntentEngine.analyzeWithHypotheses(
-      <String>[input, ...alternativeTranscripts],
-      context: context,
-    );
+    return IntentEngine.analyzeWithHypotheses(<String>[
+      input,
+      ...alternativeTranscripts,
+    ], context: context);
   }
 
   /// Attempts to parse a direct local device command without calling a remote LLM.

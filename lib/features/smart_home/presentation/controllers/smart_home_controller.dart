@@ -118,7 +118,9 @@ class SmartHomeController extends Notifier<SmartHomeState> {
     try {
       final secure = ref.read(flutterSecureStorageProvider);
       final token = await secure.read(key: StorageKeys.smartHomeHaToken);
-      state = state.copyWith(hasHaToken: token != null && token.trim().isNotEmpty);
+      state = state.copyWith(
+        hasHaToken: token != null && token.trim().isNotEmpty,
+      );
     } catch (_) {
       // Ignore secure storage unavailable in unit tests.
     }
@@ -151,9 +153,9 @@ class SmartHomeController extends Notifier<SmartHomeState> {
 
   Future<void> clearHomeAssistantToken() async {
     try {
-      await ref.read(flutterSecureStorageProvider).delete(
-        key: StorageKeys.smartHomeHaToken,
-      );
+      await ref
+          .read(flutterSecureStorageProvider)
+          .delete(key: StorageKeys.smartHomeHaToken);
     } catch (_) {}
     state = state.copyWith(
       hasHaToken: false,
@@ -191,7 +193,9 @@ class SmartHomeController extends Notifier<SmartHomeState> {
   }
 
   Future<void> deleteDevice(String id) async {
-    final updated = state.devices.where((d) => d.id != id).toList(growable: false);
+    final updated = state.devices
+        .where((d) => d.id != id)
+        .toList(growable: false);
     await _persistDevices(updated);
     state = state.copyWith(devices: updated, statusMessage: 'Device removed.');
   }
@@ -227,9 +231,9 @@ class SmartHomeController extends Notifier<SmartHomeState> {
           return msg;
         }
         final token =
-            await ref.read(flutterSecureStorageProvider).read(
-              key: StorageKeys.smartHomeHaToken,
-            ) ??
+            await ref
+                .read(flutterSecureStorageProvider)
+                .read(key: StorageKeys.smartHomeHaToken) ??
             '';
         if (token.trim().isEmpty) {
           const msg =
@@ -239,11 +243,15 @@ class SmartHomeController extends Notifier<SmartHomeState> {
         }
 
         final entity = device.entityId.trim();
-        final domain = entity.contains('.') ? entity.split('.').first : 'homeassistant';
+        final domain = entity.contains('.')
+            ? entity.split('.').first
+            : 'homeassistant';
         final service = domain == 'scene'
             ? 'turn_on'
             : (turnOn ? 'turn_on' : 'turn_off');
-        final uri = Uri.parse('${state.haBaseUrl}/api/services/$domain/$service');
+        final uri = Uri.parse(
+          '${state.haBaseUrl}/api/services/$domain/$service',
+        );
 
         final response = await client
             .post(
@@ -266,8 +274,8 @@ class SmartHomeController extends Notifier<SmartHomeState> {
         final targetUrl = turnOn
             ? device.onWebhookUrl
             : (device.offWebhookUrl.isNotEmpty
-                ? device.offWebhookUrl
-                : device.onWebhookUrl);
+                  ? device.offWebhookUrl
+                  : device.onWebhookUrl);
         if (targetUrl.isEmpty) {
           final msg = 'No webhook URL configured for ${device.name}.';
           state = state.copyWith(isBusy: false, statusMessage: msg);
@@ -289,7 +297,11 @@ class SmartHomeController extends Notifier<SmartHomeState> {
           .toList(growable: false);
       await _persistDevices(updated);
       final msg = 'Turned ${turnOn ? 'ON' : 'OFF'} ${device.name}.';
-      state = state.copyWith(devices: updated, isBusy: false, statusMessage: msg);
+      state = state.copyWith(
+        devices: updated,
+        isBusy: false,
+        statusMessage: msg,
+      );
       return msg;
     } catch (error) {
       final msg = 'Smart Home request failed for ${device.name}: $error';

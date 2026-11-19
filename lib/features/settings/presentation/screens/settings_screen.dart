@@ -897,7 +897,7 @@ class _AppearanceSection extends StatelessWidget {
     return SettingsSectionCard(
       title: 'Appearance',
       icon: Icons.palette_outlined,
-      subtitle: 'Liquid Glass theme mode and tactile feedback',
+      subtitle: 'Midnight Violet & Pearl Lavender themes and tactile feedback',
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
@@ -910,24 +910,46 @@ class _AppearanceSection extends StatelessWidget {
                     ?.copyWith(fontSize: 15),
               ),
               const SizedBox(height: 12),
-              VisionGlassTabBar<ThemeMode>(
-                selectedValue: settings.themeMode,
-                onSelected: onThemeSelected,
-                items: const [
-                  (
-                    value: ThemeMode.dark,
-                    label: 'Dark',
-                    icon: Icons.dark_mode_outlined,
+              Row(
+                children: [
+                  Expanded(
+                    child: _ThemePreviewOptionCard(
+                      label: 'Dark',
+                      subtitle: 'Midnight Violet',
+                      selected: settings.themeMode == ThemeMode.dark,
+                      bgColor: VisionColors.darkBackground,
+                      surfaceColor: VisionColors.darkElevatedSurface,
+                      primaryColor: VisionColors.darkPrimary,
+                      secondaryColor: VisionColors.darkSecondary,
+                      onTap: () => onThemeSelected(ThemeMode.dark),
+                    ),
                   ),
-                  (
-                    value: ThemeMode.light,
-                    label: 'Light',
-                    icon: Icons.light_mode_outlined,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ThemePreviewOptionCard(
+                      label: 'Light',
+                      subtitle: 'Pearl Lavender',
+                      selected: settings.themeMode == ThemeMode.light,
+                      bgColor: VisionColors.lightBackground,
+                      surfaceColor: VisionColors.lightSurface,
+                      primaryColor: VisionColors.lightPrimary,
+                      secondaryColor: VisionColors.lightSecondary,
+                      onTap: () => onThemeSelected(ThemeMode.light),
+                    ),
                   ),
-                  (
-                    value: ThemeMode.system,
-                    label: 'System',
-                    icon: Icons.brightness_auto_outlined,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ThemePreviewOptionCard(
+                      label: 'System',
+                      subtitle: 'Auto Android',
+                      selected: settings.themeMode == ThemeMode.system,
+                      bgColor: VisionColors.darkBackground,
+                      surfaceColor: VisionColors.lightSurface,
+                      primaryColor: VisionColors.darkPrimary,
+                      secondaryColor: VisionColors.lightPrimary,
+                      isSplitPreview: true,
+                      onTap: () => onThemeSelected(ThemeMode.system),
+                    ),
                   ),
                 ],
               ),
@@ -945,6 +967,170 @@ class _AppearanceSection extends StatelessWidget {
           onTap: () => onHapticsChanged(!settings.hapticFeedbackEnabled),
         ),
       ],
+    );
+  }
+}
+
+class _ThemePreviewOptionCard extends StatelessWidget {
+  const _ThemePreviewOptionCard({
+    required this.label,
+    required this.subtitle,
+    required this.selected,
+    required this.bgColor,
+    required this.surfaceColor,
+    required this.primaryColor,
+    required this.secondaryColor,
+    required this.onTap,
+    this.isSplitPreview = false,
+  });
+
+  final String label;
+  final String subtitle;
+  final bool selected;
+  final Color bgColor;
+  final Color surfaceColor;
+  final Color primaryColor;
+  final Color secondaryColor;
+  final bool isSplitPreview;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = VisionColors.primaryAccent(theme.brightness);
+    final borderColor = selected
+        ? accent
+        : VisionColors.borderColor(theme.brightness);
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: VisionRadii.mdBorder,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: VisionRadii.mdBorder,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: selected
+                ? accent.withValues(alpha: 0.12)
+                : VisionColors.surfaceColor(theme.brightness),
+            borderRadius: VisionRadii.mdBorder,
+            border: Border.all(color: borderColor, width: selected ? 1.8 : 1.0),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: VisionRadii.smBorder,
+                  border: Border.all(
+                    color: primaryColor.withValues(alpha: 0.25),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: isSplitPreview
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              color: VisionColors.darkBackground,
+                              alignment: Alignment.center,
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(
+                                  color: VisionColors.darkPrimary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              color: VisionColors.lightBackground,
+                              alignment: Alignment.center,
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(
+                                  color: VisionColors.lightPrimary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(7),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: primaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: secondaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              height: 10,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: surfaceColor,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontSize: 13,
+                        color: selected ? accent : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (selected)
+                    Icon(Icons.check_circle_rounded, size: 15, color: accent),
+                ],
+              ),
+              Text(
+                subtitle,
+                style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1029,10 +1215,7 @@ class _MultiProviderAiSection extends StatelessWidget {
               '${usageStats.totalRequests} request${usageStats.totalRequests == 1 ? '' : 's'} • '
               '${usageStats.totalInputTokens} in / ${usageStats.totalOutputTokens} out tokens',
           trailing: usageStats.totalRequests > 0
-              ? TextButton(
-                  onPressed: onResetUsage,
-                  child: const Text('Reset'),
-                )
+              ? TextButton(onPressed: onResetUsage, child: const Text('Reset'))
               : null,
         ),
       ],
@@ -1272,24 +1455,21 @@ class _VoiceAndLanguageSection extends StatelessWidget {
                 children: [
                   Text(
                     'Speech Pause Tolerance',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: VisionColors.primaryText(brightness),
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: VisionColors.primaryText(brightness)),
                   ),
                   Text(
                     '${(settings.voiceEndpointSilenceMs / 1000).toStringAsFixed(1)}s',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelMedium?.copyWith(color: accent),
+                    style: Theme.of(context).textTheme.labelMedium
+                        ?.copyWith(color: accent),
                   ),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
                 'How long VISION waits after a pause before finalizing your speech.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: VisionColors.secondaryText(brightness),
-                ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: VisionColors.secondaryText(brightness)),
               ),
               Slider(
                 value: settings.voiceEndpointSilenceMs
@@ -1298,8 +1478,7 @@ class _VoiceAndLanguageSection extends StatelessWidget {
                 min: 2000,
                 max: 6500,
                 divisions: 9,
-                onChanged: (value) =>
-                    onEndpointSilenceChanged(value.round()),
+                onChanged: (value) => onEndpointSilenceChanged(value.round()),
               ),
               const SizedBox(height: 8),
               Row(
@@ -1307,15 +1486,13 @@ class _VoiceAndLanguageSection extends StatelessWidget {
                 children: [
                   Text(
                     'Speech Rate',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: VisionColors.primaryText(brightness),
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: VisionColors.primaryText(brightness)),
                   ),
                   Text(
                     '${settings.ttsSpeechRate.toStringAsFixed(2)}x',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelMedium?.copyWith(color: accent),
+                    style: Theme.of(context).textTheme.labelMedium
+                        ?.copyWith(color: accent),
                   ),
                 ],
               ),
@@ -1331,15 +1508,13 @@ class _VoiceAndLanguageSection extends StatelessWidget {
                 children: [
                   Text(
                     'Voice Pitch',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: VisionColors.primaryText(brightness),
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: VisionColors.primaryText(brightness)),
                   ),
                   Text(
                     '${settings.ttsPitch.toStringAsFixed(2)}x',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelMedium?.copyWith(color: accent),
+                    style: Theme.of(context).textTheme.labelMedium
+                        ?.copyWith(color: accent),
                   ),
                 ],
               ),
@@ -1365,7 +1540,8 @@ class _VoiceAndLanguageSection extends StatelessWidget {
         SettingsTile(
           icon: Icons.play_circle_outline_rounded,
           title: 'Preview Voice',
-          subtitle: 'Speak a short sample using your active voice, rate, and pitch',
+          subtitle:
+              'Speak a short sample using your active voice, rate, and pitch',
           trailing: const Icon(Icons.volume_up_rounded, size: 18),
           onTap: onPreviewVoice,
         ),
@@ -1715,7 +1891,8 @@ class _MemorySection extends StatelessWidget {
           icon: Icons.delete_sweep_outlined,
           iconColor: VisionColors.error,
           title: 'Clear Session & Saved History',
-          subtitle: 'Reset current session context and delete any saved transcript',
+          subtitle:
+              'Reset current session context and delete any saved transcript',
           onTap: messageCount > 0 ? onClearMemory : null,
         ),
       ],
@@ -1742,8 +1919,7 @@ class _PrivacySection extends StatelessWidget {
         SettingsTile(
           icon: Icons.shield_outlined,
           title: 'Privacy & Security Dashboard',
-          subtitle:
-              'Unified audit of permissions, trusted commands, blocklist & local data',
+          subtitle: 'Unified audit of permissions, trusted commands, blocklist & local data',
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: onOpenPrivacyDashboard,
         ),

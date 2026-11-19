@@ -58,9 +58,8 @@ class _TrustedCommandsSheetState extends ConsumerState<TrustedCommandsSheet> {
             Text(
               'Safe commands (alarms, timers, apps, settings, flashlight, volume) are trusted by default. '
               'Sensitive commands below require confirmation unless explicitly trusted.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: VisionColors.secondaryText(brightness),
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: VisionColors.secondaryText(brightness)),
             ),
             const SizedBox(height: 12),
             for (final action in TrustedCommandPolicy.sensitiveActionTypes)
@@ -92,9 +91,8 @@ class _TrustedCommandsSheetState extends ConsumerState<TrustedCommandsSheet> {
             const SizedBox(height: 6),
             Text(
               'Notifications from blocked packages (e.g., banking or OTP apps) are ignored by VISION.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: VisionColors.secondaryText(brightness),
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: VisionColors.secondaryText(brightness)),
             ),
             const SizedBox(height: 10),
             Row(

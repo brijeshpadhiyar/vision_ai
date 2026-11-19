@@ -136,10 +136,9 @@ class ExternalAppIntegrationService {
     try {
       switch (command.type) {
         case ExternalAppCommandType.navigateMaps:
-          await _channel.invokeMethod<Object?>(
-            'navigateTo',
-            <String, Object>{'destination': command.primaryValue},
-          );
+          await _channel.invokeMethod<Object?>('navigateTo', <String, Object>{
+            'destination': command.primaryValue,
+          });
           return 'Opened Google Maps navigation to ${command.primaryValue}.';
 
         case ExternalAppCommandType.searchYouTube:
@@ -173,14 +172,11 @@ class ExternalAppIntegrationService {
           return 'Opened Calendar to create event "${command.primaryValue}".';
 
         case ExternalAppCommandType.composeEmail:
-          await _channel.invokeMethod<Object?>(
-            'composeEmail',
-            <String, Object>{
-              'to': command.primaryValue,
-              'subject': command.secondaryValue,
-              'body': command.tertiaryValue,
-            },
-          );
+          await _channel.invokeMethod<Object?>('composeEmail', <String, Object>{
+            'to': command.primaryValue,
+            'subject': command.secondaryValue,
+            'body': command.tertiaryValue,
+          });
           return command.secondaryValue.isNotEmpty
               ? 'Opened email composer for ${command.primaryValue} (subject: "${command.secondaryValue}").'
               : 'Opened email composer for ${command.primaryValue}.';

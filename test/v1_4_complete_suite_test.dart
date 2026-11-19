@@ -124,7 +124,10 @@ void main() {
       final msg = await notifier.setDevicePower(matched!, turnOn: true);
       expect(msg, contains('Turned ON Living Room Light'));
       expect(calledUrl, 'http://192.168.1.50/light/on');
-      expect(container.read(smartHomeControllerProvider).devices.first.isOn, isTrue);
+      expect(
+        container.read(smartHomeControllerProvider).devices.first.isOn,
+        isTrue,
+      );
     });
 
     test('Module 26: DeveloperToolsService offline JSON, Base64, JWT, Regex & Snippet Vault', () async {
@@ -141,8 +144,12 @@ void main() {
       expect(dec.success, isTrue);
       expect(dec.output, 'VISION AI v1.4');
 
-      final header = base64Url.encode(utf8.encode('{"alg":"HS256","typ":"JWT"}'));
-      final payload = base64Url.encode(utf8.encode('{"sub":"vision","role":"dev"}'));
+      final header = base64Url.encode(
+        utf8.encode('{"alg":"HS256","typ":"JWT"}'),
+      );
+      final payload = base64Url.encode(
+        utf8.encode('{"sub":"vision","role":"dev"}'),
+      );
       final jwt = DeveloperToolsService.decodeJwt('$header.$payload.sig');
       expect(jwt.success, isTrue);
       expect(jwt.output, contains('"sub": "vision"'));

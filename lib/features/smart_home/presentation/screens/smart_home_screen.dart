@@ -169,7 +169,11 @@ class _SmartHomeScreenState extends ConsumerState<SmartHomeScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Icon(Icons.lightbulb_outline_rounded, size: 36, color: accent),
+                  Icon(
+                    Icons.lightbulb_outline_rounded,
+                    size: 36,
+                    color: accent,
+                  ),
                   const SizedBox(height: 10),
                   Text(
                     'No smart home devices added yet',
@@ -206,7 +210,10 @@ class _SmartHomeScreenState extends ConsumerState<SmartHomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(device.name, style: theme.textTheme.titleSmall),
+                            Text(
+                              device.name,
+                              style: theme.textTheme.titleSmall,
+                            ),
                             const SizedBox(height: 2),
                             Text(
                               '${device.room} • ${device.backend.label}'
@@ -225,7 +232,10 @@ class _SmartHomeScreenState extends ConsumerState<SmartHomeScreen> {
                                   .setDevicePower(device, turnOn: value),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 20,
+                        ),
                         tooltip: 'Delete Device',
                         onPressed: () => ref
                             .read(smartHomeControllerProvider.notifier)

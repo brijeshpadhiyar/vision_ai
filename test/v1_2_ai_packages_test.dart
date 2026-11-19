@@ -107,9 +107,7 @@ void main() {
       credentialStore: _EmptyKeyStore(),
     );
 
-    const edgeSettings = AppSettings(
-      selectedAiProvider: AiProviderType.edgeAi,
-    );
+    const edgeSettings = AppSettings(selectedAiProvider: AiProviderType.edgeAi);
     final candidates = await router.resolveCandidates(
       settings: edgeSettings,
       promptText: 'Summarize this offline',
@@ -129,7 +127,16 @@ void main() {
   });
 
   test('v1.2 Multimodal image payloads serialize for Gemini, OpenAI, and Claude while ChatMessage.toJson omits base64 bytes', () async {
-    final fakeBytes = Uint8List.fromList(<int>[137, 80, 78, 71, 13, 10, 26, 10]);
+    final fakeBytes = Uint8List.fromList(<int>[
+      137,
+      80,
+      78,
+      71,
+      13,
+      10,
+      26,
+      10,
+    ]);
     final attachment = ImageAttachment.fromBytes(
       fakeBytes,
       mimeType: 'image/jpeg',
@@ -285,7 +292,9 @@ void main() {
     expect(bundle.buildPromptContext(), contains('en.wikipedia.org'));
   });
 
-  testWidgets('v1.2 ChatMessageBubble renders clickable citation chips', (tester) async {
+  testWidgets('v1.2 ChatMessageBubble renders clickable citation chips', (
+    tester,
+  ) async {
     String? tappedUrl;
     final msg = ChatMessage(
       id: 'a1',

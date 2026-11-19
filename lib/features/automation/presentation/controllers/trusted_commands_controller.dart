@@ -106,7 +106,8 @@ class TrustedCommandsController extends Notifier<TrustedCommandsState> {
   /// Adds a package name to the notification privacy blocklist.
   Future<void> blockNotificationPackage(String packageName) async {
     final trimmed = packageName.trim();
-    if (trimmed.isEmpty || state.blockedNotificationPackages.contains(trimmed)) {
+    if (trimmed.isEmpty ||
+        state.blockedNotificationPackages.contains(trimmed)) {
       return;
     }
     final next = <String>{...state.blockedNotificationPackages, trimmed};
@@ -120,7 +121,8 @@ class TrustedCommandsController extends Notifier<TrustedCommandsState> {
   Future<void> unblockNotificationPackage(String packageName) async {
     final trimmed = packageName.trim();
     if (!state.blockedNotificationPackages.contains(trimmed)) return;
-    final next = <String>{...state.blockedNotificationPackages}..remove(trimmed);
+    final next = <String>{...state.blockedNotificationPackages}
+      ..remove(trimmed);
     state = state.copyWith(
       blockedNotificationPackages: Set<String>.unmodifiable(next),
     );

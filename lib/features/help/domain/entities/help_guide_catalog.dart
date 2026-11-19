@@ -417,7 +417,8 @@ abstract final class HelpGuideCatalog {
     HelpGuideTopic(
       id: 'external_app_integrations',
       category: HelpCategory.automation,
-      title: 'External App Integrations (Maps, YouTube, Spotify, Calendar, Email)',
+      title:
+          'External App Integrations (Maps, YouTube, Spotify, Calendar, Email)',
       subtitle: 'Launch navigation, media searches, calendar events & email drafts by voice',
       icon: Icons.open_in_new_rounded,
       steps: <String>[
@@ -476,7 +477,8 @@ abstract final class HelpGuideCatalog {
       id: 'proactive_intelligence',
       category: HelpCategory.gettingStarted,
       title: 'Proactive Intelligence & Smart Home Nudges',
-      subtitle: 'On-device contextual cards for briefings, battery & setup readiness',
+      subtitle:
+          'On-device contextual cards for briefings, battery & setup readiness',
       icon: Icons.tips_and_updates_outlined,
       steps: <String>[
         'VISION evaluates your local time of day, Daily Planner tasks, and setup status 100% on-device.',
@@ -528,7 +530,17 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'AI Settings',
       icon: Icons.vpn_key_outlined,
       target: HelpActionTarget.openSettingsAi,
-      keywords: <String>['api', 'key', 'gemini', 'openai', 'claude', 'edge', 'model', 'fallback', 'usage'],
+      keywords: <String>[
+        'api',
+        'key',
+        'gemini',
+        'openai',
+        'claude',
+        'edge',
+        'model',
+        'fallback',
+        'usage',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_identity',
@@ -537,7 +549,13 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'AI Settings',
       icon: Icons.auto_awesome_outlined,
       target: HelpActionTarget.openSettingsAi,
-      keywords: <String>['identity', 'personality', 'greeting', 'style', 'instructions'],
+      keywords: <String>[
+        'identity',
+        'personality',
+        'greeting',
+        'style',
+        'instructions',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_voice',
@@ -546,7 +564,17 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'Voice Settings',
       icon: Icons.record_voice_over_outlined,
       target: HelpActionTarget.openSettingsVoice,
-      keywords: <String>['voice', 'language', 'hindi', 'gujarati', 'english', 'auto', 'tts', 'rate', 'pitch'],
+      keywords: <String>[
+        'voice',
+        'language',
+        'hindi',
+        'gujarati',
+        'english',
+        'auto',
+        'tts',
+        'rate',
+        'pitch',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_wakeword',
@@ -555,7 +583,14 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'Voice Settings',
       icon: Icons.hearing_rounded,
       target: HelpActionTarget.openSettingsVoice,
-      keywords: <String>['wake', 'hey vision', 'mic', 'standby', 'sensitivity', 'background'],
+      keywords: <String>[
+        'wake',
+        'hey vision',
+        'mic',
+        'standby',
+        'sensitivity',
+        'background',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_device_guide',
@@ -564,7 +599,15 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'System & Permissions',
       icon: Icons.admin_panel_settings_outlined,
       target: HelpActionTarget.openSettingsSystem,
-      keywords: <String>['permission', 'battery', 'coloros', 'one ui', 'hyperos', 'assistant role', 'reboot'],
+      keywords: <String>[
+        'permission',
+        'battery',
+        'coloros',
+        'one ui',
+        'hyperos',
+        'assistant role',
+        'reboot',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_privacy',
@@ -573,7 +616,16 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'Privacy',
       icon: Icons.shield_outlined,
       target: HelpActionTarget.openPrivacyDashboard,
-      keywords: <String>['privacy', 'security', 'trusted', 'revoke', 'blocklist', 'memory', 'history', 'clear'],
+      keywords: <String>[
+        'privacy',
+        'security',
+        'trusted',
+        'revoke',
+        'blocklist',
+        'memory',
+        'history',
+        'clear',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_routines',
@@ -582,7 +634,14 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'Automation',
       icon: Icons.bolt_outlined,
       target: HelpActionTarget.openAutomation,
-      keywords: <String>['routine', 'automation', 'schedule', 'alarm', 'apps', 'history'],
+      keywords: <String>[
+        'routine',
+        'automation',
+        'schedule',
+        'alarm',
+        'apps',
+        'history',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_planner',
@@ -600,7 +659,14 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'Smart Home',
       icon: Icons.home_outlined,
       target: HelpActionTarget.openSmartHome,
-      keywords: <String>['smart home', 'home assistant', 'webhook', 'light', 'scene', 'iot'],
+      keywords: <String>[
+        'smart home',
+        'home assistant',
+        'webhook',
+        'light',
+        'scene',
+        'iot',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_developer',
@@ -609,7 +675,16 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'Developer',
       icon: Icons.code_rounded,
       target: HelpActionTarget.openDeveloper,
-      keywords: <String>['developer', 'code', 'json', 'jwt', 'base64', 'regex', 'snippet', 'debug'],
+      keywords: <String>[
+        'developer',
+        'code',
+        'json',
+        'jwt',
+        'base64',
+        'regex',
+        'snippet',
+        'debug',
+      ],
     ),
     SettingSearchEntry(
       id: 'set_diagnostics',
@@ -618,7 +693,14 @@ abstract final class HelpGuideCatalog {
       sectionLabel: 'About',
       icon: Icons.monitor_heart_outlined,
       target: HelpActionTarget.openDiagnostics,
-      keywords: <String>['diagnostics', 'logs', 'latency', 'telemetry', 'export', 'debug'],
+      keywords: <String>[
+        'diagnostics',
+        'logs',
+        'latency',
+        'telemetry',
+        'export',
+        'debug',
+      ],
     ),
   ];
 

@@ -159,10 +159,9 @@ class DailyPlannerController extends Notifier<List<PlannerTask>> {
 
   Future<void> _cancelReminder(String taskId) async {
     try {
-      await _channel.invokeMethod<bool>(
-        'cancelRoutineAlarm',
-        <String, Object>{'routineId': taskId},
-      );
+      await _channel.invokeMethod<bool>('cancelRoutineAlarm', <String, Object>{
+        'routineId': taskId,
+      });
     } on MissingPluginException {
       // Ignore outside Android.
     } on PlatformException {

@@ -448,8 +448,8 @@ class _WideHomeLayout extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 AssistantGreetingHeader(
-          greeting: settings.assistantIdentity.effectiveGreeting,
-        ),
+                  greeting: settings.assistantIdentity.effectiveGreeting,
+                ),
                 const SizedBox(height: 14),
                 AssistantMicButton(
                   onPressed: onMicTap,

@@ -22,15 +22,14 @@ void main() {
       id: 'rt_goodnight',
       name: 'Good Night',
       triggerPhrases: <String>['bedtime', 'sleep mode'],
-      commandSteps: <String>[
-        'turn off flashlight',
-        'set alarm for 7 am',
-      ],
+      commandSteps: <String>['turn off flashlight', 'set alarm for 7 am'],
       trusted: true,
       schedule: RoutineSchedule(enabled: true, hour: 23, minute: 0),
     );
 
-    await container.read(routinesControllerProvider.notifier).saveRoutine(routine);
+    await container
+        .read(routinesControllerProvider.notifier)
+        .saveRoutine(routine);
 
     // Reload in a fresh container to verify JSON persistence
     final reloaded = ProviderContainer(

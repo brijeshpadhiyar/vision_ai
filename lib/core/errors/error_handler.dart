@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/errors/app_exception.dart';
+import 'package:vision_ai/core/theme/vision_colors.dart';
 import 'package:vision_ai/core/utils/app_logger.dart';
 import 'package:vision_ai/core/utils/secret_redactor.dart';
 
@@ -25,7 +26,7 @@ abstract final class AppErrorHandler {
 
     ErrorWidget.builder = (FlutterErrorDetails details) {
       return Material(
-        color: const Color(0xFF070B12),
+        color: VisionColors.darkBackground,
         child: SafeArea(
           child: Center(
             child: Padding(
@@ -35,7 +36,7 @@ abstract final class AppErrorHandler {
                 children: [
                   const Icon(
                     Icons.error_outline_rounded,
-                    color: Color(0xFFEF4444),
+                    color: VisionColors.darkError,
                     size: 48,
                   ),
                   const SizedBox(height: 16),
@@ -43,7 +44,7 @@ abstract final class AppErrorHandler {
                     'Something went wrong in VISION.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(0xFFF8FAFC),
+                      color: VisionColors.darkTextPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -55,7 +56,7 @@ abstract final class AppErrorHandler {
                         : 'An unexpected rendering issue occurred.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: VisionColors.darkTextSecondary,
                       fontSize: 13,
                     ),
                   ),

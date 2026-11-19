@@ -83,19 +83,19 @@ class _VisionSplashScreenState extends ConsumerState<VisionSplashScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const RepaintBoundary(
+          RepaintBoundary(
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
-                    center: Alignment(0.0, -0.08),
+                    center: const Alignment(0.0, -0.08),
                     radius: 0.88,
                     colors: [
-                      Color(0x2200D4FF),
-                      Color(0x103985FF),
-                      VisionColors.backgroundPrimary,
+                      VisionColors.darkPrimary.withValues(alpha: 0.18),
+                      VisionColors.darkTertiary.withValues(alpha: 0.08),
+                      VisionColors.darkBackground,
                     ],
-                    stops: [0.0, 0.45, 1.0],
+                    stops: const [0.0, 0.45, 1.0],
                   ),
                 ),
               ),
