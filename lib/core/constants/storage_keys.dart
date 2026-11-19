@@ -82,8 +82,18 @@ abstract final class StorageKeys {
   static const String notificationListenerConsent =
       'vision_pref_notification_consent';
 
-  /// Key for locally persisted conversation transcript JSON list.
+  /// Key for locally persisted conversation transcript JSON list (legacy).
   static const String chatHistory = 'vision_pref_chat_history';
+
+  /// Key for locally persisted multi-conversation threads JSON list (v1.5).
+  static const String chatThreads = 'vision_pref_chat_threads';
+
+  /// Key for the currently selected conversation thread identifier (v1.5).
+  static const String activeThreadId = 'vision_pref_active_thread_id';
+
+  /// Key for opt-in cloud conversation history sync preference (v1.5).
+  static const String cloudHistorySyncEnabled =
+      'vision_pref_cloud_history_sync';
 
   /// Key for explicit consent gating local personalization memory injection.
   static const String personalMemoryEnabled = 'vision_pref_memory_enabled';

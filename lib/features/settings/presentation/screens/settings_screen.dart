@@ -24,6 +24,7 @@ import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_usage_stats.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/usage_stats_controller.dart';
+import 'package:vision_ai/features/cloud/presentation/widgets/cloud_sync_settings_section.dart';
 import 'package:vision_ai/features/help/domain/entities/help_guide_catalog.dart';
 import 'package:vision_ai/features/memory/presentation/controllers/memory_controller.dart';
 import 'package:vision_ai/features/memory/presentation/widgets/personal_memory_sheet.dart';
@@ -453,6 +454,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 18),
 
           if (showGeneral) ...[
+            const CloudSyncSettingsSection(),
+            const SizedBox(height: 20),
             _GeneralSection(
               settings: settings,
               onOpenAssistant: () {

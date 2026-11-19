@@ -26,6 +26,7 @@ import 'package:vision_ai/features/chat/domain/services/vision_llm_provider.dart
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:vision_ai/features/chat/presentation/widgets/chat_input_bar.dart';
 import 'package:vision_ai/features/chat/presentation/widgets/chat_message_bubble.dart';
+import 'package:vision_ai/features/chat/presentation/widgets/conversation_threads_sheet.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/api_key_controller.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/provider_connection_controller.dart';
@@ -169,6 +170,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         subtitle:
             '${activeProvider.displayName} • ${settings.selectedVoiceLanguage.displayName}',
         actions: [
+          IconButton(
+            onPressed: () => ConversationThreadsSheet.show(context),
+            icon: const Icon(Icons.history_rounded),
+            tooltip: 'Conversations',
+          ),
+          IconButton(
+            onPressed: () =>
+                ref.read(chatControllerProvider.notifier).startNewThread(),
+            icon: const Icon(Icons.add_comment_outlined),
+            tooltip: 'New conversation',
+          ),
           IconButton(
             onPressed: () => context.push(AppRoutes.helpPath),
             icon: const Icon(Icons.help_outline_rounded),

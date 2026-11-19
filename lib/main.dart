@@ -5,8 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:rive/rive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:vision_ai/app/app.dart';
+import 'package:vision_ai/core/config/cloud_config.dart';
 import 'package:vision_ai/core/constants/app_constants.dart';
 import 'package:vision_ai/core/errors/error_handler.dart';
 import 'package:vision_ai/core/utils/app_logger.dart';
@@ -30,6 +32,22 @@ Future<void> main() async {
       error: error,
       stackTrace: stackTrace,
     );
+  }
+
+  if (CloudConfig.isSupabaseConfigured) {
+    try {
+      await Supabase.initialize(
+        url: CloudConfig.supabaseUrl,
+        publishableKey: CloudConfig.supabaseAnonKey,
+      );
+      logger.info('Supabase cloud sync initialized.');
+    } catch (error, stackTrace) {
+      logger.warning(
+        'Supabase initialization skipped; continuing in offline/local mode.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

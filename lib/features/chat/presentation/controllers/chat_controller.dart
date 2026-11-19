@@ -15,8 +15,10 @@ import 'package:vision_ai/features/automation/presentation/controllers/automatio
 import 'package:vision_ai/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
+import 'package:vision_ai/features/chat/domain/entities/conversation_thread.dart';
 import 'package:vision_ai/features/chat/domain/entities/image_attachment.dart';
 import 'package:vision_ai/features/chat/domain/repositories/chat_repository.dart';
+import 'package:vision_ai/features/chat/presentation/controllers/conversation_threads_controller.dart';
 import 'package:vision_ai/features/integrations/data/services/external_app_integration_service.dart';
 import 'package:vision_ai/features/planner/presentation/controllers/daily_planner_controller.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
@@ -106,7 +108,42 @@ class ChatController extends Notifier<ChatState> {
     ref.onDispose(() {
       _activeCancellation?.cancel();
     });
+    listenSelf((ChatState? previous, ChatState next) {
+      if (!next.isLoading &&
+          previous != null &&
+          !identical(previous.messages, next.messages)) {
+        unawaited(
+          ref
+              .read(conversationThreadsControllerProvider.notifier)
+              .syncActiveThreadMessages(next.messages),
+        );
+      }
+    });
     return ChatState(messages: repository.getMessages());
+  }
+
+  /// Switches the active chat session to [thread].
+  Future<void> openThread(ConversationThread thread) async {
+    _activeCancellation?.cancel();
+    _activeCancellation = null;
+    _intelContext = const ConversationIntelligenceContext();
+    final repository = ref.read(chatRepositoryProvider);
+    if (repository is ChatRepositoryImpl) {
+      await repository.replaceSessionMessages(thread.messages);
+    }
+    await ref
+        .read(conversationThreadsControllerProvider.notifier)
+        .selectThread(thread.id);
+    state = ChatState(messages: thread.messages);
+  }
+
+  /// Creates and opens a fresh empty conversation thread.
+  Future<ConversationThread> startNewThread() async {
+    final created = await ref
+        .read(conversationThreadsControllerProvider.notifier)
+        .createNewThread();
+    await openThread(created);
+    return created;
   }
 
   /// Sends [prompt] using the active AI configuration (streaming, routing,

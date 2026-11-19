@@ -1,0 +1,28 @@
+# VISION AI — APK Build & Run Commands (with Supabase & Google Sign-In)
+# Note: Added to .gitignore so local project credentials are not committed accidentally.
+
+================================================================================
+1. BUILD RELEASE APK (RECOMMENDED FOR OPPO RENO 16 — SMALLER SPLIT ABI APK)
+================================================================================
+flutter build apk --release --split-per-abi --dart-define=SUPABASE_URL=https://lgulbqavofmaxuafzemk.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxndWxicWF2b2ZtYXh1YWZ6ZW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwODkzMjEsImV4cCI6MjExMDY2NTMyMX0.E9701WEmdbH1xmpGmQ7EHdmUZFUsoZ1veKOFghmPjCk --dart-define=GOOGLE_WEB_CLIENT_ID=283892708731-v76b9o3vhdmibuo6o1hern6g6t8rr6u3.apps.googleusercontent.com
+
+# Install the arm64-v8a APK on OPPO Reno 16:
+# build\app\outputs\flutter-apk\app-arm64-v8a-release.apk
+
+
+================================================================================
+2. BUILD UNIVERSAL RELEASE APK (SINGLE APK FOR ALL ANDROID DEVICES)
+================================================================================
+flutter build apk --release --dart-define=SUPABASE_URL=https://lgulbqavofmaxuafzemk.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxndWxicWF2b2ZtYXh1YWZ6ZW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwODkzMjEsImV4cCI6MjExMDY2NTMyMX0.E9701WEmdbH1xmpGmQ7EHdmUZFUsoZ1veKOFghmPjCk --dart-define=GOOGLE_WEB_CLIENT_ID=283892708731-v76b9o3vhdmibuo6o1hern6g6t8rr6u3.apps.googleusercontent.com
+
+
+================================================================================
+3. BUILD DEBUG APK
+================================================================================
+flutter build apk --debug --dart-define=SUPABASE_URL=https://lgulbqavofmaxuafzemk.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxndWxicWF2b2ZtYXh1YWZ6ZW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwODkzMjEsImV4cCI6MjExMDY2NTMyMX0.E9701WEmdbH1xmpGmQ7EHdmUZFUsoZ1veKOFghmPjCk --dart-define=GOOGLE_WEB_CLIENT_ID=283892708731-v76b9o3vhdmibuo6o1hern6g6t8rr6u3.apps.googleusercontent.com
+
+
+================================================================================
+4. RUN DIRECTLY ON CONNECTED ANDROID DEVICE
+================================================================================
+flutter run --dart-define=SUPABASE_URL=https://lgulbqavofmaxuafzemk.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxndWxicWF2b2ZtYXh1YWZ6ZW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwODkzMjEsImV4cCI6MjExMDY2NTMyMX0.E9701WEmdbH1xmpGmQ7EHdmUZFUsoZ1veKOFghmPjCk --dart-define=GOOGLE_WEB_CLIENT_ID=283892708731-v76b9o3vhdmibuo6o1hern6g6t8rr6u3.apps.googleusercontent.com

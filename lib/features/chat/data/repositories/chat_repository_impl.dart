@@ -633,6 +633,16 @@ class ChatRepositoryImpl implements ChatRepository {
     return getMessages();
   }
 
+  /// Replaces the active in-memory session messages (used when switching threads).
+  Future<void> replaceSessionMessages(List<ChatMessage> messages) async {
+    _pendingAiAction = null;
+    _conversationManager.clear();
+    for (final msg in messages) {
+      _conversationManager.addMessage(msg);
+    }
+    await _persistIfEnabled();
+  }
+
   @override
   Future<void> clearHistory() async {
     _pendingAiAction = null;
