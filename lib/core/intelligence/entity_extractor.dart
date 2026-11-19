@@ -292,7 +292,7 @@ abstract final class EntityExtractor {
 
     // Hinglish / Gujlish / Hindi / Gujarati postposition pattern: "<Name> ne/ko/no call/phone/number/msg ..."
     final postpositionMatch = RegExp(
-      r'^(.+?)\s+(?:ne|ko|no|ka|ki|ke|ane|અને|ને|કો|નો|को|का)\s+(?:call|phone|ring|dial|msg|message|whatsapp|sms|number|કૉલ|કોલ|ફોન|મેસેજ|નંબર|कॉल|फोन|मैसेज|मेसेज|नंबर)(?=\s|$)',
+      r'^(.+?)\s+(?:ne|ko|no|ka|ki|ke|ane|અને|ને|કો|નો|को|का)\s+(?:call|cal|kol|phone|fone|ring|dial|msg|message|whatsapp|sms|number|કૉલ|કોલ|ફોન|મેસેજ|નંબર|कॉल|फोन|मैसेज|मेसेज|नंबर)(?=\s|$)',
       caseSensitive: false,
     ).firstMatch(raw);
     if (postpositionMatch != null) {
@@ -302,9 +302,9 @@ abstract final class EntityExtractor {
       }
     }
 
-    // English & prefix pattern: "call/dial/find/lookup/search contact(s) <Name>"
+    // English & prefix pattern: "call/dial/phone [lagao/kar]/find/lookup/search contact(s) <Name>"
     final prefixMatch = RegExp(
-      r'(?:call|phone|dial|ring|find\s+contacts?|lookup\s+contacts?|look\s+up\s+contacts?|search\s+contacts?|contacts?\s+search|find|lookup|look\s+up|કોલ\s*કરો?|ફોન\s*કરો?|कॉल\s*करो?|फोन\s*करो?)\s+(?:for\s+|to\s+|my\s+)?(.+?)(?:\s+(?:please|plz|pls|kar|karo|laga|lagao|કરો|કર|લગાવો|लगाओ|करो|बोलो))?$',
+      r'(?:call|cal|kol|phone|fone|dial|ring|find\s+contacts?|lookup\s+contacts?|look\s+up\s+contacts?|search\s+contacts?|contacts?\s+search|find|lookup|look\s+up|કોલ\s*કરો?|ફોન\s*કરો?|कॉल\s*करो?|फोन\s*करो?)\s+(?:(?:kar|karo|karje|laga|lagao|muk)\s+)?(?:for\s+|to\s+|my\s+)?(.+?)(?:\s+(?:please|plz|pls|ko|ne|kar|karo|karje|laga|lagao|કરો|કર|લગાવો|लगाओ|करो|बोलो))?$',
       caseSensitive: false,
     ).firstMatch(raw);
     if (prefixMatch != null) {
@@ -402,7 +402,7 @@ abstract final class EntityExtractor {
     // Pattern 3: Digit + optional am/pm/o'clock/baje/vage
     if (hour == null) {
       final simpleDigit = RegExp(
-        r'\b(\d{1,2})(?:\s*(am|pm|a\.m\.|p\.m\.|oclock|o\s*clock|vage|baje|बजे|वागे|વાગે|વાગ્યે))?\b',
+        r"\b(\d{1,2})(?:\s*(am|pm|a\.m\.|p\.m\.|o'?clock|o\s+clock|vage|baje|बजे|वागे|વાગે|વાગ્યે))?\b",
         caseSensitive: false,
       ).firstMatch(canonical);
       if (simpleDigit != null) {
@@ -569,7 +569,13 @@ abstract final class EntityExtractor {
     NormalizedCommand cmd,
     ConversationIntelligenceContext context,
   ) {
-    final raw = cmd.cleanedText;
+    final raw = cmd.cleanedText.replaceAll(
+      RegExp(
+        r'\b(?:wattsapp|watsapp|whatsap|whatapp|whastapp|whasapp|watsap|watsup|whatsup|whatsaap)\b',
+        caseSensitive: false,
+      ),
+      'whatsapp',
+    );
 
     // Pattern A: Hinglish / Hindi / Gujarati "<Name> ne/ko whatsapp/message kar [ki/ke/કે/saying] <msg>"
     final hinglish = RegExp(

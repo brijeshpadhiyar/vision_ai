@@ -98,7 +98,11 @@ class AssistantMicButton extends StatelessWidget {
                                   ? Icons.volume_off_rounded
                                   : Icons.mic_none_rounded,
                               size: 22,
-                              color: VisionColors.backgroundPrimary,
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? VisionColors.backgroundPrimary
+                                  : Colors.white,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -108,7 +112,11 @@ class AssistantMicButton extends StatelessWidget {
                                   ? 'Interrupt'
                                   : 'Ask VISION',
                               style: theme.textTheme.labelLarge?.copyWith(
-                                color: VisionColors.backgroundPrimary,
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? VisionColors.backgroundPrimary
+                                    : Colors.white,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),

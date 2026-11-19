@@ -47,6 +47,11 @@ class SettingsLocalDataSource {
     final streaming = _prefs.getBool(StorageKeys.streamingEnabled) ?? true;
     final haptics = _prefs.getBool(StorageKeys.hapticFeedbackEnabled) ?? true;
     final autoSpeak = _prefs.getBool(StorageKeys.autoSpeakReplies) ?? true;
+    final endpointSilenceMs =
+        (_prefs.getInt(StorageKeys.voiceEndpointSilenceMs) ?? 3800).clamp(
+          2000,
+          6500,
+        );
     final wakeWord = _prefs.getBool(StorageKeys.wakeWordEnabled) ?? false;
     final wakeWordBg =
         _prefs.getBool(StorageKeys.wakeWordBackgroundEnabled) ?? false;
@@ -74,6 +79,7 @@ class SettingsLocalDataSource {
       selectedVoiceLanguage: VoiceLanguage.fromId(languageRaw),
       hapticFeedbackEnabled: haptics,
       autoSpeakReplies: autoSpeak,
+      voiceEndpointSilenceMs: endpointSilenceMs,
       wakeWordEnabled: wakeWord,
       wakeWordBackgroundEnabled: wakeWordBg,
       wakeWordSensitivity: wakeSensitivity,
@@ -171,6 +177,19 @@ class SettingsLocalDataSource {
     );
   }
 
+  Future<void> writeVoiceEndpointSilenceMs(int silenceMs) async {
+    final clamped = silenceMs.clamp(2000, 6500);
+    final success = await _prefs.setInt(
+      StorageKeys.voiceEndpointSilenceMs,
+      clamped,
+    );
+    if (!success) {
+      throw const StorageException(
+        message: 'Unable to save voice pause tolerance.',
+      );
+    }
+  }
+
   Future<void> writeWakeWordEnabled({required bool enabled}) async {
     await _writeBool(
       StorageKeys.wakeWordEnabled,
@@ -247,6 +266,7 @@ class SettingsLocalDataSource {
     await _prefs.remove(StorageKeys.selectedVoiceLanguage);
     await _prefs.remove(StorageKeys.hapticFeedbackEnabled);
     await _prefs.remove(StorageKeys.autoSpeakReplies);
+    await _prefs.remove(StorageKeys.voiceEndpointSilenceMs);
     await _prefs.remove(StorageKeys.wakeWordEnabled);
     await _prefs.remove(StorageKeys.wakeWordBackgroundEnabled);
     await _prefs.remove(StorageKeys.wakeWordSensitivity);

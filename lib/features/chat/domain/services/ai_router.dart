@@ -102,12 +102,19 @@ class AIRouter {
       );
     }
 
+    // Resolve keys concurrently to minimize pre-request Keystore overhead.
+    final keyFutures = <Future<String?>>[
+      for (final target in orderedTargets)
+        _credentialStore.readApiKey(target.provider.id),
+    ];
+    final keys = await Future.wait(keyFutures);
+
     final resolved = <ResolvedRouteCandidate>[];
-    for (final target in orderedTargets) {
+    for (var i = 0; i < orderedTargets.length; i++) {
+      final target = orderedTargets[i];
       final client = _registry.getProvider(target.provider);
-      if (client == null) continue;
-      final apiKey = await _credentialStore.readApiKey(target.provider.id);
-      if (apiKey == null) continue;
+      final apiKey = keys[i];
+      if (client == null || apiKey == null) continue;
       resolved.add((target: target, apiKey: apiKey, client: client));
     }
 
@@ -129,6 +136,7 @@ class AIRouter {
     AICancellationToken? cancellationToken,
     List<ResolvedRouteCandidate>? preResolvedCandidates,
   }) async {
+    final startupSw = Stopwatch()..start();
     final candidates =
         preResolvedCandidates ??
         await resolveCandidates(
@@ -141,6 +149,8 @@ class AIRouter {
               ? null
               : completionRequest.modelId,
         );
+    startupSw.stop();
+    final startupMs = startupSw.elapsedMilliseconds;
 
     AIError? lastError;
     final primary = candidates.first.target;
@@ -168,6 +178,7 @@ class AIRouter {
         _telemetry?.recordAiLatency(
           candidate.target.provider,
           candidate.target.modelId,
+          startupMs: startupMs,
           totalMs: sw.elapsedMilliseconds,
           firstTokenMs: sw.elapsedMilliseconds,
           success: true,
@@ -224,6 +235,7 @@ class AIRouter {
     AICancellationToken? cancellationToken,
     List<ResolvedRouteCandidate>? preResolvedCandidates,
   }) async* {
+    final startupSw = Stopwatch()..start();
     final candidates =
         preResolvedCandidates ??
         await resolveCandidates(
@@ -236,6 +248,8 @@ class AIRouter {
               ? null
               : completionRequest.modelId,
         );
+    startupSw.stop();
+    final startupMs = startupSw.elapsedMilliseconds;
 
     final primary = candidates.first.target;
     AIError? lastError;
@@ -270,6 +284,7 @@ class AIRouter {
             _telemetry?.recordAiLatency(
               candidate.target.provider,
               candidate.target.modelId,
+              startupMs: startupMs,
               totalMs: sw.elapsedMilliseconds,
               firstTokenMs: firstTokenMs ?? sw.elapsedMilliseconds,
               success: true,

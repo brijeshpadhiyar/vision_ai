@@ -42,6 +42,9 @@ abstract interface class SettingsRepository {
   /// Persists whether AI replies should be spoken automatically via TTS.
   Future<void> updateAutoSpeakReplies({required bool enabled});
 
+  /// Persists configurable voice endpoint silence duration in milliseconds.
+  Future<void> updateVoiceEndpointSilenceMs(int silenceMs);
+
   /// Persists whether "Hey VISION" wake-word detection is enabled.
   Future<void> updateWakeWordEnabled({required bool enabled});
 

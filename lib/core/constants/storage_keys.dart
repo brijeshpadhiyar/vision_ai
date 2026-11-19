@@ -36,6 +36,10 @@ abstract final class StorageKeys {
   /// Key for persisted automatic TTS voice reply playback preference.
   static const String autoSpeakReplies = 'vision_pref_auto_speak_replies';
 
+  /// Key for configurable voice endpoint silence window in milliseconds.
+  static const String voiceEndpointSilenceMs =
+      'vision_pref_endpoint_silence_ms';
+
   /// Key for persisted "Hey VISION" wake-word listener preference.
   static const String wakeWordEnabled = 'vision_pref_wake_word_enabled';
 

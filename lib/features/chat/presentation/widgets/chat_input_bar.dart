@@ -129,7 +129,9 @@ class ChatInputBar extends StatelessWidget {
                             ? Icons.stop_rounded
                             : Icons.arrow_upward_rounded,
                         size: 22,
-                        color: VisionColors.backgroundPrimary,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? VisionColors.backgroundPrimary
+                            : Colors.white,
                       ),
                     ),
                   ),

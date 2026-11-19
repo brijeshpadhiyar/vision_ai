@@ -172,7 +172,7 @@ class AutomationActionPromptCard extends StatelessWidget {
                   ),
                   onTap: () => onSelectContact(contact),
                 ),
-            ] else ...[
+            ] else if (!isSuggestionConfirm) ...[
               const SizedBox(height: 12),
               VisionGlassButton(
                 expand: true,

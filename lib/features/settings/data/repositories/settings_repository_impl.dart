@@ -74,6 +74,10 @@ class SettingsRepositoryImpl implements SettingsRepository {
       _localDataSource.writeAutoSpeakReplies(enabled: enabled);
 
   @override
+  Future<void> updateVoiceEndpointSilenceMs(int silenceMs) =>
+      _localDataSource.writeVoiceEndpointSilenceMs(silenceMs);
+
+  @override
   Future<void> updateWakeWordEnabled({required bool enabled}) =>
       _localDataSource.writeWakeWordEnabled(enabled: enabled);
 

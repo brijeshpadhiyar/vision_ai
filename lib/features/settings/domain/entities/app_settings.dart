@@ -18,6 +18,7 @@ class AppSettings {
     this.selectedVoiceLanguage = VoiceLanguage.english,
     this.hapticFeedbackEnabled = true,
     this.autoSpeakReplies = true,
+    this.voiceEndpointSilenceMs = 3800,
     this.wakeWordEnabled = false,
     this.wakeWordBackgroundEnabled = false,
     this.wakeWordSensitivity = 0.55,
@@ -70,6 +71,9 @@ class AppSettings {
   /// Whether VISION automatically speaks AI replies aloud via TTS.
   final bool autoSpeakReplies;
 
+  /// Pause duration (ms) after speech before finalizing a voice utterance.
+  final int voiceEndpointSilenceMs;
+
   /// Whether hands-free "Hey VISION" wake-word detection is enabled.
   final bool wakeWordEnabled;
 
@@ -119,6 +123,7 @@ class AppSettings {
     VoiceLanguage? selectedVoiceLanguage,
     bool? hapticFeedbackEnabled,
     bool? autoSpeakReplies,
+    int? voiceEndpointSilenceMs,
     bool? wakeWordEnabled,
     bool? wakeWordBackgroundEnabled,
     double? wakeWordSensitivity,
@@ -140,6 +145,8 @@ class AppSettings {
       hapticFeedbackEnabled:
           hapticFeedbackEnabled ?? this.hapticFeedbackEnabled,
       autoSpeakReplies: autoSpeakReplies ?? this.autoSpeakReplies,
+      voiceEndpointSilenceMs:
+          voiceEndpointSilenceMs ?? this.voiceEndpointSilenceMs,
       wakeWordEnabled: wakeWordEnabled ?? this.wakeWordEnabled,
       wakeWordBackgroundEnabled:
           wakeWordBackgroundEnabled ?? this.wakeWordBackgroundEnabled,
@@ -167,6 +174,7 @@ class AppSettings {
         other.selectedVoiceLanguage == selectedVoiceLanguage &&
         other.hapticFeedbackEnabled == hapticFeedbackEnabled &&
         other.autoSpeakReplies == autoSpeakReplies &&
+        other.voiceEndpointSilenceMs == voiceEndpointSilenceMs &&
         other.wakeWordEnabled == wakeWordEnabled &&
         other.wakeWordBackgroundEnabled == wakeWordBackgroundEnabled &&
         other.wakeWordSensitivity == wakeWordSensitivity &&
@@ -190,6 +198,7 @@ class AppSettings {
     selectedVoiceLanguage,
     hapticFeedbackEnabled,
     autoSpeakReplies,
+    voiceEndpointSilenceMs,
     wakeWordEnabled,
     wakeWordBackgroundEnabled,
     wakeWordSensitivity,

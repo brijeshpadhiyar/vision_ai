@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/errors/app_exception.dart';
+import 'package:vision_ai/core/intelligence/command_normalizer.dart';
+import 'package:vision_ai/core/intelligence/conversation_context.dart';
+import 'package:vision_ai/core/intelligence/entity_extractor.dart';
 import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/utils/app_logger.dart';
 import 'package:vision_ai/features/automation/data/repositories/device_automation_repository_impl.dart';
@@ -192,6 +195,7 @@ class AutomationController extends Notifier<AutomationState> {
   Future<DeviceActionResult> executeRequest(
     DeviceActionRequest request, {
     bool confirmed = false,
+    List<String> alternativeQueries = const <String>[],
   }) async {
     final logger = ref.read(appLoggerProvider);
     final telemetry = ref.read(telemetryProvider.notifier);
@@ -205,7 +209,11 @@ class AutomationController extends Notifier<AutomationState> {
     );
 
     try {
-      var result = await _dispatchRequest(request, confirmed: confirmed);
+      var result = await _dispatchRequest(
+        request,
+        confirmed: confirmed,
+        alternativeQueries: alternativeQueries,
+      );
 
       // Execute any chained follow-up steps sequentially if the primary step succeeded.
       if (result.success && request.followUpActions.isNotEmpty) {
@@ -215,9 +223,39 @@ class AutomationController extends Notifier<AutomationState> {
           final stepResult = await _dispatchRequest(
             followUp,
             confirmed: confirmed,
+            alternativeQueries: alternativeQueries,
           );
           if (!stepResult.success) {
-            stepSummaries.add('Step ${i + 2} failed: ${stepResult.summary}');
+            if (stepResult.status == DeviceActionStatus.confirmationRequired ||
+                stepResult.status == DeviceActionStatus.ambiguousContact) {
+              // Preserve remaining follow-up steps on pendingConfirmation
+              final remaining = request.followUpActions
+                  .skip(i + 1)
+                  .toList(growable: false);
+              if (state.pendingConfirmation != null && remaining.isNotEmpty) {
+                final curPending = state.pendingConfirmation!;
+                state = state.copyWith(
+                  pendingConfirmation: DeviceActionRequest(
+                    type: curPending.type,
+                    displaySummary: curPending.displaySummary,
+                    target: curPending.target,
+                    hour: curPending.hour,
+                    minute: curPending.minute,
+                    durationSeconds: curPending.durationSeconds,
+                    label: curPending.label,
+                    message: curPending.message,
+                    enabled: curPending.enabled,
+                    requiresConfirmation: curPending.requiresConfirmation,
+                    contactOrdinalIndex: curPending.contactOrdinalIndex,
+                    isTomorrow: curPending.isTomorrow,
+                    followUpActions: remaining,
+                  ),
+                );
+              }
+              stepSummaries.add('Step ${i + 2}: ${stepResult.summary}');
+            } else {
+              stepSummaries.add('Step ${i + 2} failed: ${stepResult.summary}');
+            }
             result = DeviceActionResult(
               success: false,
               status: stepResult.status,
@@ -229,6 +267,9 @@ class AutomationController extends Notifier<AutomationState> {
               contacts: stepResult.contacts,
               notifications: stepResult.notifications,
               deviceStatus: stepResult.deviceStatus,
+              suggestedContact: stepResult.suggestedContact,
+              spokenContactQuery: stepResult.spokenContactQuery,
+              contactConfidence: stepResult.contactConfidence,
             );
             break;
           }
@@ -303,6 +344,7 @@ class AutomationController extends Notifier<AutomationState> {
   Future<DeviceActionResult> _dispatchRequest(
     DeviceActionRequest request, {
     required bool confirmed,
+    List<String> alternativeQueries = const <String>[],
   }) async {
     final repo = ref.read(deviceAutomationRepositoryProvider);
     final settings = ref.read(settingsControllerProvider);
@@ -313,6 +355,7 @@ class AutomationController extends Notifier<AutomationState> {
           request,
           directCallEnabled: settings.directPhoneCallsEnabled,
           confirmed: confirmed,
+          alternativeQueries: alternativeQueries,
         );
 
       case DeviceActionType.lookupContacts:
@@ -328,10 +371,14 @@ class AutomationController extends Notifier<AutomationState> {
             missingPermission: AutomationPermission.readContacts,
           );
         }
+        final altContactQueries = _extractAlternativeContactQueries(
+          alternativeQueries,
+        );
         final resolution = await ref
             .read(contactResolverProvider)
             .resolve(
               primaryQuery: request.target,
+              alternativeQueries: altContactQueries,
               ordinalIndex: request.contactOrdinalIndex,
               recentSelectedContactId: state.lastSelectedContactId,
             );
@@ -355,6 +402,7 @@ class AutomationController extends Notifier<AutomationState> {
           hour: request.hour ?? 7,
           minute: request.minute ?? 0,
           label: request.label,
+          isTomorrow: request.isTomorrow,
         );
 
       case DeviceActionType.setTimer:
@@ -372,10 +420,16 @@ class AutomationController extends Notifier<AutomationState> {
         );
 
       case DeviceActionType.sendSms:
-        return _handleSmsRequest(request);
+        return _handleSmsRequest(
+          request,
+          alternativeQueries: alternativeQueries,
+        );
 
       case DeviceActionType.sendWhatsapp:
-        return _handleWhatsAppRequest(request);
+        return _handleWhatsAppRequest(
+          request,
+          alternativeQueries: alternativeQueries,
+        );
 
       case DeviceActionType.readNotifications:
         return _handleReadNotificationsRequest(settings);
@@ -459,6 +513,7 @@ class AutomationController extends Notifier<AutomationState> {
     DeviceActionRequest request, {
     required bool directCallEnabled,
     required bool confirmed,
+    List<String> alternativeQueries = const <String>[],
   }) async {
     final repo = ref.read(deviceAutomationRepositoryProvider);
     final rawTarget = request.target.trim();
@@ -482,6 +537,7 @@ class AutomationController extends Notifier<AutomationState> {
       final resolution = await _resolveContactForAction(
         request,
         actionType: DeviceActionType.callPhone,
+        alternativeQueries: alternativeQueries,
       );
       if (resolution.earlyResult != null) {
         return resolution.earlyResult!;
@@ -507,6 +563,7 @@ class AutomationController extends Notifier<AutomationState> {
           target: phoneNumber,
           displaySummary: 'Place direct call to $resolvedLabel',
           requiresConfirmation: true,
+          followUpActions: request.followUpActions,
         );
         state = state.copyWith(pendingConfirmation: pending);
         return DeviceActionResult(
@@ -525,8 +582,9 @@ class AutomationController extends Notifier<AutomationState> {
   }
 
   Future<DeviceActionResult> _handleSmsRequest(
-    DeviceActionRequest request,
-  ) async {
+    DeviceActionRequest request, {
+    List<String> alternativeQueries = const <String>[],
+  }) async {
     final repo = ref.read(deviceAutomationRepositoryProvider);
     final rawTarget = request.target.trim();
 
@@ -551,6 +609,7 @@ class AutomationController extends Notifier<AutomationState> {
     final resolution = await _resolveContactForAction(
       request,
       actionType: DeviceActionType.sendSms,
+      alternativeQueries: alternativeQueries,
     );
     if (resolution.earlyResult != null) {
       return resolution.earlyResult!;
@@ -563,8 +622,9 @@ class AutomationController extends Notifier<AutomationState> {
   }
 
   Future<DeviceActionResult> _handleWhatsAppRequest(
-    DeviceActionRequest request,
-  ) async {
+    DeviceActionRequest request, {
+    List<String> alternativeQueries = const <String>[],
+  }) async {
     final repo = ref.read(deviceAutomationRepositoryProvider);
     final rawTarget = request.target.trim();
     if (rawTarget.isEmpty) {
@@ -586,7 +646,8 @@ class AutomationController extends Notifier<AutomationState> {
         success: false,
         status: DeviceActionStatus.permissionRequired,
         actionType: DeviceActionType.sendWhatsapp,
-        summary: 'Contacts permission is required to look up a recipient for WhatsApp.',
+        summary:
+            'Contacts permission is required to look up a recipient for WhatsApp.',
         requiresPermission: true,
         missingPermission: AutomationPermission.readContacts,
       );
@@ -595,6 +656,7 @@ class AutomationController extends Notifier<AutomationState> {
     final resolution = await _resolveContactForAction(
       request,
       actionType: DeviceActionType.sendWhatsapp,
+      alternativeQueries: alternativeQueries,
     );
     if (resolution.earlyResult != null) {
       return resolution.earlyResult!;
@@ -606,17 +668,46 @@ class AutomationController extends Notifier<AutomationState> {
     );
   }
 
+  List<String> _extractAlternativeContactQueries(List<String> hypotheses) {
+    if (hypotheses.isEmpty) return const <String>[];
+    final names = <String>{};
+    for (final hyp in hypotheses) {
+      final norm = CommandNormalizer.normalize(hyp);
+      final extracted = EntityExtractor.extractContact(
+        norm,
+        const ConversationIntelligenceContext(),
+      );
+      if (extracted.contact.isNotEmpty) {
+        names.add(extracted.contact);
+      } else {
+        final msgExtracted = EntityExtractor.extractMessageTargets(
+          norm,
+          const ConversationIntelligenceContext(),
+        );
+        if (msgExtracted.recipient.isNotEmpty) {
+          names.add(msgExtracted.recipient);
+        }
+      }
+    }
+    return names.toList(growable: false);
+  }
+
   /// Shared confidence-gated contact resolver enforcing High / Medium ("Did you mean?") /
   /// Low / Ambiguous policies consistently across Call, SMS, and WhatsApp.
   Future<({ContactMatch? contact, DeviceActionResult? earlyResult})>
   _resolveContactForAction(
     DeviceActionRequest request, {
     required DeviceActionType actionType,
+    List<String> alternativeQueries = const <String>[],
   }) async {
+    final altContactQueries = _extractAlternativeContactQueries(
+      alternativeQueries,
+    );
     final resolution = await ref
         .read(contactResolverProvider)
         .resolve(
           primaryQuery: request.target,
+          alternativeQueries: altContactQueries,
           ordinalIndex: request.contactOrdinalIndex,
           recentSelectedContactId: state.lastSelectedContactId,
         );
@@ -637,6 +728,7 @@ class AutomationController extends Notifier<AutomationState> {
             _ => 'Call ${suggested.name} (${suggested.phoneNumber})?',
           },
           requiresConfirmation: true,
+          followUpActions: request.followUpActions,
         );
         state = state.copyWith(
           pendingConfirmation: confirmReq,
@@ -833,6 +925,7 @@ class AutomationController extends Notifier<AutomationState> {
         _ => 'Call ${contact.name} (${contact.phoneNumber})',
       },
       requiresConfirmation: false,
+      followUpActions: pending?.followUpActions ?? const <DeviceActionRequest>[],
     );
     state = state.copyWith(
       clearPending: true,

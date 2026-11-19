@@ -89,7 +89,10 @@ class _TestVoiceRepository implements VoiceRepository {
   Future<bool> isSpeechRecognitionAvailable() async => true;
 
   @override
-  Future<void> startListening({required VoiceLanguage language}) async {}
+  Future<void> startListening({
+    required VoiceLanguage language,
+    int endpointSilenceMs = 3800,
+  }) async {}
 
   @override
   Future<void> stopListening() async {}
@@ -132,6 +135,10 @@ class _TestVoiceRepository implements VoiceRepository {
   @override
   Future<String?> consumeOverlayPrompt() async => null;
 
+  @override
+  Future<({String prompt, List<String> hypotheses})?>
+  consumeOverlayPayload() async => null;
+
   void dispose() => unawaited(controller.close());
 }
 
@@ -165,6 +172,7 @@ class _TestAutomationRepository implements DeviceAutomationRepository {
     required int minute,
     String? label,
     bool skipUi = false,
+    bool isTomorrow = false,
   }) async => const DeviceActionResult(
     success: true,
     actionType: DeviceActionType.setAlarm,

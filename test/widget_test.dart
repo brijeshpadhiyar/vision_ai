@@ -102,7 +102,10 @@ class _FakeVoiceRepository implements VoiceRepository {
   Future<bool> isSpeechRecognitionAvailable() async => true;
 
   @override
-  Future<void> startListening({required VoiceLanguage language}) async {
+  Future<void> startListening({
+    required VoiceLanguage language,
+    int endpointSilenceMs = 3800,
+  }) async {
     lastListeningLanguage = language;
   }
 
@@ -150,6 +153,10 @@ class _FakeVoiceRepository implements VoiceRepository {
 
   @override
   Future<String?> consumeOverlayPrompt() async => null;
+
+  @override
+  Future<({String prompt, List<String> hypotheses})?>
+  consumeOverlayPayload() async => null;
 
   void dispose() {
     unawaited(eventController.close());
@@ -228,6 +235,7 @@ class _FakeDeviceAutomationRepository implements DeviceAutomationRepository {
     required int minute,
     String? label,
     bool skipUi = false,
+    bool isTomorrow = false,
   }) async {
     lastAlarmHour = hour;
     lastAlarmMinute = minute;
@@ -590,8 +598,14 @@ void main() {
       const VoiceTranscriptEvent(text: 'नमस्ते विज़न', isFinal: true),
     );
 
-    // Allow async stream listener and AI completion to settle.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // Allow async stream listener and AI completion to settle cleanly under parallel load.
+    for (var i = 0; i < 12; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+      if (container.read(chatControllerProvider).messages.length >= 2 &&
+          voiceRepository.lastSpokenText != null) {
+        break;
+      }
+    }
 
     final chatState = container.read(chatControllerProvider);
     expect(chatState.messages.length, 2);

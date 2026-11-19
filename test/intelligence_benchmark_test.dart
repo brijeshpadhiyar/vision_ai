@@ -129,6 +129,7 @@ class _BenchmarkAutomationRepository implements DeviceAutomationRepository {
     required int minute,
     String? label,
     bool skipUi = false,
+    bool isTomorrow = false,
   }) async => DeviceActionResult(
     success: true,
     actionType: DeviceActionType.setAlarm,

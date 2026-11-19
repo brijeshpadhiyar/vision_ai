@@ -692,6 +692,8 @@ class _HomeAutomationPromptWrapper extends ConsumerWidget {
       automationState: automationState,
       compact: true,
       onConfirm: () => unawaited(controller.confirmPendingAction()),
+      onConfirmAndSaveAlias: () =>
+          unawaited(controller.confirmPendingAction(saveAsAlias: true)),
       onCancel: controller.cancelPendingAction,
       onSelectContact: (contact) =>
           unawaited(controller.selectContactForPendingAction(contact)),

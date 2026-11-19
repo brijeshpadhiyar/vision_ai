@@ -54,11 +54,13 @@ class DeviceAutomationRepositoryImpl implements DeviceAutomationRepository {
     required int minute,
     String? label,
     bool skipUi = false,
+    bool isTomorrow = false,
   }) => _dataSource.setAlarm(
     hour: hour,
     minute: minute,
     label: label,
     skipUi: skipUi,
+    isTomorrow: isTomorrow,
   );
 
   @override

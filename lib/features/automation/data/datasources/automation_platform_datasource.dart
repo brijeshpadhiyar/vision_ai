@@ -143,6 +143,7 @@ class AutomationPlatformDataSource {
     required int minute,
     String? label,
     bool skipUi = false,
+    bool isTomorrow = false,
   }) async {
     try {
       await _methodChannel.invokeMethod<Map<Object?, Object?>>(
@@ -152,15 +153,17 @@ class AutomationPlatformDataSource {
           'minute': minute,
           if (label != null && label.isNotEmpty) 'label': label,
           'skipUi': skipUi,
+          'isTomorrow': isTomorrow,
         },
       );
       final hh = hour.toString().padLeft(2, '0');
       final mm = minute.toString().padLeft(2, '0');
+      final dayNote = isTomorrow ? ' tomorrow' : '';
       return DeviceActionResult(
         success: true,
         actionType: DeviceActionType.setAlarm,
         summary:
-            'Alarm scheduled for $hh:$mm${label != null && label.isNotEmpty ? ' ($label)' : ''}.',
+            'Alarm scheduled for $hh:$mm$dayNote${label != null && label.isNotEmpty ? ' ($label)' : ''}.',
       );
     } on MissingPluginException {
       return const DeviceActionResult(

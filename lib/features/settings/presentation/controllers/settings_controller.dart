@@ -202,6 +202,22 @@ class SettingsController extends Notifier<AppSettings> {
     );
   }
 
+  /// Updates pause tolerance before finalizing spoken commands (`2000` - `6500` ms).
+  Future<void> setVoiceEndpointSilenceMs(int silenceMs) async {
+    final clamped = silenceMs.clamp(2000, 6500);
+    if (state.voiceEndpointSilenceMs == clamped) return;
+    final previous = state;
+    state = state.copyWith(voiceEndpointSilenceMs: clamped);
+    await _persist(
+      () => ref
+          .read(settingsRepositoryProvider)
+          .updateVoiceEndpointSilenceMs(clamped),
+      previous: previous,
+      logMessage: 'Voice pause tolerance updated to ${clamped}ms',
+      errorContext: 'voice pause tolerance',
+    );
+  }
+
   /// Toggles "Hey VISION" wake-word listener mode.
   Future<void> setWakeWordEnabled({required bool enabled}) async {
     if (state.wakeWordEnabled == enabled) return;

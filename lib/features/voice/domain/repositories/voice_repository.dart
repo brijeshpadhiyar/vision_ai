@@ -16,8 +16,12 @@ abstract interface class VoiceRepository {
   /// Checks whether speech recognition services are available on the device.
   Future<bool> isSpeechRecognitionAvailable();
 
-  /// Starts speech recognition using the BCP-47 locale tag of [language].
-  Future<void> startListening({required VoiceLanguage language});
+  /// Starts speech recognition using the BCP-47 locale tag of [language]
+  /// and configurable pause/endpointing duration [endpointSilenceMs].
+  Future<void> startListening({
+    required VoiceLanguage language,
+    int endpointSilenceMs = 3800,
+  });
 
   /// Stops active speech recognition and requests final transcript resolution.
   Future<void> stopListening();
@@ -58,4 +62,7 @@ abstract interface class VoiceRepository {
 
   /// Consumes any spoken prompt handed off by `VoiceInteractionSession`.
   Future<String?> consumeOverlayPrompt();
+
+  /// Consumes any spoken prompt and alternative ASR hypotheses handed off by `VoiceInteractionSession`.
+  Future<({String prompt, List<String> hypotheses})?> consumeOverlayPayload();
 }

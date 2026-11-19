@@ -123,9 +123,17 @@ class _AssistantExperienceScreenState
       await voiceNotifier.stopSpeaking();
     }
     if (voiceState.isListening) {
-      await voiceNotifier.toggleVoiceCapture();
+      await voiceNotifier.cancelListening();
     }
     ref.read(chatControllerProvider.notifier).cancelActiveRequest();
+  }
+
+  Future<void> _handleFinishListening() async {
+    final settings = ref.read(settingsControllerProvider);
+    if (settings.hapticFeedbackEnabled) {
+      unawaited(HapticFeedback.lightImpact());
+    }
+    await ref.read(voiceControllerProvider.notifier).finishListening();
   }
 
   Future<void> _handleSendTextPrompt() async {
@@ -179,6 +187,7 @@ class _AssistantExperienceScreenState
     final isDark = brightness == Brightness.dark;
 
     final isThinking =
+        voiceState.phase == VoiceListeningPhase.finalizing ||
         voiceState.phase == VoiceListeningPhase.processingAi ||
         voiceState.phase == VoiceListeningPhase.understanding ||
         voiceState.phase == VoiceListeningPhase.executing ||
@@ -202,6 +211,9 @@ class _AssistantExperienceScreenState
         voiceState.liveTranscript.trim().isNotEmpty
             ? 'Hearing you...'
             : 'Listening...',
+      VoiceListeningPhase.partialTranscription => 'Hearing you...',
+      VoiceListeningPhase.endpointing => 'Pause detected — listening...',
+      VoiceListeningPhase.finalizing => 'Finalizing speech...',
       VoiceListeningPhase.listeningWakeWord => 'Standby • Say "Hey VISION"',
       VoiceListeningPhase.understanding => 'Understanding...',
       VoiceListeningPhase.processingAi => 'Thinking...',
@@ -210,6 +222,10 @@ class _AssistantExperienceScreenState
       VoiceListeningPhase.speaking => 'Speaking...',
       VoiceListeningPhase.error => 'Attention needed',
       VoiceListeningPhase.requestingPermission => 'Permission Needed',
+      VoiceListeningPhase.cancelled =>
+        voiceState.isWakeServiceRunning
+            ? 'Standby • Say "Hey VISION"'
+            : 'Cancelled.',
       VoiceListeningPhase.idle =>
         isThinking
             ? 'Thinking...'
@@ -346,6 +362,16 @@ class _AssistantExperienceScreenState
                                           voiceState.errorMessage ??
                                           chatState.errorMessage,
                                       isListening: voiceState.isListening,
+                                      isEndpointing:
+                                          voiceState.phase ==
+                                          VoiceListeningPhase.endpointing,
+                                      segmentCount: voiceState.segmentCount,
+                                      onFinishTap: voiceState.isListening &&
+                                              voiceState.liveTranscript
+                                                  .trim()
+                                                  .isNotEmpty
+                                          ? _handleFinishListening
+                                          : null,
                                     ),
 
                                     // ── Concise AI Response Preview ────────
@@ -623,11 +649,17 @@ class _AssistantTranscriptPanel extends StatelessWidget {
   const _AssistantTranscriptPanel({
     required this.transcript,
     required this.isListening,
+    this.isEndpointing = false,
+    this.segmentCount = 0,
+    this.onFinishTap,
     this.errorMessage,
   });
 
   final String transcript;
   final bool isListening;
+  final bool isEndpointing;
+  final int segmentCount;
+  final VoidCallback? onFinishTap;
   final String? errorMessage;
 
   @override
@@ -667,17 +699,53 @@ class _AssistantTranscriptPanel extends StatelessWidget {
         ? 'Speak clearly in English, Hindi, or Gujarati...'
         : 'Tap the orb or microphone to speak with VISION.';
 
+    final subtitle = isEndpointing
+        ? 'Pause detected — keep speaking or tap Done'
+        : isListening && segmentCount > 1
+        ? 'Captured $segmentCount speech segments'
+        : null;
+
     return VisionGlassContainer(
       variant: transcript.trim().isNotEmpty
           ? VisionGlassVariant.accent
           : VisionGlassVariant.subtle,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      child: Text(
-        displayText,
-        textAlign: TextAlign.center,
-        style: transcript.trim().isNotEmpty
-            ? theme.textTheme.titleMedium
-            : theme.textTheme.bodyMedium,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            displayText,
+            textAlign: TextAlign.center,
+            style: transcript.trim().isNotEmpty
+                ? theme.textTheme.titleMedium
+                : theme.textTheme.bodyMedium,
+          ),
+          if (subtitle != null || onFinishTap != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 6,
+              children: [
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: VisionColors.secondaryText(brightness),
+                    ),
+                  ),
+                if (onFinishTap != null)
+                  VisionGlassButton(
+                    compact: true,
+                    icon: Icons.check_rounded,
+                    label: 'Done',
+                    onPressed: onFinishTap,
+                  ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -840,7 +908,9 @@ class _AssistantControlsBar extends StatelessWidget {
                       : isSpeaking
                       ? Icons.mic_rounded
                       : Icons.mic_none_rounded,
-                  color: VisionColors.backgroundPrimary,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? VisionColors.backgroundPrimary
+                      : Colors.white,
                   size: 30,
                 ),
               ),

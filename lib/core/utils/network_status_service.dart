@@ -16,13 +16,24 @@ class NetworkStatusService {
           channel ?? const MethodChannel(AppConstants.automationMethodChannel);
 
   final MethodChannel _channel;
+  DateTime? _lastOnlineCheckAt;
+  bool? _lastOnlineResult;
 
   /// Returns `true` if an internet-capable network is active, or `true` when
   /// running in host environments without Android platform channels.
   Future<bool> isOnline() async {
+    final now = DateTime.now();
+    if (_lastOnlineResult == true &&
+        _lastOnlineCheckAt != null &&
+        now.difference(_lastOnlineCheckAt!).inMilliseconds < 2500) {
+      return true;
+    }
     try {
       final online = await _channel.invokeMethod<bool>('isNetworkConnected');
-      return online ?? true;
+      final resolved = online ?? true;
+      _lastOnlineResult = resolved;
+      _lastOnlineCheckAt = now;
+      return resolved;
     } on MissingPluginException {
       return true;
     } on PlatformException {

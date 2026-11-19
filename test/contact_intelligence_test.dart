@@ -59,6 +59,7 @@ class _PhoneticContactAutomationRepo implements DeviceAutomationRepository {
     required int minute,
     String? label,
     bool skipUi = false,
+    bool isTomorrow = false,
   }) async => const DeviceActionResult(
     success: true,
     actionType: DeviceActionType.setAlarm,

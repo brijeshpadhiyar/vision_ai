@@ -26,6 +26,7 @@ abstract interface class DeviceAutomationRepository {
     required int minute,
     String? label,
     bool skipUi = false,
+    bool isTomorrow = false,
   });
 
   /// Starts a countdown timer using Android's `AlarmClock.ACTION_SET_TIMER`.

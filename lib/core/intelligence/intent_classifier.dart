@@ -24,7 +24,7 @@ class IntentClassification {
 /// Hinglish, and Gujlish commands with entity validation and clarification.
 abstract final class IntentClassifier {
   static final RegExp _informationalQuestionGuard = RegExp(
-    r'^(?:why|how\s+(?:does|do|can|to)|what\s+(?:is|are)\s+(?:a|an|the)\s+(?!time\b|battery\b|network\b)|explain|define|compare|difference\s+between|write\s+(?:a|an|me)|summarize|kya\s+hota|kaise\s+kaam|kyu|કેવી\s*રીતે|શું\s*છે)|(?:कैसे\s+काम\s+करता|क्या\s+होता\s+है|કેવી\s+રીતે\s+કામ\s+કરે)',
+    r'^(?:why|which|who|whom|whose|how\s+(?:does|do|can|to|much|many|long|far|old)|what\s+(?:is|are|was|were)\s+(?!my\s+(?:battery|notifications?|device|phone\s+status|network)\b)|explain|define|describe|compare|difference\s+between|write\s+(?:a|an|me|some|code)|summarize|tell\s+me\s+(?:about|why|how|what|who|which)|can\s+you\s+(?:explain|tell|write|compare|describe)|could\s+you\s+(?:explain|tell|write|compare|describe)|suggest|is\s+(?:whatsapp|flutter|dart|android|this|that|it)\b|kya\s+hota|kaise\s+kaam|kyu|kaun\s+sa|કેવી\s*રીતે|શું\s*છે)|(?:कैसे\s+काम\s+करता|क्या\s+होता\s+है|કેવી\s+રીતે\s+કામ\s+કરે)',
     caseSensitive: false,
   );
 
@@ -95,7 +95,7 @@ abstract final class IntentClassifier {
       );
     }
 
-    if (_isCancelPendingAction(canonical, lower)) {
+    if (_isCancelPendingAction(canonical, lower, context)) {
       return IntentClassification(
         intentId: 'cancel_action',
         confidence: 0.95,
@@ -105,6 +105,12 @@ abstract final class IntentClassifier {
           displaySummary: 'Cancel pending action',
         ),
       );
+    }
+
+    // Complete pending clarification turn ("What time?" -> "7 AM", "Who?" -> "Soel Kht")
+    if (context.pendingClarificationIntentId != null) {
+      final followUp = _resolvePendingClarification(cmd, canonical, lower, context);
+      if (followUp != null) return followUp;
     }
 
     // Guard general knowledge questions so we never misfire local actions on
@@ -254,12 +260,134 @@ abstract final class IntentClassifier {
         RegExp(r'टाइमर\s*(?:बंद|रद्द)|ટાઇમર\s*(?:બંધ|રદ)').hasMatch(lower);
   }
 
-  static bool _isCancelPendingAction(String canonical, String lower) {
+  static bool _isCancelPendingAction(
+    String canonical,
+    String lower,
+    ConversationIntelligenceContext context,
+  ) {
+    final hasPending =
+        context.pendingAction != null ||
+        context.pendingClarificationIntentId != null;
+    if (hasPending &&
+        RegExp(
+          r'^(?:no|nope|nah|wrong|not\s+that(?:\s+one)?|nahi|na|mat|rehne\s+de|छोड़ो|रहने\s*दो|નહીં|ના)$',
+          caseSensitive: false,
+        ).hasMatch(canonical)) {
+      return true;
+    }
     return RegExp(
           r'^(?:cancel(?:\s+that|\s+it|\s+action|\s+pending(?:\s+action)?)?|abort|nevermind|never\s+mind|mat\s+kar(?:o)?|rehne\s+de|radd\s+kar|rad\s+kar|रद्द\s*करो?|मत\s*करो|રદ\s*કર(?:ો)?)$',
           caseSensitive: false,
         ).hasMatch(canonical) ||
         RegExp(r'\b(cancel\s+pending\s+action)\b').hasMatch(lower);
+  }
+
+  static IntentClassification? _resolvePendingClarification(
+    NormalizedCommand cmd,
+    String canonical,
+    String lower,
+    ConversationIntelligenceContext context,
+  ) {
+    if (_informationalQuestionGuard.hasMatch(lower)) return null;
+    switch (context.pendingClarificationIntentId) {
+      case 'set_alarm':
+        final parsed = EntityExtractor.extractAlarmTime(cmd);
+        if (parsed != null) {
+          final hh = parsed.hour.toString().padLeft(2, '0');
+          final mm = parsed.minute.toString().padLeft(2, '0');
+          final dayNote = parsed.isTomorrow ? ' (tomorrow)' : '';
+          return IntentClassification(
+            intentId: 'set_alarm',
+            confidence: 0.94,
+            language: cmd.language,
+            request: DeviceActionRequest(
+              type: DeviceActionType.setAlarm,
+              hour: parsed.hour,
+              minute: parsed.minute,
+              label: parsed.label,
+              isTomorrow: parsed.isTomorrow,
+              displaySummary: 'Set alarm for $hh:$mm$dayNote',
+            ),
+          );
+        }
+      case 'set_timer':
+        final seconds = EntityExtractor.extractTimerSeconds(cmd);
+        if (seconds != null && seconds > 0) {
+          final formatted = seconds >= 60 && seconds % 60 == 0
+              ? '${seconds ~/ 60} min'
+              : '$seconds sec';
+          return IntentClassification(
+            intentId: 'set_timer',
+            confidence: 0.94,
+            language: cmd.language,
+            request: DeviceActionRequest(
+              type: DeviceActionType.setTimer,
+              durationSeconds: seconds,
+              displaySummary: 'Start $formatted timer',
+            ),
+          );
+        }
+      case 'call_phone':
+      case 'lookup_contacts':
+        final phone = EntityExtractor.extractPhoneNumber(cmd.cleanedText);
+        final candidate = phone.isNotEmpty
+            ? phone
+            : cmd.cleanedText.replaceAll(RegExp(r'[\.\?!,]+$'), '').trim();
+        if (candidate.isNotEmpty && cmd.tokens.length <= 4) {
+          final isCall = context.pendingClarificationIntentId == 'call_phone';
+          return IntentClassification(
+            intentId: context.pendingClarificationIntentId!,
+            confidence: 0.91,
+            language: cmd.language,
+            request: DeviceActionRequest(
+              type: isCall
+                  ? DeviceActionType.callPhone
+                  : DeviceActionType.lookupContacts,
+              target: candidate,
+              requiresConfirmation: isCall,
+              displaySummary: isCall
+                  ? 'Call $candidate'
+                  : 'Search contacts for "$candidate"',
+            ),
+          );
+        }
+      case 'launch_app':
+        final app = EntityExtractor.extractAppName(cmd);
+        final target = app.isNotEmpty ? app : cmd.cleanedText.trim();
+        if (target.isNotEmpty && cmd.tokens.length <= 3) {
+          return IntentClassification(
+            intentId: 'launch_app',
+            confidence: 0.90,
+            language: cmd.language,
+            request: DeviceActionRequest(
+              type: DeviceActionType.launchApp,
+              target: target,
+              displaySummary: 'Open $target',
+            ),
+          );
+        }
+      case 'send_sms':
+      case 'send_whatsapp':
+        final target = cmd.cleanedText.replaceAll(RegExp(r'[\.\?!,]+$'), '').trim();
+        if (target.isNotEmpty && cmd.tokens.length <= 4) {
+          final isWa = context.pendingClarificationIntentId == 'send_whatsapp';
+          return IntentClassification(
+            intentId: context.pendingClarificationIntentId!,
+            confidence: 0.89,
+            language: cmd.language,
+            request: DeviceActionRequest(
+              type: isWa
+                  ? DeviceActionType.sendWhatsapp
+                  : DeviceActionType.sendSms,
+              target: target,
+              displaySummary: isWa
+                  ? 'Send WhatsApp message to $target'
+                  : 'Draft SMS to $target',
+            ),
+          );
+        }
+    }
+    return null;
   }
 
   static IntentClassification? _classifyFlashlight(
@@ -387,7 +515,29 @@ abstract final class IntentClassifier {
     String lower,
   ) {
     final text = '$canonical $lower';
-    if (!RegExp(r'\balarm\b|अलार्म|अलाउम|અલાર્મ|એલાર્મ').hasMatch(text)) {
+    final hasExplicitAlarmWord = RegExp(
+      r'\balarm\b|अलार्म|अलाउम|અલાર્મ|એલાર્મ',
+    ).hasMatch(text);
+    final hasWakePhrase = RegExp(
+      r'\bwake\s+me(?:\s+up)?\b|\butha\s*(?:dena|do)\b|\buthadje\b',
+      caseSensitive: false,
+    ).hasMatch(text);
+    final hasTimeSchedulePhrase =
+        cmd.tokens.length <= 8 &&
+        RegExp(
+          r'\b(?:kal|tomorrow|subah|savare|shaam|sanje|ratre)\b|कल|આવતીકાલે|કાલે|સવારે|સુબહ',
+          caseSensitive: false,
+        ).hasMatch(text) &&
+        RegExp(
+          r"\b(?:vage|baje|am|pm|o'?clock)\b|बजे|वागे|વાગે|વાગ્યે",
+          caseSensitive: false,
+        ).hasMatch(text) &&
+        !RegExp(
+          r'\b(?:meeting|train|flight|bus|class|movie|call|message|weather|news)\b',
+          caseSensitive: false,
+        ).hasMatch(text);
+
+    if (!hasExplicitAlarmWord && !hasWakePhrase && !hasTimeSchedulePhrase) {
       return null;
     }
     // Check show alarms intent vs set alarm intent
@@ -566,6 +716,18 @@ abstract final class IntentClassifier {
       return null;
     }
 
+    // Do not hijack informational queries mentioning WhatsApp ("what is whatsapp")
+    final hasMessagingAction =
+        isFollowUpInWhatsApp ||
+        RegExp(
+          r'\b(?:send|message|msg|text|saying|that|to|kar|bhej|bhejo|moklo|ne|ko)\b|करो|भेजो|કરો|મોકલો|ને|કો',
+          caseSensitive: false,
+        ).hasMatch(text) ||
+        RegExp(r'^(?:whatsapp|wa)\s+[a-zA-Z\u0900-\u097F\u0A80-\u0AFF]+', caseSensitive: false).hasMatch(canonical);
+    if (!hasMessagingAction) {
+      return null;
+    }
+
     final msg = EntityExtractor.extractMessageTargets(cmd, context);
     final phone = EntityExtractor.extractPhoneNumber(cmd.cleanedText);
     final recipient = phone.isNotEmpty ? phone : msg.recipient;
@@ -601,6 +763,10 @@ abstract final class IntentClassifier {
       r'\b(call|dial|ring)\b|कॉल|फोन\s*(?:कर|लगा)|કોલ|કૉલ|ફોન\s*(?:કર|લગાવ)',
       caseSensitive: false,
     ).hasMatch(text);
+    final isActionablePhoneCall = RegExp(
+      r'\bphone\s+(?:lagao|laga|kar|karje|muk)\b|\b(?:ne|ko)\s+phone\b|^(?:please\s+)?phone\s+[a-zA-Z\u0900-\u097F\u0A80-\u0AFF]+$',
+      caseSensitive: false,
+    ).hasMatch(canonical);
 
     final isExplicitContactLookup =
         !isExplicitCallVerb &&
@@ -623,10 +789,7 @@ abstract final class IntentClassifier {
         isShortFind ||
         (hasLookupVerb && text.contains('number'));
 
-    final isCall =
-        !isLookup &&
-        (isExplicitCallVerb ||
-            RegExp(r'\bphone\b', caseSensitive: false).hasMatch(text));
+    final isCall = !isLookup && (isExplicitCallVerb || isActionablePhoneCall);
 
     if (!isCall && !isLookup) return null;
 

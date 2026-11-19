@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vision_ai/core/constants/storage_keys.dart';
+import 'package:vision_ai/core/intelligence/phonetics/phonetic_algorithms.dart';
 import 'package:vision_ai/core/utils/shared_preferences_provider.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/contacts/domain/services/contact_normalization_service.dart';
@@ -104,16 +105,35 @@ class ContactAliasRepository {
   /// synced cleanly, falling back only when unique and matching original name.
   List<ContactMatch> resolveAliasForQuery(
     String spokenQuery,
-    List<ContactMatch> liveContacts,
-  ) {
-    final normalized = ContactNormalizationService.normalize(
-      spokenQuery,
-      stripHonorifics: true,
-    ).romanizedFull;
-    if (normalized.isEmpty) return const <ContactMatch>[];
+    List<ContactMatch> liveContacts, {
+    List<String> alternativeQueries = const <String>[],
+  }) {
+    final normalizedCandidates = <String>{spokenQuery, ...alternativeQueries}
+        .map(
+          (q) => ContactNormalizationService.normalize(
+            q,
+            stripHonorifics: true,
+          ).romanizedFull,
+        )
+        .where((q) => q.isNotEmpty)
+        .toList(growable: false);
+    if (normalizedCandidates.isEmpty) return const <ContactMatch>[];
 
-    final aliases = getAliases()
-        .where((a) => a.normalizedPhrase == normalized)
+    final allAliases = getAliases();
+    final aliases = allAliases
+        .where(
+          (a) => normalizedCandidates.any(
+            (cand) =>
+                a.normalizedPhrase == cand ||
+                (cand.length >= 5 &&
+                    a.normalizedPhrase.length >= 5 &&
+                    PhoneticAlgorithms.damerauLevenshteinDistance(
+                          a.normalizedPhrase,
+                          cand,
+                        ) <=
+                        1),
+          ),
+        )
         .toList(growable: false);
     if (aliases.isEmpty) return const <ContactMatch>[];
 

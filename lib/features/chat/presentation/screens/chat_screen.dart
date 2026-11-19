@@ -296,6 +296,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       .read(automationControllerProvider.notifier)
                       .confirmPendingAction(),
                 ),
+                onConfirmAndSaveAlias: () => unawaited(
+                  ref
+                      .read(automationControllerProvider.notifier)
+                      .confirmPendingAction(saveAsAlias: true),
+                ),
                 onCancel: () => ref
                     .read(automationControllerProvider.notifier)
                     .cancelPendingAction(),

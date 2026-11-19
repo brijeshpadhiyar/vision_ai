@@ -19,7 +19,7 @@ import 'package:vision_ai/features/voice/domain/utils/wake_word_detector.dart';
 final voiceControllerProvider =
     NotifierProvider<VoiceController, VoiceSessionState>(VoiceController.new);
 
-/// Orchestrates multilingual Speech-to-Text (STT), Text-to-Speech (TTS),
+/// Orchestrates pause-tolerant Speech-to-Text (STT), Text-to-Speech (TTS),
 /// offline foreground "Hey VISION" wake-word detection, and Assistant Role state
 /// across English (`en-IN`), Hindi (`hi-IN`), and Gujarati (`gu-IN`).
 class VoiceController extends Notifier<VoiceSessionState> {
@@ -59,20 +59,29 @@ class VoiceController extends Notifier<VoiceSessionState> {
 
   void _handleVoiceEvent(VoiceEvent event) {
     switch (event) {
-      case VoiceStateChangedEvent(:final isListening, :final isSpeaking):
+      case VoiceStateChangedEvent(
+        :final isListening,
+        :final isSpeaking,
+        :final phase,
+        :final segmentCount,
+      ):
         final currentPhase = state.phase;
+        final mappedNativePhase = _mapNativePhase(phase);
         final nextPhase = isSpeaking
             ? VoiceListeningPhase.speaking
             : isListening
             ? (currentPhase == VoiceListeningPhase.listeningWakeWord
                   ? VoiceListeningPhase.listeningWakeWord
-                  : VoiceListeningPhase.listeningCommand)
+                  : (mappedNativePhase ?? VoiceListeningPhase.listeningCommand))
             : (currentPhase == VoiceListeningPhase.processingAi ||
                       currentPhase == VoiceListeningPhase.understanding ||
                       currentPhase == VoiceListeningPhase.executing ||
                       currentPhase == VoiceListeningPhase.confirmationRequired
                   ? currentPhase
-                  : VoiceListeningPhase.idle);
+                  : (mappedNativePhase == VoiceListeningPhase.cancelled ||
+                            mappedNativePhase == VoiceListeningPhase.error
+                        ? mappedNativePhase!
+                        : VoiceListeningPhase.idle));
 
         if (isListening &&
             (_listenStopwatch == null || !_listenStopwatch!.isRunning)) {
@@ -83,6 +92,7 @@ class VoiceController extends Notifier<VoiceSessionState> {
           isListening: isListening,
           isSpeaking: isSpeaking,
           phase: nextPhase,
+          segmentCount: segmentCount > 0 ? segmentCount : state.segmentCount,
           normalizedAmplitude: isListening ? state.normalizedAmplitude : 0.0,
         );
 
@@ -94,13 +104,21 @@ class VoiceController extends Notifier<VoiceSessionState> {
         :final isFinal,
         :final hypotheses,
         :final confidenceScores,
+        :final segmentCount,
       ):
+        final nextPhase = !isFinal && state.isListening
+            ? (state.phase == VoiceListeningPhase.endpointing
+                  ? VoiceListeningPhase.endpointing
+                  : VoiceListeningPhase.partialTranscription)
+            : state.phase;
         state = state.copyWith(
+          phase: nextPhase,
           liveTranscript: text,
           originalTranscript: isFinal ? text : state.originalTranscript,
-          alternativeTranscripts: isFinal
+          alternativeTranscripts: hypotheses.isNotEmpty
               ? hypotheses
               : state.alternativeTranscripts,
+          segmentCount: segmentCount > 0 ? segmentCount : state.segmentCount,
           engineConfidence:
               (isFinal &&
                   confidenceScores != null &&
@@ -112,7 +130,7 @@ class VoiceController extends Notifier<VoiceSessionState> {
           clearError: true,
         );
         if (isFinal) {
-          unawaited(_processFinalTranscript(text));
+          unawaited(_processFinalTranscript(text, hypotheses: hypotheses));
         }
 
       case VoiceWakeServiceStateEvent(
@@ -138,12 +156,18 @@ class VoiceController extends Notifier<VoiceSessionState> {
         );
         unawaited(startCommandListening());
 
-      case VoiceOverlayPromptEvent(:final prompt):
+      case VoiceOverlayPromptEvent(:final prompt, :final hypotheses):
         if (prompt.trim().isNotEmpty) {
-          unawaited(_dispatchVoiceCommandToAi(prompt.trim()));
+          unawaited(
+            _dispatchVoiceCommandToAi(
+              prompt.trim(),
+              hypotheses: hypotheses,
+            ),
+          );
         }
 
       case VoiceErrorEvent(:final message):
+        _listenStopwatch?.stop();
         state = state.copyWith(
           phase: VoiceListeningPhase.error,
           isListening: false,
@@ -153,7 +177,24 @@ class VoiceController extends Notifier<VoiceSessionState> {
     }
   }
 
-  Future<void> _processFinalTranscript(String transcript) async {
+  VoiceListeningPhase? _mapNativePhase(String? rawPhase) {
+    return switch (rawPhase) {
+      'listening' => VoiceListeningPhase.listeningCommand,
+      'partial_transcription' => VoiceListeningPhase.partialTranscription,
+      'endpointing' => VoiceListeningPhase.endpointing,
+      'finalizing' => VoiceListeningPhase.finalizing,
+      'speaking' => VoiceListeningPhase.speaking,
+      'cancelled' => VoiceListeningPhase.cancelled,
+      'error' => VoiceListeningPhase.error,
+      'idle' => VoiceListeningPhase.idle,
+      _ => null,
+    };
+  }
+
+  Future<void> _processFinalTranscript(
+    String transcript, {
+    List<String> hypotheses = const <String>[],
+  }) async {
     final trimmed = transcript.trim();
     if (trimmed.isEmpty) return;
 
@@ -168,7 +209,8 @@ class VoiceController extends Notifier<VoiceSessionState> {
     final logger = ref.read(appLoggerProvider);
 
     // Check wake-word strictly when in wake-word listening mode, or strip a
-    // leading multi-word wake prefix ("hey vision ...") when wake-word is armed.
+    // leading multi-word wake prefix ("hey vision ...") when wake-word is armed
+    // or when the user begins a command with "Hey VISION ...".
     if (state.phase == VoiceListeningPhase.listeningWakeWord) {
       final match = WakeWordDetector.evaluate(trimmed);
       if (match.isTriggered) {
@@ -180,7 +222,12 @@ class VoiceController extends Notifier<VoiceSessionState> {
         );
 
         if (match.trailingCommand.isNotEmpty) {
-          await _dispatchVoiceCommandToAi(match.trailingCommand);
+          final cleanedHypotheses = _stripWakePrefixFromHypotheses(hypotheses);
+          await _dispatchVoiceCommandToAi(
+            match.trailingCommand,
+            hypotheses: cleanedHypotheses,
+            originalRaw: trimmed,
+          );
         } else {
           // User said "Hey VISION" — immediately listen for their spoken question.
           state = state.copyWith(
@@ -197,29 +244,70 @@ class VoiceController extends Notifier<VoiceSessionState> {
         );
         return;
       }
-    } else if (state.isWakeWordArmed) {
+    } else {
       final match = WakeWordDetector.evaluate(trimmed);
-      if (match.isTriggered && match.trailingCommand.isNotEmpty) {
-        logger.info('Wake word detected: "${match.matchedPhrase}"');
+      if (match.isTriggered) {
+        logger.info('Wake prefix detected: "${match.matchedPhrase}"');
         state = state.copyWith(
           lastWakeWordDetected: match.matchedPhrase,
           wakeTriggerSequence: state.wakeTriggerSequence + 1,
           clearError: true,
         );
-        await _dispatchVoiceCommandToAi(match.trailingCommand);
-        return;
+        if (match.trailingCommand.isNotEmpty) {
+          final cleanedHypotheses = _stripWakePrefixFromHypotheses(hypotheses);
+          await _dispatchVoiceCommandToAi(
+            match.trailingCommand,
+            hypotheses: cleanedHypotheses,
+            originalRaw: trimmed,
+          );
+          return;
+        }
+        if (state.isWakeWordArmed) {
+          state = state.copyWith(
+            liveTranscript: 'Listening for your command...',
+          );
+          await startCommandListening();
+          return;
+        }
       }
     }
 
-    await _dispatchVoiceCommandToAi(trimmed);
+    await _dispatchVoiceCommandToAi(
+      trimmed,
+      hypotheses: hypotheses,
+      originalRaw: trimmed,
+    );
   }
 
-  Future<void> _dispatchVoiceCommandToAi(String commandText) async {
+  List<String> _stripWakePrefixFromHypotheses(List<String> hypotheses) {
+    if (hypotheses.isEmpty) return const <String>[];
+    final cleaned = <String>[];
+    for (final h in hypotheses) {
+      final m = WakeWordDetector.evaluate(h);
+      final value = (m.isTriggered && m.trailingCommand.isNotEmpty)
+          ? m.trailingCommand
+          : h.trim();
+      if (value.isNotEmpty && !cleaned.contains(value)) {
+        cleaned.add(value);
+      }
+    }
+    return cleaned;
+  }
+
+  Future<void> _dispatchVoiceCommandToAi(
+    String commandText, {
+    List<String> hypotheses = const <String>[],
+    String? originalRaw,
+  }) async {
     final e2eStopwatch = Stopwatch()..start();
 
     state = state.copyWith(
       phase: VoiceListeningPhase.understanding,
       liveTranscript: commandText,
+      originalTranscript: originalRaw ?? commandText,
+      alternativeTranscripts: hypotheses.isNotEmpty
+          ? hypotheses
+          : state.alternativeTranscripts,
       isListening: false,
       normalizedAmplitude: 0.0,
       clearError: true,
@@ -237,6 +325,12 @@ class VoiceController extends Notifier<VoiceSessionState> {
       return;
     }
 
+    if (quickIntent.shouldHandleLocally &&
+        quickIntent.request?.type == DeviceActionType.cancelAction) {
+      await stopSpeaking();
+      ref.read(chatControllerProvider.notifier).cancelActiveRequest();
+    }
+
     state = state.copyWith(
       phase: quickIntent.shouldHandleLocally
           ? VoiceListeningPhase.executing
@@ -245,7 +339,12 @@ class VoiceController extends Notifier<VoiceSessionState> {
 
     final accepted = await ref
         .read(chatControllerProvider.notifier)
-        .sendMessage(commandText);
+        .sendMessage(
+          commandText,
+          alternativeTranscripts: hypotheses,
+          originalTranscript: originalRaw ?? commandText,
+        );
+    if (!ref.mounted) return;
 
     final chatState = ref.read(chatControllerProvider);
     final automationState = ref.read(automationControllerProvider);
@@ -282,6 +381,7 @@ class VoiceController extends Notifier<VoiceSessionState> {
     final settings = ref.read(settingsControllerProvider);
     if (settings.autoSpeakReplies && latestReply.isNotEmpty) {
       await speakReply(latestReply);
+      if (!ref.mounted) return;
     }
 
     e2eStopwatch.stop();
@@ -291,6 +391,9 @@ class VoiceController extends Notifier<VoiceSessionState> {
   }
 
   /// Toggles voice command capture on or off.
+  ///
+  /// When listening, calls [finishListening] to finalize accumulated speech cleanly
+  /// rather than discarding spoken segments.
   Future<void> toggleVoiceCapture() async {
     final voiceRepo = ref.read(voiceRepositoryProvider);
 
@@ -304,16 +407,41 @@ class VoiceController extends Notifier<VoiceSessionState> {
     }
 
     if (state.isListening) {
-      await voiceRepo.stopListening();
-      state = state.copyWith(
-        isListening: false,
-        phase: VoiceListeningPhase.idle,
-        normalizedAmplitude: 0.0,
-      );
+      await finishListening();
       return;
     }
 
     await startCommandListening();
+  }
+
+  /// Manually finalizes the current listening session so accumulated speech
+  /// is processed immediately without waiting for the silence timer.
+  Future<void> finishListening() async {
+    if (!state.isListening) return;
+    final voiceRepo = ref.read(voiceRepositoryProvider);
+    state = state.copyWith(
+      phase: VoiceListeningPhase.finalizing,
+      normalizedAmplitude: 0.0,
+    );
+    await voiceRepo.stopListening();
+  }
+
+  /// Manually cancels active voice capture (or TTS/AI generation) and resets to cancelled/idle.
+  Future<void> cancelListening() async {
+    _listenStopwatch?.stop();
+    final voiceRepo = ref.read(voiceRepositoryProvider);
+    if (state.isSpeaking) {
+      await voiceRepo.stopSpeaking();
+    }
+    await voiceRepo.cancelListening();
+    state = state.copyWith(
+      isListening: false,
+      isSpeaking: false,
+      phase: VoiceListeningPhase.cancelled,
+      normalizedAmplitude: 0.0,
+      liveTranscript: '',
+      clearError: true,
+    );
   }
 
   /// Interrupts active TTS speech and immediately opens voice listening again.
@@ -329,6 +457,12 @@ class VoiceController extends Notifier<VoiceSessionState> {
     final voiceRepo = ref.read(voiceRepositoryProvider);
     final settings = ref.read(settingsControllerProvider);
     final logger = ref.read(appLoggerProvider);
+
+    // Avoid starting STT while VISION is speaking aloud.
+    if (state.isSpeaking) {
+      await voiceRepo.stopSpeaking();
+      state = state.copyWith(isSpeaking: false);
+    }
 
     state = state.copyWith(
       phase: VoiceListeningPhase.requestingPermission,
@@ -357,19 +491,29 @@ class VoiceController extends Notifier<VoiceSessionState> {
         : VoiceListeningPhase.listeningCommand;
 
     try {
-      await voiceRepo.startListening(language: settings.selectedVoiceLanguage);
+      _listenStopwatch = Stopwatch()..start();
+      await voiceRepo.startListening(
+        language: settings.selectedVoiceLanguage,
+        endpointSilenceMs: settings.voiceEndpointSilenceMs,
+      );
       state = state.copyWith(
         hasMicPermission: true,
         phase: targetPhase,
         isListening: true,
         liveTranscript: '',
+        originalTranscript: '',
+        alternativeTranscripts: const <String>[],
+        segmentCount: 0,
+        clearConfidence: true,
         clearError: true,
       );
       logger.info(
         'Started ${wakeWordMode ? 'wake-word' : 'command'} listening '
-        'in ${settings.selectedVoiceLanguage.localeCode}',
+        'in ${settings.selectedVoiceLanguage.localeCode} '
+        '(silence=${settings.voiceEndpointSilenceMs}ms)',
       );
     } on AppException catch (error) {
+      _listenStopwatch?.stop();
       state = state.copyWith(
         phase: VoiceListeningPhase.error,
         isListening: false,
@@ -393,7 +537,8 @@ class VoiceController extends Notifier<VoiceSessionState> {
         hasMicPermission: false,
         isWakeWordArmed: false,
         phase: VoiceListeningPhase.error,
-        errorMessage: 'Microphone permission is required for "Hey VISION" wake-word standby.',
+        errorMessage:
+            'Microphone permission is required for "Hey VISION" wake-word standby.',
       );
       return;
     }
@@ -473,11 +618,18 @@ class VoiceController extends Notifier<VoiceSessionState> {
   Future<void> openAssistantOverlay() =>
       ref.read(voiceRepositoryProvider).openAssistantOverlay();
 
-  /// Consumes and processes any pending prompt passed by `VoiceInteractionSession`.
+  /// Consumes and processes any pending prompt & hypotheses passed by `VoiceInteractionSession`.
   Future<void> checkQueuedOverlayPrompt() async {
-    final prompt = await ref
-        .read(voiceRepositoryProvider)
-        .consumeOverlayPrompt();
+    final repo = ref.read(voiceRepositoryProvider);
+    final payload = await repo.consumeOverlayPayload();
+    if (payload != null && payload.prompt.trim().isNotEmpty) {
+      await _dispatchVoiceCommandToAi(
+        payload.prompt.trim(),
+        hypotheses: payload.hypotheses,
+      );
+      return;
+    }
+    final prompt = await repo.consumeOverlayPrompt();
     if (prompt != null && prompt.trim().isNotEmpty) {
       await _dispatchVoiceCommandToAi(prompt.trim());
     }
@@ -492,6 +644,10 @@ class VoiceController extends Notifier<VoiceSessionState> {
     final voiceRepo = ref.read(voiceRepositoryProvider);
     final settings = ref.read(settingsControllerProvider);
 
+    if (state.isListening) {
+      await voiceRepo.cancelListening();
+      state = state.copyWith(isListening: false, normalizedAmplitude: 0.0);
+    }
     if (state.isSpeaking) {
       await voiceRepo.stopSpeaking();
     }

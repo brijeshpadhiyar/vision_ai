@@ -24,6 +24,7 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         VisionWakeWordService.isForegroundAppActive = true
+        voiceChannel?.onHostResume()
     }
 
     override fun onPause() {

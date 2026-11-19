@@ -29,8 +29,10 @@ class AssistantOverlayActivity : FlutterActivity() {
             messenger = messenger,
         )
         val initialPrompt = intent?.getStringExtra("initialPrompt")
+        val initialHypotheses =
+            intent?.getStringArrayListExtra("initialHypotheses") ?: emptyList()
         if (!initialPrompt.isNullOrBlank()) {
-            voiceChannel?.queueOverlayPrompt(initialPrompt)
+            voiceChannel?.queueOverlayPrompt(initialPrompt, initialHypotheses)
         }
     }
 
@@ -38,14 +40,17 @@ class AssistantOverlayActivity : FlutterActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         val initialPrompt = intent.getStringExtra("initialPrompt")
+        val initialHypotheses =
+            intent.getStringArrayListExtra("initialHypotheses") ?: emptyList()
         if (!initialPrompt.isNullOrBlank()) {
-            voiceChannel?.queueOverlayPrompt(initialPrompt)
+            voiceChannel?.queueOverlayPrompt(initialPrompt, initialHypotheses)
         }
     }
 
     override fun onResume() {
         super.onResume()
         VisionWakeWordService.isForegroundAppActive = true
+        voiceChannel?.onHostResume()
     }
 
     override fun onPause() {

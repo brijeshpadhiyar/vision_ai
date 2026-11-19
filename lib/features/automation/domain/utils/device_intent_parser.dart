@@ -21,14 +21,21 @@ abstract final class DeviceIntentParser {
     dotAll: true,
   );
 
-  /// Evaluates [input] with full intent classification, confidence scoring,
-  /// clarification detection, and sequential multi-step planning.
+  /// Evaluates [input] (and optional [alternativeTranscripts]) with full intent
+  /// classification, confidence scoring, clarification detection, and sequential planning.
   static IntentResolution analyzeIntent(
     String input, {
+    List<String> alternativeTranscripts = const <String>[],
     ConversationIntelligenceContext context =
         const ConversationIntelligenceContext(),
   }) {
-    return IntentEngine.analyze(input, context: context);
+    if (alternativeTranscripts.isEmpty) {
+      return IntentEngine.analyze(input, context: context);
+    }
+    return IntentEngine.analyzeWithHypotheses(
+      <String>[input, ...alternativeTranscripts],
+      context: context,
+    );
   }
 
   /// Attempts to parse a direct local device command without calling a remote LLM.

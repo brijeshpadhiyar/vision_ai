@@ -14,6 +14,8 @@ class IntentResolution {
     required this.disposition,
     required this.lifecycleStatus,
     required this.parseTimeMicros,
+    this.originalTranscript = '',
+    this.alternativeTranscripts = const <String>[],
     this.request,
     this.clarificationPrompt,
     this.descriptor,
@@ -26,6 +28,8 @@ class IntentResolution {
   final ConfidenceDisposition disposition;
   final CommandLifecycleStatus lifecycleStatus;
   final int parseTimeMicros;
+  final String originalTranscript;
+  final List<String> alternativeTranscripts;
   final DeviceActionRequest? request;
   final String? clarificationPrompt;
   final CommandDescriptor? descriptor;
@@ -41,6 +45,75 @@ class IntentResolution {
 
 /// Top-level intent recognition orchestrator for local-first execution.
 abstract final class IntentEngine {
+  /// Evaluates multiple ASR [hypotheses] in priority order while preserving
+  /// the original raw transcript and alternative candidates for contact/entity resolution.
+  static IntentResolution analyzeWithHypotheses(
+    List<String> hypotheses, {
+    ConversationIntelligenceContext context =
+        const ConversationIntelligenceContext(),
+  }) {
+    final cleaned = hypotheses
+        .map((h) => h.trim())
+        .where((h) => h.isNotEmpty)
+        .toList(growable: false);
+    if (cleaned.isEmpty) {
+      return analyze('', context: context);
+    }
+
+    final primary = analyze(cleaned.first, context: context);
+    if (primary.shouldHandleLocally || primary.needsClarification) {
+      return IntentResolution(
+        intentId: primary.intentId,
+        confidence: primary.confidence,
+        language: primary.language,
+        disposition: primary.disposition,
+        lifecycleStatus: primary.lifecycleStatus,
+        parseTimeMicros: primary.parseTimeMicros,
+        originalTranscript: cleaned.first,
+        alternativeTranscripts: cleaned,
+        request: primary.request,
+        clarificationPrompt: primary.clarificationPrompt,
+        descriptor: primary.descriptor,
+        steps: primary.steps,
+      );
+    }
+
+    // Check secondary ASR hypotheses for misrecognized command verbs ("tall Tisha" -> "call Tisha")
+    for (final alt in cleaned.skip(1)) {
+      final candidate = analyze(alt, context: context);
+      if (candidate.shouldHandleLocally && candidate.confidence >= 0.85) {
+        return IntentResolution(
+          intentId: candidate.intentId,
+          confidence: candidate.confidence,
+          language: candidate.language,
+          disposition: candidate.disposition,
+          lifecycleStatus: candidate.lifecycleStatus,
+          parseTimeMicros: primary.parseTimeMicros + candidate.parseTimeMicros,
+          originalTranscript: cleaned.first,
+          alternativeTranscripts: cleaned,
+          request: candidate.request,
+          clarificationPrompt: candidate.clarificationPrompt,
+          descriptor: candidate.descriptor,
+          steps: candidate.steps,
+        );
+      }
+    }
+
+    return IntentResolution(
+      intentId: primary.intentId,
+      confidence: primary.confidence,
+      language: primary.language,
+      disposition: primary.disposition,
+      lifecycleStatus: primary.lifecycleStatus,
+      parseTimeMicros: primary.parseTimeMicros,
+      originalTranscript: cleaned.first,
+      alternativeTranscripts: cleaned,
+      request: primary.request,
+      clarificationPrompt: primary.clarificationPrompt,
+      descriptor: primary.descriptor,
+      steps: primary.steps,
+    );
+  }
   /// Evaluates [rawInput] with optional [context], handling single or multi-step
   /// local commands without calling external AI providers.
   static IntentResolution analyze(
@@ -131,6 +204,7 @@ abstract final class IntentEngine {
               ? CommandLifecycleStatus.confirmationRequired
               : CommandLifecycleStatus.validated,
           parseTimeMicros: stopwatch.elapsedMicroseconds,
+          originalTranscript: rawInput,
           request: combined,
           descriptor: CommandRegistry.descriptorFor(combined.type),
           steps: parsedSteps,
@@ -173,6 +247,7 @@ abstract final class IntentEngine {
       disposition: disposition,
       lifecycleStatus: lifecycle,
       parseTimeMicros: stopwatch.elapsedMicroseconds,
+      originalTranscript: rawInput,
       request: classification.request,
       clarificationPrompt: clarification,
       descriptor: descriptor,

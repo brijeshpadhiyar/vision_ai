@@ -6,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/telemetry/performance_telemetry.dart';
 import 'package:vision_ai/core/theme/vision_colors.dart';
-import 'package:vision_ai/core/theme/vision_spacing.dart';
 import 'package:vision_ai/core/utils/network_status_service.dart';
 import 'package:vision_ai/core/utils/secret_redactor.dart';
 import 'package:vision_ai/core/widgets/glass/vision_glass_widgets.dart';
@@ -134,7 +133,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         ],
       ),
       body: ListView(
-        padding: VisionSpacing.screenPadding.copyWith(bottom: 120),
+        padding: const EdgeInsets.only(bottom: 120),
         children: [
           VisionGlassCard(
             child: Column(
@@ -249,10 +248,17 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                   'ASR Confidence (last utterance)',
                   voice.engineConfidence != null
                       ? '${(voice.engineConfidence! * 100).round()}% '
-                            '(${voice.alternativeTranscripts.length} hypotheses)'
+                            '(${voice.alternativeTranscripts.length} hypotheses • '
+                            '${voice.segmentCount} segments)'
                       : 'Unavailable from speech engine '
-                            '(${voice.alternativeTranscripts.length} hypotheses)',
+                            '(${voice.alternativeTranscripts.length} hypotheses • '
+                            '${voice.segmentCount} segments)',
                 ),
+                if (voice.originalTranscript.trim().isNotEmpty)
+                  _DiagRow(
+                    'Last Raw Transcript',
+                    voice.originalTranscript.trim(),
+                  ),
               ],
             ),
           ),

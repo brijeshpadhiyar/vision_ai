@@ -42,11 +42,20 @@ abstract final class CommandNormalizer {
     'whatsap': 'whatsapp',
     'whatapp': 'whatsapp',
     'whastapp': 'whatsapp',
+    'whasapp': 'whatsapp',
+    'watsap': 'whatsapp',
+    'watsup': 'whatsapp',
+    'whatsup': 'whatsapp',
+    'whatsaap': 'whatsapp',
     'alram': 'alarm',
     'alrm': 'alarm',
     'alaam': 'alarm',
+    'alam': 'alarm',
+    'allaam': 'alarm',
     'timmer': 'timer',
     'tmer': 'timer',
+    'timar': 'timer',
+    'taimer': 'timer',
     'blutooth': 'bluetooth',
     'bluetoth': 'bluetooth',
     'bluethooth': 'bluetooth',
@@ -78,20 +87,27 @@ abstract final class CommandNormalizer {
     'contects': 'contacts',
     'phne': 'phone',
     'fone': 'phone',
+    'foun': 'phone',
+    'phon': 'phone',
     'kholna': 'khol',
     'kholo': 'khol',
+    'kholje': 'khol',
     'karo': 'kar',
     'karde': 'kar',
     'krde': 'kar',
     'lagana': 'lagao',
+    'lagav': 'lagao',
+    'lagavo': 'lagao',
+    'lagaao': 'lagao',
     'mukjo': 'muk',
     'muko': 'muk',
-    'lagaao': 'lagao',
+    'mukje': 'muk',
     'chaluu': 'chalu',
     'baje': 'vage',
     'vaje': 'vage',
     'vaage': 'vage',
     'savare': 'savare',
+    'savar': 'savare',
     'savaare': 'savare',
     'subha': 'subah',
     'subah': 'subah',
@@ -260,6 +276,29 @@ abstract final class CommandNormalizer {
 
   static final RegExp _devanagariRange = RegExp(r'[\u0900-\u097F]');
   static final RegExp _gujaratiRange = RegExp(r'[\u0A80-\u0AFF]');
+  static final RegExp _zeroWidthChars = RegExp(r'[\u200B-\u200D\uFEFF\u00AD]');
+  static final RegExp _curlyDoubleQuotes = RegExp(r'[“”]');
+  static final RegExp _curlySingleQuotes = RegExp(r'[\u2018\u2019]');
+  static final RegExp _multiSpace = RegExp(r'\s+');
+  static final RegExp _trailingEndPunct = RegExp(r'[?!।]+$');
+  static final RegExp _tokenEdgePunct = RegExp(r'^[\.,:;]+|[\.,:;]+$');
+  static final RegExp _whatsAppSplit = RegExp(
+    r"\b(?:what's|whats|what|wats|watts)\s+app\b",
+  );
+  static final RegExp _youTubeSplit = RegExp(r'\byou\s+tube\b');
+  static final RegExp _playStoreSplit = RegExp(r'\bplay\s+store\b');
+  static final RegExp _wifiSplit = RegExp(r'\bwi\s+fi\b');
+  static final RegExp _bluetoothSplit = RegExp(r'\bblue\s+tooth\b');
+  static final RegExp _flashlightSplit = RegExp(r'\bflash\s+light\b');
+  static final RegExp _leadingCalVerb = RegExp(
+    r'^(?:please\s+)?(?:cal|caal|kall|kol)\s+',
+  );
+  static final RegExp _indicCalVerb = RegExp(
+    r'\b(?:cal|caal|kall|kol)\s+(?:kar|lagao|laga)\b',
+  );
+  static final RegExp _independentClauseKeywords = RegExp(
+    r'(call|cal|kol|dial|phone|fone|ring|alarm|alram|timer|timmer|open|launch|start|close|find|search|lookup|look up|check|send|message|whatsapp|whats\s*app|watsapp|sms|text|flashlight|torch|silent|vibrate|normal|volume|mute|unmute|settings|battery|navigate|directions|route|stop|cancel|repeat|કૉલ|ફોન|અલાર્મ|ટાઇમર|ખોલ|ચાલુ|બંધ|બતાવ|મૂક|कॉल|फोन|अलार्म|टाइमर|खोल|चालू|बंद|बताओ|लगा|khol|kar|muk|lagao|batao)',
+  );
   static final RegExp _clauseDelimiter = RegExp(
     r'\s*(?:\band\s+then\b|\band\b|\bthen\b|\baur\b|\bphir\b|\bfir\b|\bpachi\b|\bane\b|\balso\b|;|,|પછી|અને|और|फिर)\s+',
     caseSensitive: false,
@@ -267,29 +306,27 @@ abstract final class CommandNormalizer {
 
   /// Normalizes [input] into script-safe cleaned & canonical forms plus clauses.
   static NormalizedCommand normalize(String input) {
-    final normalizedDigits = _replaceIndicDigits(input.trim());
-    final hasIndicDigits = normalizedDigits != input.trim();
+    final unicodeNormalized = _normalizeUnicode(input.trim());
+    final normalizedDigits = _replaceIndicDigits(unicodeNormalized);
+    final hasIndicDigits = normalizedDigits != unicodeNormalized;
 
     final cleaned = normalizedDigits
-        .replaceAll(RegExp(r'[“”]'), '"')
-        .replaceAll(RegExp(r'[\u2018\u2019]'), "'")
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(_curlyDoubleQuotes, '"')
+        .replaceAll(_curlySingleQuotes, "'")
+        .replaceAll(_multiSpace, ' ')
         .trim();
 
     final strippedPunctuation = cleaned
-        .replaceAll(RegExp(r'[?!।]+$'), '')
+        .replaceAll(_trailingEndPunct, '')
         .trim();
 
     final rawTokens = strippedPunctuation.isEmpty
         ? const <String>[]
-        : strippedPunctuation.split(RegExp(r'\s+'));
+        : strippedPunctuation.split(_multiSpace);
 
     final fixedTokens = <String>[];
     for (final token in rawTokens) {
-      final lower = token.toLowerCase().replaceAll(
-        RegExp(r'^[\.,:;]+|[\.,:;]+$'),
-        '',
-      );
+      final lower = token.toLowerCase().replaceAll(_tokenEdgePunct, '');
       if (lower.isEmpty) continue;
       fixedTokens.add(_spellingFixes[lower] ?? lower);
     }
@@ -298,7 +335,7 @@ abstract final class CommandNormalizer {
     canonical = _applyCommandPhraseFixes(canonical);
     final finalTokens = canonical.isEmpty
         ? const <String>[]
-        : canonical.split(RegExp(r'\s+'));
+        : canonical.split(_multiSpace);
     final language = detectLanguage(strippedPunctuation, finalTokens);
     final clauses = splitSequentialClauses(strippedPunctuation);
 
@@ -313,16 +350,25 @@ abstract final class CommandNormalizer {
     );
   }
 
-  /// Fixes ASR word-splits for brand/command phrases only in canonical command text
-  /// without altering raw transcripts or contact names.
+  /// Strips invisible zero-width formatting codepoints without altering
+  /// canonical Hindi/Gujarati orthography (such as candra vowels `ॉ` / `ૉ`) or digits.
+  static String _normalizeUnicode(String input) {
+    if (input.isEmpty) return input;
+    return input.replaceAll(_zeroWidthChars, '');
+  }
+
+  /// Fixes ASR word-splits and command-verb typos in canonical command text
+  /// without altering raw transcripts or blindly mutating contact names.
   static String _applyCommandPhraseFixes(String canonical) {
     return canonical
-        .replaceAll(RegExp(r"\b(?:what's|whats|what)\s+app\b"), 'whatsapp')
-        .replaceAll(RegExp(r'\byou\s+tube\b'), 'youtube')
-        .replaceAll(RegExp(r'\bplay\s+store\b'), 'play store')
-        .replaceAll(RegExp(r'\bwi\s+fi\b'), 'wifi')
-        .replaceAll(RegExp(r'\bblue\s+tooth\b'), 'bluetooth')
-        .replaceAll(RegExp(r'\bflash\s+light\b'), 'flashlight');
+        .replaceAll(_whatsAppSplit, 'whatsapp')
+        .replaceAll(_youTubeSplit, 'youtube')
+        .replaceAll(_playStoreSplit, 'play store')
+        .replaceAll(_wifiSplit, 'wifi')
+        .replaceAll(_bluetoothSplit, 'bluetooth')
+        .replaceAll(_flashlightSplit, 'flashlight')
+        .replaceFirst(_leadingCalVerb, 'call ')
+        .replaceAll(_indicCalVerb, 'call kar');
   }
 
   /// Detects language category for telemetry, TTS locale & prompt routing.
@@ -377,10 +423,7 @@ abstract final class CommandNormalizer {
   }
 
   static bool _looksLikeIndependentClause(String clause) {
-    final lower = clause.toLowerCase();
-    return RegExp(
-      r'(call|dial|phone|ring|alarm|timer|open|launch|start|close|find|search|lookup|look up|check|send|message|whatsapp|sms|text|flashlight|torch|silent|vibrate|normal|volume|mute|unmute|settings|battery|navigate|directions|route|stop|cancel|repeat|કૉલ|ફોન|અલાર્મ|ટાઇમર|ખોલ|ચાલુ|બંધ|બતાવ|મૂક|कॉल|फोन|अलार्म|टाइमर|खोल|चालू|बंद|बताओ|लगा|khol|kar|muk|lagao|batao)',
-    ).hasMatch(lower);
+    return _independentClauseKeywords.hasMatch(clause.toLowerCase());
   }
 
   /// Replaces Devanagari and Gujarati digits with ASCII equivalents.

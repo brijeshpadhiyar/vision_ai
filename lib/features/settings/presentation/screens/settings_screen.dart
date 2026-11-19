@@ -326,6 +326,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               },
               onAutoSpeakChanged: (enabled) =>
                   controller.setAutoSpeakReplies(enabled: enabled),
+              onEndpointSilenceChanged: (silenceMs) =>
+                  controller.setVoiceEndpointSilenceMs(silenceMs),
             ),
             const SizedBox(height: 20),
             _WakeWordSection(
@@ -921,11 +923,13 @@ class _VoiceAndLanguageSection extends StatelessWidget {
     required this.settings,
     required this.onLanguageSelected,
     required this.onAutoSpeakChanged,
+    required this.onEndpointSilenceChanged,
   });
 
   final AppSettings settings;
   final ValueChanged<VoiceLanguage> onLanguageSelected;
   final ValueChanged<bool> onAutoSpeakChanged;
+  final ValueChanged<int> onEndpointSilenceChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -962,6 +966,48 @@ class _VoiceAndLanguageSection extends StatelessWidget {
             onChanged: onAutoSpeakChanged,
           ),
           onTap: () => onAutoSpeakChanged(!settings.autoSpeakReplies),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Speech Pause Tolerance',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: VisionColors.primaryText(brightness),
+                    ),
+                  ),
+                  Text(
+                    '${(settings.voiceEndpointSilenceMs / 1000).toStringAsFixed(1)}s',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: accent),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'How long VISION waits after a pause before finalizing your speech.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: VisionColors.secondaryText(brightness),
+                ),
+              ),
+              Slider(
+                value: settings.voiceEndpointSilenceMs
+                    .clamp(2000, 6500)
+                    .toDouble(),
+                min: 2000,
+                max: 6500,
+                divisions: 9,
+                onChanged: (value) =>
+                    onEndpointSilenceChanged(value.round()),
+              ),
+            ],
+          ),
         ),
       ],
     );

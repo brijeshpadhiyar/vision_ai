@@ -1,10 +1,14 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Lifecycle phases of the VISION voice, understanding, execution, and wake-word engine.
+/// Lifecycle phases of the VISION voice, endpointing, understanding, and
+/// execution state machine.
 enum VoiceListeningPhase {
   idle,
   requestingPermission,
   listeningCommand,
+  partialTranscription,
+  endpointing,
+  finalizing,
   listeningWakeWord,
   understanding,
   processingAi,
@@ -12,6 +16,7 @@ enum VoiceListeningPhase {
   confirmationRequired,
   speaking,
   error,
+  cancelled,
 }
 
 /// Sealed event hierarchy emitted by the native Android voice EventChannel.
@@ -29,6 +34,8 @@ sealed class VoiceEvent {
         VoiceStateChangedEvent(
           isListening: isListening,
           isSpeaking: isSpeaking,
+          phase: raw['phase'] as String?,
+          segmentCount: (raw['segmentCount'] as num?)?.toInt() ?? 0,
         ),
       {
         'type': 'amplitude',
@@ -58,6 +65,7 @@ sealed class VoiceEvent {
               ?.map((item) => item is num ? item.toDouble() : null)
               .whereType<double>()
               .toList(growable: false),
+          segmentCount: (raw['segmentCount'] as num?)?.toInt() ?? 0,
         ),
       {
         'type': 'wakeServiceState',
@@ -74,7 +82,16 @@ sealed class VoiceEvent {
       {'type': 'wakeWordTriggered', 'confidence': final num confidence} =>
         VoiceWakeWordTriggeredEvent(confidence: confidence.toDouble()),
       {'type': 'overlayPrompt', 'prompt': final String prompt} =>
-        VoiceOverlayPromptEvent(prompt: prompt),
+        VoiceOverlayPromptEvent(
+          prompt: prompt,
+          hypotheses:
+              (raw['hypotheses'] as List<Object?>?)
+                  ?.whereType<String>()
+                  .map((s) => s.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList(growable: false) ??
+              const <String>[],
+        ),
       {
         'type': 'error',
         'code': final String code,
@@ -94,10 +111,14 @@ final class VoiceStateChangedEvent extends VoiceEvent {
   const VoiceStateChangedEvent({
     required this.isListening,
     required this.isSpeaking,
+    this.phase,
+    this.segmentCount = 0,
   });
 
   final bool isListening;
   final bool isSpeaking;
+  final String? phase;
+  final int segmentCount;
 }
 
 /// Emitted with real-time microphone RMS dB and normalized `[0.0, 1.0]` level.
@@ -122,12 +143,14 @@ final class VoiceTranscriptEvent extends VoiceEvent {
     required this.isFinal,
     this.hypotheses = const <String>[],
     this.confidenceScores,
+    this.segmentCount = 0,
   });
 
   final String text;
   final bool isFinal;
   final List<String> hypotheses;
   final List<double>? confidenceScores;
+  final int segmentCount;
 }
 
 /// Emitted when the background foreground wake-word service changes state.
@@ -152,9 +175,13 @@ final class VoiceWakeWordTriggeredEvent extends VoiceEvent {
 
 /// Emitted when `VoiceInteractionSession` hands off a spoken prompt to Flutter.
 final class VoiceOverlayPromptEvent extends VoiceEvent {
-  const VoiceOverlayPromptEvent({required this.prompt});
+  const VoiceOverlayPromptEvent({
+    required this.prompt,
+    this.hypotheses = const <String>[],
+  });
 
   final String prompt;
+  final List<String> hypotheses;
 }
 
 /// Emitted when the speech recognizer encounters an operational error.
@@ -185,6 +212,7 @@ class VoiceSessionState {
     this.isDefaultAssistant = false,
     this.lastWakeWordDetected,
     this.wakeTriggerSequence = 0,
+    this.segmentCount = 0,
     this.errorMessage,
   });
 
@@ -204,12 +232,23 @@ class VoiceSessionState {
   final bool isDefaultAssistant;
   final String? lastWakeWordDetected;
   final int wakeTriggerSequence;
+  final int segmentCount;
   final String? errorMessage;
+
+  /// True while actively capturing or waiting across a mid-sentence pause.
+  bool get isActiveCapturePhase =>
+      phase == VoiceListeningPhase.listeningCommand ||
+      phase == VoiceListeningPhase.partialTranscription ||
+      phase == VoiceListeningPhase.endpointing ||
+      phase == VoiceListeningPhase.finalizing ||
+      phase == VoiceListeningPhase.listeningWakeWord;
 
   /// True only when either STT or the foreground wake-word AudioRecord loop
   /// genuinely holds an active microphone stream.
   bool get isMicActuallyActive =>
-      isListening || (isWakeServiceRunning && isWakeMicActive);
+      isListening ||
+      isActiveCapturePhase ||
+      (isWakeServiceRunning && isWakeMicActive);
 
   VoiceSessionState copyWith({
     VoiceListeningPhase? phase,
@@ -229,6 +268,7 @@ class VoiceSessionState {
     bool? isDefaultAssistant,
     String? lastWakeWordDetected,
     int? wakeTriggerSequence,
+    int? segmentCount,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -252,6 +292,7 @@ class VoiceSessionState {
       isDefaultAssistant: isDefaultAssistant ?? this.isDefaultAssistant,
       lastWakeWordDetected: lastWakeWordDetected ?? this.lastWakeWordDetected,
       wakeTriggerSequence: wakeTriggerSequence ?? this.wakeTriggerSequence,
+      segmentCount: segmentCount ?? this.segmentCount,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

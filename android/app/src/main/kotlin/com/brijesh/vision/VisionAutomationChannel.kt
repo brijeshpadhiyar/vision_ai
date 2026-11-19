@@ -174,7 +174,8 @@ class VisionAutomationChannel(
                 val minute = call.argument<Int>("minute")
                 val label = call.argument<String>("label")?.trim()
                 val skipUi = call.argument<Boolean>("skipUi") ?: false
-                handleSetAlarm(hour, minute, label, skipUi, result)
+                val isTomorrow = call.argument<Boolean>("isTomorrow") ?: false
+                handleSetAlarm(hour, minute, label, skipUi, isTomorrow, result)
             }
 
             "setTimer" -> {
@@ -371,10 +372,15 @@ class VisionAutomationChannel(
                         lowerName.startsWith(normalizedQuery) -> 85
                         lowerName.split(' ').any { it.startsWith(normalizedQuery) } -> 75
                         lowerName.contains(normalizedQuery) || cleanDigits.contains(normalizedQuery) -> 60
+                        normalizedQuery.length >= 3 &&
+                            phoneticSkeleton(lowerName) == phoneticSkeleton(normalizedQuery) -> 55
                         normalizedQuery.length >= 4 &&
                             lowerName.split(' ').any { token ->
-                                token.length >= 3 && editDistance(token, normalizedQuery) <= 2
-                            } -> 40
+                                token.length >= 3 && (
+                                    editDistance(token, normalizedQuery) <= 2 ||
+                                    phoneticSkeleton(token) == phoneticSkeleton(normalizedQuery)
+                                )
+                            } -> 45
                         else -> 0
                     }
                     if (score == 0) continue
@@ -463,7 +469,7 @@ class VisionAutomationChannel(
                     ContactsContract.CommonDataKinds.Phone.LABEL,
                 )
 
-                while (cursor.moveToNext() && contacts.size < 600) {
+                while (cursor.moveToNext() && contacts.size < 5000) {
                     val contactId = if (idIndex >= 0) cursor.getString(idIndex)?.trim() ?: "" else ""
                     val name = if (nameIndex >= 0) cursor.getString(nameIndex)?.trim() ?: "" else ""
                     val rawNumber = if (numberIndex >= 0) cursor.getString(numberIndex)?.trim() ?: "" else ""
@@ -559,6 +565,7 @@ class VisionAutomationChannel(
         minute: Int?,
         label: String?,
         skipUi: Boolean,
+        isTomorrow: Boolean,
         result: MethodChannel.Result,
     ) {
         if (hour == null || minute == null || hour !in 0..23 || minute !in 0..59) {
@@ -570,6 +577,15 @@ class VisionAutomationChannel(
             putExtra(AlarmClock.EXTRA_HOUR, hour)
             putExtra(AlarmClock.EXTRA_MINUTES, minute)
             putExtra(AlarmClock.EXTRA_SKIP_UI, skipUi)
+            if (isTomorrow) {
+                val cal = java.util.Calendar.getInstance().apply {
+                    add(java.util.Calendar.DAY_OF_YEAR, 1)
+                }
+                putIntegerArrayListExtra(
+                    AlarmClock.EXTRA_DAYS,
+                    arrayListOf(cal.get(java.util.Calendar.DAY_OF_WEEK)),
+                )
+            }
             if (!label.isNullOrBlank()) {
                 putExtra(AlarmClock.EXTRA_MESSAGE, label)
             }
@@ -583,6 +599,7 @@ class VisionAutomationChannel(
                     "success" to true,
                     "hour" to hour,
                     "minute" to minute,
+                    "isTomorrow" to isTomorrow,
                     "label" to (label ?: ""),
                 ),
             )
@@ -723,16 +740,21 @@ class VisionAutomationChannel(
         val pm = activity.packageManager
         val directIntent = pm.getLaunchIntentForPackage(query)
         if (directIntent != null) {
-            directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            activity.startActivity(directIntent)
-            result.success(
-                mapOf(
-                    "success" to true,
-                    "appName" to query,
-                    "packageName" to query,
-                ),
-            )
-            return
+            try {
+                directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                activity.startActivity(directIntent)
+                result.success(
+                    mapOf(
+                        "success" to true,
+                        "appName" to query,
+                        "packageName" to query,
+                    ),
+                )
+                return
+            } catch (e: Exception) {
+                result.error("LAUNCH_ERROR", "Failed to launch $query: ${e.message}", null)
+                return
+            }
         }
 
         val normalizedQuery = query.lowercase().trim()
@@ -821,6 +843,39 @@ class VisionAutomationChannel(
 
         // 6. Package name contains query
         return apps.firstOrNull { it.packageName.lowercase().contains(query) }
+    }
+
+    private fun phoneticSkeleton(input: String): String {
+        val cleaned = input.lowercase()
+            .replace(Regex("[^a-z]"), "")
+            .replace("sh", "s")
+            .replace("kh", "k")
+            .replace("gh", "g")
+            .replace("jh", "j")
+            .replace("th", "t")
+            .replace("dh", "d")
+            .replace("ph", "f")
+            .replace("bh", "b")
+            .replace("w", "v")
+            .replace("q", "k")
+            .replace("z", "j")
+        val sb = StringBuilder()
+        var prev = '\u0000'
+        for (i in cleaned.indices) {
+            val ch = cleaned[i]
+            if (ch in "aeiouyh") {
+                if (i == 0 && ch != 'h') {
+                    sb.append('a')
+                    prev = 'a'
+                }
+                continue
+            }
+            if (ch != prev) {
+                sb.append(ch)
+                prev = ch
+            }
+        }
+        return sb.toString()
     }
 
     private fun editDistance(a: String, b: String): Int {

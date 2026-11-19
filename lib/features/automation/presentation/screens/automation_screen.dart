@@ -433,6 +433,8 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
             AutomationActionPromptCard(
               automationState: automationState,
               onConfirm: () => unawaited(controller.confirmPendingAction()),
+              onConfirmAndSaveAlias: () =>
+                  unawaited(controller.confirmPendingAction(saveAsAlias: true)),
               onCancel: controller.cancelPendingAction,
               onSelectContact: (contact) =>
                   unawaited(controller.selectContactForPendingAction(contact)),

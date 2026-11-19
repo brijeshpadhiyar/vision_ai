@@ -82,6 +82,7 @@ class ContactResolver {
     final aliasMatches = aliasRepository.resolveAliasForQuery(
       trimmed,
       contacts,
+      alternativeQueries: alternativeQueries,
     );
     final aliasContactIds = aliasMatches
         .map((c) => c.contactId)

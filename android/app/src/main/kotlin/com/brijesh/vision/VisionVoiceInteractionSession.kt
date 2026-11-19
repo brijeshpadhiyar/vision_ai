@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -19,12 +21,22 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Glassmorphic animated system assistant overlay rendered via Android's
- * [VoiceInteractionSession] directly over the user's current screen, with
- * smooth transition into VISION's full Flutter Liquid Glass assistant UI.
+ * Liquid Glass system assistant overlay rendered via Android's
+ * [VoiceInteractionSession] directly over the user's current screen with
+ * pause-tolerant multi-segment speech accumulation and seamless handoff to
+ * VISION's full Flutter assistant experience.
  */
 class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(context) {
 
+    companion object {
+        private const val DEFAULT_ENDPOINT_SILENCE_MS = 3800L
+        private const val DEFAULT_INITIAL_TIMEOUT_MS = 7500L
+        private const val DEFAULT_MAX_SESSION_MS = 45000L
+        private const val SEGMENT_RESTART_DELAY_MS = 90L
+        private const val MANUAL_STOP_GRACE_MS = 650L
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var rootView: View? = null
     private var orbView: VisionAssistantPulseView? = null
     private var langView: TextView? = null
@@ -32,10 +44,27 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
     private var transcriptView: TextView? = null
     private var responseView: TextView? = null
     private var micButton: Button? = null
+    private var cancelButton: Button? = null
+
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
     private var isListening = false
+
+    private var activeSessionId = 0L
+    private var endpointSilenceMs = DEFAULT_ENDPOINT_SILENCE_MS
+    private var sessionStartedAtMs = 0L
+    private var lastSpeechActivityAtMs = 0L
+    private var manualFinishRequested = false
+    private var segmentActive = false
+    private var currentPartial = ""
+    private val accumulatedSegments = mutableListOf<String>()
+    private val accumulatedHypotheses = mutableListOf<List<String>>()
+
+    private var endpointRunnable: Runnable? = null
+    private var maxDurationRunnable: Runnable? = null
+    private var restartRunnable: Runnable? = null
+    private var manualFallbackRunnable: Runnable? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -53,24 +82,36 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
         transcriptView = view.findViewById(R.id.vision_overlay_transcript)
         responseView = view.findViewById(R.id.vision_overlay_response)
         micButton = view.findViewById(R.id.vision_overlay_mic_btn)
+        cancelButton = view.findViewById(R.id.vision_overlay_dismiss_btn)
 
         val openAppBtn: Button = view.findViewById(R.id.vision_overlay_open_app_btn)
-        val dismissBtn: Button = view.findViewById(R.id.vision_overlay_dismiss_btn)
 
         micButton?.setOnClickListener {
             if (isListening) {
-                stopListening()
+                finishListening()
             } else {
                 startListening()
             }
         }
 
         openAppBtn.setOnClickListener {
-            openFullVisionAssistant(prompt = null, hypotheses = emptyList())
+            val currentText = combineSegments(accumulatedSegments, currentPartial)
+            val alts = buildCombinedHypotheses()
+            cancelSessionOnly()
+            openFullVisionAssistant(
+                prompt = currentText.ifBlank { null },
+                hypotheses = alts,
+            )
         }
 
-        dismissBtn.setOnClickListener {
-            hide()
+        cancelButton?.setOnClickListener {
+            if (isListening) {
+                cancelSessionOnly()
+                statusView?.text = "Cancelled"
+                responseView?.text = "Tap Speak to start a new command."
+            } else {
+                hide()
+            }
         }
 
         return view
@@ -79,7 +120,8 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
     override fun onShow(args: Bundle?, showFlags: Int) {
         super.onShow(args, showFlags)
         val localeTag = resolvePreferredLocaleTag()
-        langView?.text = "Locale: $localeTag • Voice & Automation"
+        endpointSilenceMs = resolveEndpointSilenceMs()
+        langView?.text = "Locale: $localeTag • Pause-Tolerant Voice"
         statusView?.text = "Ready"
         responseView?.text = ""
 
@@ -113,6 +155,15 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
         }
     }
 
+    private fun resolveEndpointSilenceMs(): Long {
+        val prefs = context.getSharedPreferences(
+            "FlutterSharedPreferences",
+            Context.MODE_PRIVATE,
+        )
+        val stored = prefs.getLong("flutter.vision_pref_endpoint_silence_ms", DEFAULT_ENDPOINT_SILENCE_MS)
+        return stored.coerceIn(1800L, 8000L)
+    }
+
     private fun hasMicPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
@@ -126,11 +177,48 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
             return
         }
 
-        if (speechRecognizer == null) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
-                setRecognitionListener(createListener())
+        cancelTimers()
+        destroyRecognizer()
+
+        activeSessionId += 1L
+        val sessionId = activeSessionId
+        val now = System.currentTimeMillis()
+        sessionStartedAtMs = now
+        lastSpeechActivityAtMs = now
+        manualFinishRequested = false
+        segmentActive = false
+        currentPartial = ""
+        accumulatedSegments.clear()
+        accumulatedHypotheses.clear()
+
+        isListening = true
+        orbView?.setListeningActive(true)
+        statusView?.text = "Listening"
+        micButton?.text = "Done"
+        cancelButton?.text = "Cancel"
+        transcriptView?.text = "Listening for your command..."
+        responseView?.text = "Short pauses are preserved. Speak naturally or tap Done."
+
+        val capRunnable = Runnable {
+            if (sessionId == activeSessionId && isListening) {
+                finalizeSession(sessionId)
             }
         }
+        maxDurationRunnable = capRunnable
+        mainHandler.postDelayed(capRunnable, DEFAULT_MAX_SESSION_MS)
+
+        startSegment(sessionId)
+    }
+
+    private fun startSegment(sessionId: Long) {
+        if (sessionId != activeSessionId || !isListening || manualFinishRequested) return
+        destroyRecognizer()
+
+        val recognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
+            setRecognitionListener(createListener(sessionId))
+        }
+        speechRecognizer = recognizer
+        segmentActive = true
 
         val localeTag = resolvePreferredLocaleTag()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -139,26 +227,78 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, endpointSilenceMs)
+            putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                max(2000L, endpointSilenceMs - 1000L),
+            )
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
         }
-
-        isListening = true
-        orbView?.setListeningActive(true)
-        statusView?.text = "Listening"
-        micButton?.text = "Stop"
-        transcriptView?.text = "Listening for your command..."
-        responseView?.text = "Speak naturally in English, Hindi, Gujarati, or Hinglish"
-        speechRecognizer?.startListening(intent)
+        try {
+            recognizer.startListening(intent)
+        } catch (_: Exception) {
+            segmentActive = false
+            finalizeSession(sessionId)
+        }
     }
 
-    private fun stopListening() {
-        speechRecognizer?.stopListening()
+    private fun finishListening() {
+        if (!isListening) return
+        val sessionId = activeSessionId
+        manualFinishRequested = true
+        cancelEndpointTimer()
+        cancelRestartTimer()
+        statusView?.text = "Finalizing"
+
+        if (segmentActive && speechRecognizer != null) {
+            try {
+                speechRecognizer?.stopListening()
+            } catch (_: Exception) {
+                finalizeSession(sessionId)
+                return
+            }
+            val fallback = Runnable {
+                if (sessionId == activeSessionId && isListening) {
+                    finalizeSession(sessionId)
+                }
+            }
+            manualFallbackRunnable = fallback
+            mainHandler.postDelayed(fallback, MANUAL_STOP_GRACE_MS)
+        } else {
+            finalizeSession(sessionId)
+        }
+    }
+
+    private fun cancelSessionOnly() {
+        activeSessionId += 1L
+        cancelTimers()
+        destroyRecognizer()
+        accumulatedSegments.clear()
+        accumulatedHypotheses.clear()
+        currentPartial = ""
+        manualFinishRequested = false
+        segmentActive = false
         isListening = false
         orbView?.setListeningActive(false)
         orbView?.setAudioLevel(0f)
-        statusView?.text = "Ready"
         micButton?.text = "Speak"
+        cancelButton?.text = "Close"
+    }
+
+    private fun finalizeSession(sessionId: Long) {
+        if (sessionId != activeSessionId) return
+        val finalText = combineSegments(accumulatedSegments, currentPartial)
+        val alts = buildCombinedHypotheses()
+        cancelSessionOnly()
+
+        if (finalText.isNotEmpty()) {
+            transcriptView?.text = finalText
+            statusView?.text = "Understanding"
+            openFullVisionAssistant(finalText, alts)
+        } else {
+            statusView?.text = "Tap Speak"
+            responseView?.text = "Could not hear clearly. Tap Speak or open Full Assistant."
+        }
     }
 
     private fun openFullVisionAssistant(prompt: String?, hypotheses: List<String>) {
@@ -179,16 +319,27 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
         hide()
     }
 
-    private fun createListener(): RecognitionListener {
+    private fun createListener(sessionId: Long): RecognitionListener {
         return object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
+                if (sessionId != activeSessionId || !isListening) return
                 statusView?.text = "Listening"
                 orbView?.setListeningActive(true)
             }
 
-            override fun onBeginningOfSpeech() {}
+            override fun onBeginningOfSpeech() {
+                if (sessionId != activeSessionId || !isListening) return
+                lastSpeechActivityAtMs = System.currentTimeMillis()
+                cancelEndpointTimer()
+                statusView?.text = if (accumulatedSegments.isNotEmpty() || currentPartial.isNotEmpty()) {
+                    "Transcribing"
+                } else {
+                    "Listening"
+                }
+            }
 
             override fun onRmsChanged(rmsdB: Float) {
+                if (sessionId != activeSessionId || !isListening) return
                 val clamped = min(10.0f, max(0.0f, rmsdB + 2.0f))
                 orbView?.setAudioLevel(clamped / 10.0f)
             }
@@ -196,27 +347,62 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
             override fun onBufferReceived(buffer: ByteArray?) {}
 
             override fun onEndOfSpeech() {
-                isListening = false
-                orbView?.setListeningActive(false)
-                orbView?.setAudioLevel(0f)
-                statusView?.text = "Understanding"
-                micButton?.text = "Speak"
+                if (sessionId != activeSessionId || !isListening) return
+                segmentActive = false
+                if (!manualFinishRequested && (accumulatedSegments.isNotEmpty() || currentPartial.isNotEmpty())) {
+                    statusView?.text = "Pause OK"
+                }
             }
 
             override fun onError(error: Int) {
-                isListening = false
-                orbView?.setListeningActive(false)
-                orbView?.setAudioLevel(0f)
-                statusView?.text = "Tap Speak"
-                micButton?.text = "Speak"
-                responseView?.text = "Could not hear clearly. Tap Speak or open Full Assistant."
+                if (sessionId != activeSessionId || !isListening) return
+                segmentActive = false
+
+                if (manualFinishRequested) {
+                    finalizeSession(sessionId)
+                    return
+                }
+
+                val now = System.currentTimeMillis()
+                val elapsedSession = now - sessionStartedAtMs
+                val silenceElapsed = now - lastSpeechActivityAtMs
+                val hasText = accumulatedSegments.isNotEmpty() || currentPartial.isNotEmpty()
+
+                if ((error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
+                    if (hasText) {
+                        if (currentPartial.isNotEmpty() && accumulatedSegments.isEmpty()) {
+                            accumulatedSegments.add(currentPartial)
+                            accumulatedHypotheses.add(listOf(currentPartial))
+                            currentPartial = ""
+                        }
+                        if (silenceElapsed >= endpointSilenceMs) {
+                            finalizeSession(sessionId)
+                        } else {
+                            statusView?.text = "Pause OK"
+                            val remaining = max(350L, endpointSilenceMs - silenceElapsed)
+                            scheduleEndpoint(sessionId, remaining)
+                            scheduleRestart(sessionId)
+                        }
+                    } else if (elapsedSession < DEFAULT_INITIAL_TIMEOUT_MS) {
+                        scheduleRestart(sessionId)
+                    } else {
+                        cancelSessionOnly()
+                        statusView?.text = "Tap Speak"
+                        responseView?.text = "Could not hear clearly. Tap Speak or open Full Assistant."
+                    }
+                } else if (hasText) {
+                    finalizeSession(sessionId)
+                } else {
+                    cancelSessionOnly()
+                    statusView?.text = "Tap Speak"
+                    responseView?.text = "Speech recognition unavailable right now."
+                }
             }
 
             override fun onResults(results: Bundle?) {
-                isListening = false
-                orbView?.setListeningActive(false)
-                orbView?.setAudioLevel(0f)
-                micButton?.text = "Speak"
+                if (sessionId != activeSessionId || !isListening) return
+                segmentActive = false
+
                 val matches = results
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.map { it.trim() }
@@ -224,21 +410,49 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
                     ?.distinct()
                     ?.take(5)
                     ?: emptyList()
-                val transcript = matches.firstOrNull() ?: ""
-                if (transcript.isNotEmpty()) {
-                    transcriptView?.text = transcript
-                    statusView?.text = "Launching"
-                    openFullVisionAssistant(transcript, matches)
+
+                if (matches.isNotEmpty()) {
+                    val text = matches.first()
+                    if (accumulatedSegments.lastOrNull()?.equals(text, ignoreCase = true) != true) {
+                        accumulatedSegments.add(text)
+                        accumulatedHypotheses.add(matches)
+                    }
+                    currentPartial = ""
+                    lastSpeechActivityAtMs = System.currentTimeMillis()
+                }
+
+                val combined = combineSegments(accumulatedSegments, currentPartial)
+                if (combined.isNotEmpty()) {
+                    transcriptView?.text = combined
+                }
+
+                if (manualFinishRequested) {
+                    finalizeSession(sessionId)
+                    return
+                }
+
+                if (combined.isNotEmpty()) {
+                    statusView?.text = "Pause OK"
+                    responseView?.text = "Keep speaking or tap Done to send."
+                    scheduleEndpoint(sessionId, endpointSilenceMs)
+                    scheduleRestart(sessionId)
+                } else if ((System.currentTimeMillis() - sessionStartedAtMs) < DEFAULT_INITIAL_TIMEOUT_MS) {
+                    scheduleRestart(sessionId)
                 } else {
-                    statusView?.text = "Ready"
+                    finalizeSession(sessionId)
                 }
             }
 
             override fun onPartialResults(partialResults: Bundle?) {
+                if (sessionId != activeSessionId || !isListening) return
                 val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val text = matches?.firstOrNull()?.trim() ?: ""
                 if (text.isNotEmpty()) {
-                    transcriptView?.text = text
+                    currentPartial = text
+                    lastSpeechActivityAtMs = System.currentTimeMillis()
+                    cancelEndpointTimer()
+                    statusView?.text = "Transcribing"
+                    transcriptView?.text = combineSegments(accumulatedSegments, currentPartial)
                 }
             }
 
@@ -246,17 +460,94 @@ class VisionVoiceInteractionSession(context: Context) : VoiceInteractionSession(
         }
     }
 
+    private fun combineSegments(segments: List<String>, partial: String): String {
+        val parts = ArrayList<String>(segments.size + 1)
+        for (s in segments) {
+            if (s.isNotBlank()) parts.add(s.trim())
+        }
+        if (partial.isNotBlank() && parts.lastOrNull()?.equals(partial.trim(), ignoreCase = true) != true) {
+            parts.add(partial.trim())
+        }
+        return parts.joinToString(" ").replace(Regex("\\s+"), " ").trim()
+    }
+
+    private fun buildCombinedHypotheses(): List<String> {
+        if (accumulatedHypotheses.isEmpty()) {
+            val combined = combineSegments(accumulatedSegments, currentPartial)
+            return if (combined.isNotEmpty()) listOf(combined) else emptyList()
+        }
+        val prefix = if (accumulatedHypotheses.size > 1) {
+            accumulatedHypotheses.dropLast(1).mapNotNull { it.firstOrNull() }.joinToString(" ").trim()
+        } else {
+            ""
+        }
+        val out = LinkedHashSet<String>()
+        for (alt in accumulatedHypotheses.last()) {
+            val full = if (prefix.isNotEmpty()) "$prefix $alt" else alt
+            val normalized = full.replace(Regex("\\s+"), " ").trim()
+            if (normalized.isNotEmpty()) out.add(normalized)
+        }
+        return out.take(5).toList()
+    }
+
+    private fun scheduleEndpoint(sessionId: Long, delayMs: Long) {
+        cancelEndpointTimer()
+        val r = Runnable {
+            if (sessionId == activeSessionId && isListening && !manualFinishRequested) {
+                finalizeSession(sessionId)
+            }
+        }
+        endpointRunnable = r
+        mainHandler.postDelayed(r, delayMs)
+    }
+
+    private fun scheduleRestart(sessionId: Long) {
+        cancelRestartTimer()
+        val r = Runnable {
+            if (sessionId == activeSessionId && isListening && !manualFinishRequested) {
+                startSegment(sessionId)
+            }
+        }
+        restartRunnable = r
+        mainHandler.postDelayed(r, SEGMENT_RESTART_DELAY_MS)
+    }
+
+    private fun cancelTimers() {
+        cancelEndpointTimer()
+        cancelRestartTimer()
+        maxDurationRunnable?.let { mainHandler.removeCallbacks(it) }
+        maxDurationRunnable = null
+        manualFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
+        manualFallbackRunnable = null
+    }
+
+    private fun cancelEndpointTimer() {
+        endpointRunnable?.let { mainHandler.removeCallbacks(it) }
+        endpointRunnable = null
+    }
+
+    private fun cancelRestartTimer() {
+        restartRunnable?.let { mainHandler.removeCallbacks(it) }
+        restartRunnable = null
+    }
+
+    private fun destroyRecognizer() {
+        try {
+            speechRecognizer?.destroy()
+        } catch (_: Exception) {
+        }
+        speechRecognizer = null
+        segmentActive = false
+    }
+
     override fun onHide() {
-        speechRecognizer?.cancel()
+        cancelSessionOnly()
         textToSpeech?.stop()
-        orbView?.setListeningActive(false)
-        isListening = false
         super.onHide()
     }
 
     override fun onDestroy() {
-        speechRecognizer?.destroy()
-        speechRecognizer = null
+        cancelSessionOnly()
         textToSpeech?.stop()
         textToSpeech?.shutdown()
         textToSpeech = null

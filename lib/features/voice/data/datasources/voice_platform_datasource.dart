@@ -73,11 +73,21 @@ class VoicePlatformDataSource {
     }
   }
 
-  Future<void> startListening({required VoiceLanguage language}) async {
+  Future<void> startListening({
+    required VoiceLanguage language,
+    int endpointSilenceMs = 3800,
+    int initialTimeoutMs = 7500,
+    int maxDurationMs = 45000,
+  }) async {
     try {
       await _methodChannel.invokeMethod<bool>(
         'startListening',
-        <String, Object>{'locale': language.localeCode},
+        <String, Object>{
+          'locale': language.localeCode,
+          'endpointSilenceMs': endpointSilenceMs,
+          'initialTimeoutMs': initialTimeoutMs,
+          'maxDurationMs': maxDurationMs,
+        },
       );
     } on MissingPluginException catch (error, stackTrace) {
       throw UnexpectedAppException(
@@ -245,6 +255,29 @@ class VoicePlatformDataSource {
   Future<String?> consumeOverlayPrompt() async {
     try {
       return await _methodChannel.invokeMethod<String>('consumeOverlayPrompt');
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
+  Future<({String prompt, List<String> hypotheses})?>
+  consumeOverlayPayload() async {
+    try {
+      final raw = await _methodChannel.invokeMethod<Map<Object?, Object?>>(
+        'consumeOverlayPayload',
+      );
+      final prompt = (raw?['prompt'] as String?)?.trim() ?? '';
+      if (prompt.isEmpty) return null;
+      final hypotheses =
+          (raw?['hypotheses'] as List<Object?>?)
+              ?.whereType<String>()
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList(growable: false) ??
+          const <String>[];
+      return (prompt: prompt, hypotheses: hypotheses);
     } on MissingPluginException {
       return null;
     } on PlatformException {

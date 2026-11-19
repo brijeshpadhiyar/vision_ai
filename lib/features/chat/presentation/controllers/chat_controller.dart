@@ -81,6 +81,8 @@ class ChatController extends Notifier<ChatState> {
   AICancellationToken? _activeCancellation;
   ConversationIntelligenceContext _intelContext =
       const ConversationIntelligenceContext();
+  String? _lastSubmittedPrompt;
+  DateTime? _lastSubmittedAt;
 
   @override
   ChatState build() {
@@ -94,17 +96,43 @@ class ChatController extends Notifier<ChatState> {
   /// Sends [prompt] using the active AI configuration (streaming, routing,
   /// fallback, and hybrid offline local command execution).
   ///
+  /// [alternativeTranscripts] carries additional speech recognition hypotheses
+  /// so intent classification and phonetic contact matching can recover from
+  /// ASR misspellings without mutating displayed user text.
+  ///
   /// Returns `true` if the prompt completed or executed locally, or `false` if
   /// blocked before dispatch (missing key / offline) so callers can preserve the draft.
-  Future<bool> sendMessage(String prompt) async {
+  Future<bool> sendMessage(
+    String prompt, {
+    List<String> alternativeTranscripts = const <String>[],
+    String? originalTranscript,
+    bool allowDuplicate = false,
+  }) async {
     final trimmed = prompt.trim();
     if (trimmed.isEmpty || state.isLoading) {
       return false;
     }
 
+    final now = DateTime.now();
+    if (!allowDuplicate &&
+        _lastSubmittedPrompt == trimmed.toLowerCase() &&
+        _lastSubmittedAt != null &&
+        now.difference(_lastSubmittedAt!).inMilliseconds < 1200) {
+      return false;
+    }
+    _lastSubmittedPrompt = trimmed.toLowerCase();
+    _lastSubmittedAt = now;
+
     final settings = ref.read(settingsControllerProvider);
     final repository = ref.read(chatRepositoryProvider);
     final logger = ref.read(appLoggerProvider);
+    if (originalTranscript != null &&
+        originalTranscript.trim().isNotEmpty &&
+        originalTranscript.trim() != trimmed) {
+      logger.info(
+        'Voice transcript preserved raw="$originalTranscript" cleaned="$trimmed"',
+      );
+    }
 
     final optimisticMessage = ChatMessage(
       id: 'pending_${DateTime.now().microsecondsSinceEpoch}',
@@ -131,6 +159,7 @@ class ChatController extends Notifier<ChatState> {
       final resolution = DeviceIntentParser.analyzeIntent(
         trimmed,
         context: _intelContext,
+        alternativeTranscripts: alternativeTranscripts,
       );
       telemetry.recordIntentParse(
         resolution.parseTimeMicros,
@@ -195,8 +224,12 @@ class ChatController extends Notifier<ChatState> {
                   await automationNotifier.executeRequest(
                     localAction,
                     confirmed: true,
+                    alternativeQueries: alternativeTranscripts,
                   ))
-            : await automationNotifier.executeRequest(localAction);
+            : await automationNotifier.executeRequest(
+                localAction,
+                alternativeQueries: alternativeTranscripts,
+              );
 
         final latestAutomationState = ref.read(automationControllerProvider);
         final isPendingConfirm =
@@ -239,6 +272,7 @@ class ChatController extends Notifier<ChatState> {
         settings: settings,
         cancellationToken: cancellationToken,
       )) {
+        if (!ref.mounted) return false;
         if (update is ChatMessagesUpdated) {
           latestRoutingNotice = update.routingNotice ?? latestRoutingNotice;
           state = state.copyWith(
@@ -248,6 +282,7 @@ class ChatController extends Notifier<ChatState> {
         }
       }
 
+      if (!ref.mounted) return false;
       final aiAction = repository.consumePendingAiAction();
       if (aiAction != null && settings.deviceActionsEnabled) {
         final actionResult = await ref
@@ -294,6 +329,7 @@ class ChatController extends Notifier<ChatState> {
       );
       return false;
     } on AIError catch (error, stackTrace) {
+      if (!ref.mounted) return false;
       if (error.kind == AIErrorKind.cancelled) {
         logger.info('AI request cancelled by user.');
         state = ChatState(
@@ -317,6 +353,7 @@ class ChatController extends Notifier<ChatState> {
       );
       return !isOffline;
     } on AppException catch (error, stackTrace) {
+      if (!ref.mounted) return false;
       logger.error(
         'AI provider error (${settings.selectedAiProvider.displayName})',
         error: error,
@@ -328,6 +365,7 @@ class ChatController extends Notifier<ChatState> {
       );
       return true;
     } on Exception catch (error, stackTrace) {
+      if (!ref.mounted) return false;
       logger.error(
         'Unexpected chat failure',
         error: error,
@@ -357,7 +395,7 @@ class ChatController extends Notifier<ChatState> {
         .where((m) => m.sender == MessageSender.user)
         .toList(growable: false);
     if (userMessages.isEmpty) return false;
-    return sendMessage(userMessages.last.content);
+    return sendMessage(userMessages.last.content, allowDuplicate: true);
   }
 
   /// Retries an unsent failed prompt or falls back to the latest user prompt.

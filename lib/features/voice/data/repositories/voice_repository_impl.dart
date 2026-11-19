@@ -40,8 +40,13 @@ class VoiceRepositoryImpl implements VoiceRepository {
       _dataSource.isSpeechRecognitionAvailable();
 
   @override
-  Future<void> startListening({required VoiceLanguage language}) =>
-      _dataSource.startListening(language: language);
+  Future<void> startListening({
+    required VoiceLanguage language,
+    int endpointSilenceMs = 3800,
+  }) => _dataSource.startListening(
+    language: language,
+    endpointSilenceMs: endpointSilenceMs,
+  );
 
   @override
   Future<void> stopListening() => _dataSource.stopListening();
@@ -86,4 +91,8 @@ class VoiceRepositoryImpl implements VoiceRepository {
 
   @override
   Future<String?> consumeOverlayPrompt() => _dataSource.consumeOverlayPrompt();
+
+  @override
+  Future<({String prompt, List<String> hypotheses})?> consumeOverlayPayload() =>
+      _dataSource.consumeOverlayPayload();
 }

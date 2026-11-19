@@ -24,6 +24,7 @@ import 'package:vision_ai/features/chat/domain/repositories/chat_repository.dart
 import 'package:vision_ai/features/chat/domain/services/ai_conversation_manager.dart';
 import 'package:vision_ai/features/chat/domain/services/ai_router.dart';
 import 'package:vision_ai/features/chat/domain/services/provider_health_manager.dart';
+import 'package:vision_ai/features/chat/domain/services/task_complexity_classifier.dart';
 import 'package:vision_ai/features/memory/presentation/controllers/memory_controller.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
@@ -275,12 +276,23 @@ class ChatRepositoryImpl implements ChatRepository {
       maxMessages: AppConstants.maxContextMessages,
     );
 
+    final complexity = TaskComplexityClassifier.classify(trimmedPrompt);
+    final attachTools =
+        settings.deviceActionsEnabled &&
+        _mightNeedDeviceToolSchema(trimmedPrompt);
+    final tokenBudget = switch (complexity) {
+      TaskComplexityTier.simpleFast => 512,
+      TaskComplexityTier.balancedMultilingual => 1024,
+      TaskComplexityTier.deepReasoningCoding => 2048,
+    };
+
     final completionRequest = AiCompletionRequest(
       provider: provider,
       modelId: modelId,
       messages: contextWindow,
       responseLanguage: settings.selectedVoiceLanguage,
-      enableDeviceActions: settings.deviceActionsEnabled,
+      maxOutputTokens: tokenBudget,
+      enableDeviceActions: attachTools,
       personalMemoryContext: _memoryContextReader?.call() ?? '',
     );
 
@@ -445,6 +457,15 @@ class ChatRepositoryImpl implements ChatRepository {
     final idx = raw.indexOf('[[VISION_ACTION:');
     if (idx == -1) return raw;
     return raw.substring(0, idx).trimRight();
+  }
+
+  /// Avoids sending heavy JSON tool schemas on pure Q&A / coding prompts,
+  /// lowering TTFT and token usage when local parsing already handles direct actions.
+  static bool _mightNeedDeviceToolSchema(String prompt) {
+    return RegExp(
+      r'\b(call|dial|phone|contact|alarm|timer|open|launch|start|settings|wifi|bluetooth|flashlight|torch|silent|vibrate|volume|mute|battery|status|sms|message|whatsapp|navigate|directions|search|notification)\b',
+      caseSensitive: false,
+    ).hasMatch(prompt);
   }
 
   @override
