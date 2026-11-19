@@ -1,3 +1,4 @@
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -6,7 +7,7 @@ import 'package:vision_ai/core/theme/vision_radius.dart';
 import 'package:vision_ai/core/theme/vision_theme_extension.dart';
 import 'package:vision_ai/core/theme/vision_typography.dart';
 
-/// Material 3 Light Theme — PEARL LAVENDER.
+/// Material 3 Light Theme — PEARL LAVENDER powered by [FlexColorScheme] 9.x.
 abstract final class VisionLightTheme {
   static ThemeData build() {
     const tokens = VisionColorTokens.light;
@@ -29,6 +30,10 @@ abstract final class VisionLightTheme {
       surface: tokens.surface,
       onSurface: tokens.textPrimary,
       onSurfaceVariant: tokens.textSecondary,
+      surfaceContainerLowest: tokens.surface,
+      surfaceContainerLow: tokens.background,
+      surfaceContainer: tokens.secondaryBackground,
+      surfaceContainerHigh: tokens.secondaryBackground,
       surfaceContainerHighest: tokens.secondaryBackground,
       outline: tokens.outline,
       outlineVariant: tokens.divider,
@@ -37,19 +42,56 @@ abstract final class VisionLightTheme {
       shadow: tokens.shadow,
     );
 
-    return ThemeData(
+    final base = FlexThemeData.light(
+      colorScheme: colorScheme,
+      scaffoldBackground: tokens.background,
+      surface: tokens.surface,
       useMaterial3: true,
-      brightness: Brightness.light,
+      useMaterial3ErrorColors: false,
+      fontFamily: VisionTypography.fontFamily,
+      textTheme: textTheme,
+      primaryTextTheme: textTheme,
+      subThemesData: FlexSubThemesData(
+        interactionEffects: true,
+        tintedDisabledControls: false,
+        useM2StyleDividerInM3: true,
+        defaultRadius: VisionRadius.md,
+        cardRadius: VisionRadius.lg,
+        dialogRadius: VisionRadius.xl,
+        bottomSheetRadius: VisionRadius.xl,
+        snackBarRadius: VisionRadius.md,
+        inputDecoratorRadius: VisionRadius.md,
+        inputDecoratorFillColor: tokens.surface,
+        inputDecoratorBorderType: FlexInputBorderType.outline,
+        inputDecoratorUnfocusedBorderIsColored: true,
+        inputDecoratorFocusedBorderWidth: 1.5,
+        filledButtonRadius: VisionRadius.md,
+        outlinedButtonRadius: VisionRadius.md,
+        elevatedButtonRadius: VisionRadius.md,
+        textButtonRadius: VisionRadius.md,
+        navigationBarIndicatorSchemeColor: SchemeColor.primaryContainer,
+        navigationBarBackgroundSchemeColor: SchemeColor.surface,
+        navigationBarElevation: 0,
+        navigationBarHeight: 68,
+        appBarBackgroundSchemeColor: SchemeColor.transparent,
+        appBarScrolledUnderElevation: 0,
+        bottomSheetBackgroundColor: SchemeColor.surface,
+        dialogBackgroundSchemeColor: SchemeColor.surface,
+      ),
+      extensions: <ThemeExtension<dynamic>>[VisionThemeExtension.light],
+    );
+
+    return base.copyWith(
       colorScheme: colorScheme,
       scaffoldBackgroundColor: tokens.background,
       textTheme: textTheme,
-      extensions: <ThemeExtension<dynamic>>[VisionThemeExtension.light],
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: tokens.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
+        titleTextStyle: textTheme.titleLarge,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
       ),
       cardTheme: CardThemeData(
@@ -76,6 +118,8 @@ abstract final class VisionLightTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: tokens.surface,
+        titleTextStyle: textTheme.titleLarge,
+        contentTextStyle: textTheme.bodyMedium,
         shape: RoundedRectangleBorder(
           borderRadius: VisionRadius.xlBorder,
           side: BorderSide(color: tokens.border),
@@ -116,6 +160,7 @@ abstract final class VisionLightTheme {
         style: FilledButton.styleFrom(
           backgroundColor: tokens.primary,
           foregroundColor: Colors.white,
+          textStyle: textTheme.labelLarge,
           minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
           shape: const RoundedRectangleBorder(
@@ -126,6 +171,7 @@ abstract final class VisionLightTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: tokens.primary,
+          textStyle: textTheme.labelLarge,
           side: BorderSide(color: tokens.border),
           minimumSize: const Size(0, 46),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -137,6 +183,7 @@ abstract final class VisionLightTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: tokens.primary,
+          textStyle: textTheme.labelLarge,
           minimumSize: const Size(44, 44),
         ),
       ),

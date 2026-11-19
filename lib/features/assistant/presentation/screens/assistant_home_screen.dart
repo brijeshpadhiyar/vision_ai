@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/app/router/app_routes.dart';
 import 'package:vision_ai/core/constants/app_constants.dart';
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_colors.dart';
 import 'package:vision_ai/core/theme/vision_glass.dart';
 import 'package:vision_ai/core/theme/vision_spacing.dart';
@@ -329,27 +330,35 @@ class _CompactHomeLayout extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        _QuickActionsRow(
-          onAssistant: onOrbTap,
-          onChat: onOpenChat,
-          onPlanner: onOpenPlanner,
-          onSmartHome: onOpenSmartHome,
-          onDeveloper: onOpenDeveloper,
-          onAutomation: onOpenAutomation,
-          onSettings: onOpenSettings,
-          onRoadmap: onOpenRoadmap,
+        VisionAnimatePresets.cardEntrance(
+          context,
+          _QuickActionsRow(
+            onAssistant: onOrbTap,
+            onChat: onOpenChat,
+            onPlanner: onOpenPlanner,
+            onSmartHome: onOpenSmartHome,
+            onDeveloper: onOpenDeveloper,
+            onAutomation: onOpenAutomation,
+            onSettings: onOpenSettings,
+            onRoadmap: onOpenRoadmap,
+          ),
+          index: 0,
         ),
         const SizedBox(height: 14),
         const ProactiveSuggestionsStrip(),
         const SizedBox(height: 4),
-        AssistantStatusPanel(
-          readiness: readiness,
-          settings: settings,
-          voiceState: voiceState,
-          connectionState: connectionState,
-          hasApiKey: hasActiveKey,
-          onDismissNotice: onDismissNotice,
-          onTapProviderStatus: onOpenSettings,
+        VisionAnimatePresets.cardEntrance(
+          context,
+          AssistantStatusPanel(
+            readiness: readiness,
+            settings: settings,
+            voiceState: voiceState,
+            connectionState: connectionState,
+            hasApiKey: hasActiveKey,
+            onDismissNotice: onDismissNotice,
+            onTapProviderStatus: onOpenSettings,
+          ),
+          index: 1,
         ),
         if (automationState.pendingConfirmation != null ||
             automationState.contactChoices.isNotEmpty ||

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -471,6 +472,8 @@ void main() {
       await tester.tap(find.byTooltip('Dismiss Assistant'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 450));
+      await tester.runAsync(() => GoogleFonts.pendingFonts());
+      await tester.pump();
       expect(find.byType(AssistantExperienceScreen), findsNothing);
     },
   );

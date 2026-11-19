@@ -1,9 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_radius.dart';
 import 'package:vision_ai/core/theme/vision_theme_extension.dart';
 
-/// Semantic themed dialog helper using Midnight Violet / Pearl Lavender tokens.
+/// Semantic themed dialog helper using Midnight Violet / Pearl Lavender tokens
+/// with a subtle reduced-motion-safe scale-and-fade entrance.
 class VisionDialog extends StatelessWidget {
   const VisionDialog({
     required this.title,
@@ -39,23 +41,26 @@ class VisionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.visionColors;
-    return AlertDialog(
-      backgroundColor: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: VisionRadius.xlBorder,
-        side: BorderSide(color: colors.border),
-      ),
-      title: Row(
-        children: <Widget>[
-          if (icon != null) ...<Widget>[
-            Icon(icon, size: 22, color: colors.primary),
-            const SizedBox(width: 10),
+    return VisionAnimatePresets.scaleIn(
+      context,
+      AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: VisionRadius.xlBorder,
+          side: BorderSide(color: colors.border),
+        ),
+        title: Row(
+          children: <Widget>[
+            if (icon != null) ...<Widget>[
+              Icon(icon, size: 22, color: colors.primary),
+              const SizedBox(width: 10),
+            ],
+            Expanded(child: Text(title)),
           ],
-          Expanded(child: Text(title)),
-        ],
+        ),
+        content: content,
+        actions: actions,
       ),
-      content: content,
-      actions: actions,
     );
   }
 }

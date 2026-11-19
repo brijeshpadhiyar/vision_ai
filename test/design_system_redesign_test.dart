@@ -202,11 +202,13 @@ void main() {
           expect(find.text('Connect'), findsOneWidget);
           expect(find.text('Offline'), findsOneWidget);
           expect(find.text('No items yet'), findsOneWidget);
+          await tester.pump(const Duration(milliseconds: 50));
         }
 
         await tester.tap(find.text('Connect'));
         await tester.ensureVisible(find.text('Retry'));
         await tester.tap(find.text('Retry'));
+        await tester.pump(const Duration(milliseconds: 50));
         expect(primaryTapped, isTrue);
         expect(retryTapped, isTrue);
       },

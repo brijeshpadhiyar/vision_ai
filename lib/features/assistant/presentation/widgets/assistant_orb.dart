@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'package:vision_ai/core/constants/app_constants.dart';
-import 'package:vision_ai/features/assistant/presentation/widgets/vision_ai_orb.dart';
+import 'package:vision_ai/features/assistant/presentation/widgets/vision_orb.dart';
 
-/// Backward-compatible wrapper around [VisionAiOrb] mapping legacy flags to
+/// Backward-compatible wrapper around [VisionOrb] mapping legacy flags to
 /// [VisionOrbState].
 class AssistantOrb extends StatelessWidget {
   const AssistantOrb({
@@ -14,8 +14,10 @@ class AssistantOrb extends StatelessWidget {
     this.isSpeaking = false,
     this.isThinking = false,
     this.hasError = false,
+    this.isOffline = false,
     this.audioLevel = 0.0,
     this.onTap,
+    this.riveConfig,
   });
 
   final double size;
@@ -24,26 +26,27 @@ class AssistantOrb extends StatelessWidget {
   final bool isSpeaking;
   final bool isThinking;
   final bool hasError;
+  final bool isOffline;
   final double audioLevel;
   final VoidCallback? onTap;
+  final VisionOrbRiveConfig? riveConfig;
 
   @override
   Widget build(BuildContext context) {
-    final orbState = hasError
-        ? VisionOrbState.error
-        : isListening
-        ? VisionOrbState.listening
-        : isThinking
-        ? VisionOrbState.thinking
-        : isSpeaking
-        ? VisionOrbState.speaking
-        : VisionOrbState.idle;
+    final orbState = VisionOrbStateResolver.resolve(
+      isListening: isListening,
+      isThinking: isThinking,
+      isSpeaking: isSpeaking,
+      hasError: hasError,
+      isOffline: isOffline,
+    );
 
-    return VisionAiOrb(
+    return VisionOrb(
       size: size,
       state: orbState,
       audioLevel: audioLevel,
       onTap: onTap,
+      riveConfig: riveConfig,
     );
   }
 }

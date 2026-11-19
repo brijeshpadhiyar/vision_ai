@@ -1,11 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_radius.dart';
 import 'package:vision_ai/core/theme/vision_spacing.dart';
 import 'package:vision_ai/core/theme/vision_theme_extension.dart';
 import 'package:vision_ai/core/widgets/vision_primary_button.dart';
 
-/// Semantic empty state card with consistent hierarchy and optional primary CTA.
+/// Semantic empty state card with consistent hierarchy, optional primary CTA,
+/// and subtle fade-and-slide entrance.
 class VisionEmptyView extends StatelessWidget {
   const VisionEmptyView({
     required this.title,
@@ -27,42 +29,45 @@ class VisionEmptyView extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = context.visionColors;
 
-    return Container(
-      padding: const EdgeInsets.all(VisionSpacing.lg),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: VisionRadius.lgBorder,
-        border: Border.all(color: colors.border),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: colors.primaryContainer,
-              shape: BoxShape.circle,
+    return VisionAnimatePresets.fadeAndSlide(
+      context,
+      Container(
+        padding: const EdgeInsets.all(VisionSpacing.lg),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: VisionRadius.lgBorder,
+          border: Border.all(color: colors.border),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 26, color: colors.primary),
             ),
-            child: Icon(icon, size: 26, color: colors.primary),
-          ),
-          const SizedBox(height: VisionSpacing.sm),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium,
-          ),
-          if (actionLabel != null && onAction != null) ...<Widget>[
-            const SizedBox(height: VisionSpacing.md),
-            VisionPrimaryButton(label: actionLabel!, onPressed: onAction),
+            const SizedBox(height: VisionSpacing.sm),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            if (actionLabel != null && onAction != null) ...<Widget>[
+              const SizedBox(height: VisionSpacing.md),
+              VisionPrimaryButton(label: actionLabel!, onPressed: onAction),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

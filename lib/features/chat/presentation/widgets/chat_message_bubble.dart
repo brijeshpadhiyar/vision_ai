@@ -237,25 +237,14 @@ class ChatMessageBubble extends StatelessWidget {
       ),
     );
 
-    if (VisionAnimations.isReducedMotion(context)) {
-      return bubble;
-    }
-
-    return TweenAnimationBuilder<double>(
+    return KeyedSubtree(
       key: ValueKey<String>(message.id),
-      tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: VisionAnimations.standardFast,
-      curve: VisionAnimations.standardCurve,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, (1 - value) * 8),
-            child: child,
-          ),
-        );
-      },
-      child: bubble,
+      child: VisionAnimatePresets.fadeAndSlide(
+        context,
+        bubble,
+        duration: VisionAnimations.standardFast,
+        beginY: 0.04,
+      ),
     );
   }
 }

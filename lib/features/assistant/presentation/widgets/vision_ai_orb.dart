@@ -34,38 +34,56 @@ class VisionAiOrb extends StatefulWidget {
 }
 
 class _VisionAiOrbState extends State<VisionAiOrb>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _breathController;
   late final AnimationController _orbitController;
   late final AnimationController _waveController;
   double _smoothedLevel = 0.0;
   bool _reducedMotion = false;
+  bool _tickerEnabled = true;
+  bool _appPaused = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _breathController = AnimationController(
       vsync: this,
       duration: VisionAnimations.orbBreath,
-    )..repeat(reverse: true);
+    );
 
     _orbitController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 5400),
-    )..repeat();
+    );
 
     _waveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1300),
-    )..repeat();
+    );
+    _syncAnimationPlayback();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final paused =
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached;
+    if (paused != _appPaused) {
+      _appPaused = paused;
+      _syncAnimationPlayback();
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final reduce = VisionAnimations.isReducedMotion(context);
-    if (reduce != _reducedMotion) {
+    final tickerEnabled = TickerMode.valuesOf(context).enabled;
+    if (reduce != _reducedMotion || tickerEnabled != _tickerEnabled) {
       _reducedMotion = reduce;
+      _tickerEnabled = tickerEnabled;
       _syncAnimationPlayback();
     }
   }
@@ -77,7 +95,7 @@ class _VisionAiOrbState extends State<VisionAiOrb>
     final target = widget.audioLevel.clamp(0.0, 1.0);
     _smoothedLevel = (_smoothedLevel * 0.45) + (target * 0.55);
 
-    if (oldWidget.state != widget.state && !_reducedMotion) {
+    if (oldWidget.state != widget.state) {
       _orbitController.duration = switch (widget.state) {
         VisionOrbState.idle => const Duration(milliseconds: 6800),
         VisionOrbState.listening => const Duration(milliseconds: 2800),
@@ -86,14 +104,18 @@ class _VisionAiOrbState extends State<VisionAiOrb>
         VisionOrbState.error => const Duration(milliseconds: 4200),
         VisionOrbState.offline => const Duration(milliseconds: 9000),
       };
-      if (!_orbitController.isAnimating) {
-        _orbitController.repeat();
-      }
+      _syncAnimationPlayback();
     }
   }
 
   void _syncAnimationPlayback() {
-    if (_reducedMotion) {
+    final shouldPause =
+        _reducedMotion ||
+        !_tickerEnabled ||
+        _appPaused ||
+        widget.state == VisionOrbState.offline;
+
+    if (shouldPause) {
       _breathController.stop();
       _orbitController.stop();
       _waveController.stop();
@@ -101,14 +123,21 @@ class _VisionAiOrbState extends State<VisionAiOrb>
       _orbitController.value = 0.0;
       _waveController.value = 0.0;
     } else {
-      _breathController.repeat(reverse: true);
-      _orbitController.repeat();
-      _waveController.repeat();
+      if (!_breathController.isAnimating) {
+        _breathController.repeat(reverse: true);
+      }
+      if (!_orbitController.isAnimating) {
+        _orbitController.repeat();
+      }
+      if (!_waveController.isAnimating) {
+        _waveController.repeat();
+      }
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _breathController.dispose();
     _orbitController.dispose();
     _waveController.dispose();

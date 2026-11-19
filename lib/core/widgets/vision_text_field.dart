@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'package:vision_ai/core/theme/vision_radius.dart';
 import 'package:vision_ai/core/theme/vision_theme_extension.dart';
 
-/// Consistent semantic text field using VISION theme tokens.
+/// Consistent semantic text field inheriting the centralized Material 3
+/// [InputDecorationTheme] from [VisionDarkTheme] / [VisionLightTheme].
 class VisionTextField extends StatelessWidget {
   const VisionTextField({
     super.key,
@@ -41,24 +41,10 @@ class VisionTextField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
-        filled: true,
-        fillColor: colors.elevatedSurface,
         prefixIcon: prefixIcon != null
             ? Icon(prefixIcon, size: 19, color: colors.textSecondary)
             : null,
         suffixIcon: suffixIcon,
-        border: OutlineInputBorder(
-          borderRadius: VisionRadius.mdBorder,
-          borderSide: BorderSide(color: colors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: VisionRadius.mdBorder,
-          borderSide: BorderSide(color: colors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: VisionRadius.mdBorder,
-          borderSide: BorderSide(color: colors.primary, width: 1.5),
-        ),
       ),
     );
   }

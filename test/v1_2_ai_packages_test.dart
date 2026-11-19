@@ -322,6 +322,7 @@ void main() {
       ),
     );
 
+    await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('[1] flutter.dev'), findsOneWidget);
     await tester.tap(find.text('[1] flutter.dev'));
     expect(tappedUrl, 'https://flutter.dev');

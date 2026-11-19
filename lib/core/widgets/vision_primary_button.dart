@@ -1,10 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_motion.dart';
 import 'package:vision_ai/core/theme/vision_radius.dart';
 import 'package:vision_ai/core/theme/vision_theme_extension.dart';
 
-/// Primary semantic action button with Midnight Violet / Pearl Lavender styling.
+/// Primary semantic action button with Midnight Violet / Pearl Lavender styling
+/// and tactile press micro-animation.
 class VisionPrimaryButton extends StatelessWidget {
   const VisionPrimaryButton({
     required this.label,
@@ -24,6 +26,8 @@ class VisionPrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.visionColors;
+    final isInteractive = !isLoading && onPressed != null;
+
     final child = AnimatedSwitcher(
       duration: VisionMotion.resolve(context, VisionMotion.micro),
       child: isLoading
@@ -49,17 +53,20 @@ class VisionPrimaryButton extends StatelessWidget {
             ),
     );
 
-    final button = FilledButton(
-      onPressed: isLoading ? null : onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: colors.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        minimumSize: Size(expanded ? double.infinity : 0, 48),
-        shape: const RoundedRectangleBorder(
-          borderRadius: VisionRadius.mdBorder,
+    final button = VisionPressable(
+      enabled: isInteractive,
+      child: FilledButton(
+        onPressed: isLoading ? null : onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: colors.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          minimumSize: Size(expanded ? double.infinity : 0, 48),
+          shape: const RoundedRectangleBorder(
+            borderRadius: VisionRadius.mdBorder,
+          ),
         ),
+        child: child,
       ),
-      child: child,
     );
 
     return expanded ? SizedBox(width: double.infinity, child: button) : button;

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -542,6 +543,8 @@ void main() {
       await tester.ensureVisible(find.byIcon(Icons.mic_none_rounded));
       await tester.tap(find.byIcon(Icons.mic_none_rounded));
       await tester.pump(const Duration(milliseconds: 300));
+      await tester.runAsync(() => GoogleFonts.pendingFonts());
+      await tester.pump();
 
       final voiceState = container.read(voiceControllerProvider);
       expect(voiceState.isListening, isTrue);

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_glass.dart';
 import 'package:vision_ai/core/theme/vision_spacing.dart';
 import 'package:vision_ai/core/widgets/glass/vision_glass_card.dart';
@@ -16,6 +17,8 @@ class VisionCard extends StatelessWidget {
     this.blurSigma = VisionGlass.blurNone,
     this.glowColor,
     this.glowIntensity = 0.0,
+    this.animateEntrance = false,
+    this.entranceIndex = 0,
   });
 
   final Widget child;
@@ -26,10 +29,12 @@ class VisionCard extends StatelessWidget {
   final double blurSigma;
   final Color? glowColor;
   final double glowIntensity;
+  final bool animateEntrance;
+  final int entranceIndex;
 
   @override
   Widget build(BuildContext context) {
-    return VisionGlassCard(
+    Widget card = VisionGlassCard(
       padding: padding,
       onTap: onTap,
       borderColor: borderColor,
@@ -39,5 +44,19 @@ class VisionCard extends StatelessWidget {
       glowIntensity: glowIntensity,
       child: child,
     );
+
+    if (onTap != null) {
+      card = VisionPressable(child: card);
+    }
+
+    if (animateEntrance) {
+      card = VisionAnimatePresets.cardEntrance(
+        context,
+        card,
+        index: entranceIndex,
+      );
+    }
+
+    return card;
   }
 }

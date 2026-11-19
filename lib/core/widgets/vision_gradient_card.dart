@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_elevation.dart';
 import 'package:vision_ai/core/theme/vision_motion.dart';
 import 'package:vision_ai/core/theme/vision_radius.dart';
@@ -16,6 +17,8 @@ class VisionGradientCard extends StatelessWidget {
     this.borderRadius = VisionRadius.lgBorder,
     this.gradient,
     this.onTap,
+    this.animateEntrance = false,
+    this.entranceIndex = 0,
   });
 
   final Widget child;
@@ -23,6 +26,8 @@ class VisionGradientCard extends StatelessWidget {
   final BorderRadius borderRadius;
   final Gradient? gradient;
   final VoidCallback? onTap;
+  final bool animateEntrance;
+  final int entranceIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +46,7 @@ class VisionGradientCard extends StatelessWidget {
           ],
         );
 
-    final content = AnimatedContainer(
+    Widget content = AnimatedContainer(
       duration: VisionMotion.resolve(context, VisionMotion.standard),
       curve: VisionMotion.standardCurve,
       padding: padding,
@@ -54,12 +59,28 @@ class VisionGradientCard extends StatelessWidget {
       child: child,
     );
 
-    if (onTap == null) return content;
+    if (onTap != null) {
+      content = VisionPressable(
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: borderRadius,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: borderRadius,
+            child: content,
+          ),
+        ),
+      );
+    }
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: borderRadius,
-      child: InkWell(onTap: onTap, borderRadius: borderRadius, child: content),
-    );
+    if (animateEntrance) {
+      content = VisionAnimatePresets.cardEntrance(
+        context,
+        content,
+        index: entranceIndex,
+      );
+    }
+
+    return content;
   }
 }

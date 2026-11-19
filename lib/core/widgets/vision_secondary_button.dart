@@ -1,9 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_radius.dart';
 import 'package:vision_ai/core/theme/vision_theme_extension.dart';
 
-/// Secondary outlined button using semantic border and primary accent tokens.
+/// Secondary outlined button using semantic border and primary accent tokens
+/// with tactile press feedback.
 class VisionSecondaryButton extends StatelessWidget {
   const VisionSecondaryButton({
     required this.label,
@@ -21,26 +23,29 @@ class VisionSecondaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.visionColors;
-    final button = OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: colors.primary,
-        side: BorderSide(color: colors.border),
-        backgroundColor: colors.surface,
-        minimumSize: Size(expanded ? double.infinity : 0, 46),
-        shape: const RoundedRectangleBorder(
-          borderRadius: VisionRadius.mdBorder,
+    final button = VisionPressable(
+      enabled: onPressed != null,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colors.primary,
+          side: BorderSide(color: colors.border),
+          backgroundColor: colors.surface,
+          minimumSize: Size(expanded ? double.infinity : 0, 46),
+          shape: const RoundedRectangleBorder(
+            borderRadius: VisionRadius.mdBorder,
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          if (icon != null) ...<Widget>[
-            Icon(icon, size: 18),
-            const SizedBox(width: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (icon != null) ...<Widget>[
+              Icon(icon, size: 18),
+              const SizedBox(width: 8),
+            ],
+            Text(label),
           ],
-          Text(label),
-        ],
+        ),
       ),
     );
 

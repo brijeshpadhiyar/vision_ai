@@ -13,6 +13,7 @@ import 'package:vision_ai/core/theme/vision_radii.dart';
 import 'package:vision_ai/core/theme/vision_spacing.dart';
 import 'package:vision_ai/core/widgets/glass/vision_glass_widgets.dart';
 import 'package:vision_ai/core/widgets/vision_app_bar.dart';
+import 'package:vision_ai/core/widgets/vision_loading.dart';
 import 'package:vision_ai/core/widgets/vision_scaffold.dart';
 import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
@@ -591,9 +592,22 @@ class _ThinkingShimmerBubble extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              const VisionShimmer(width: 240, height: 12),
-              const SizedBox(height: 6),
-              const VisionShimmer(width: 175, height: 12),
+              VisionLoading(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Generating assistant response details',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Preparing structured reply',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

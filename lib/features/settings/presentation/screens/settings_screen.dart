@@ -12,6 +12,7 @@ import 'package:vision_ai/core/theme/vision_radii.dart';
 import 'package:vision_ai/core/theme/vision_spacing.dart';
 import 'package:vision_ai/core/widgets/glass/vision_glass_widgets.dart';
 import 'package:vision_ai/core/widgets/vision_app_bar.dart';
+import 'package:vision_ai/core/widgets/vision_loading.dart';
 import 'package:vision_ai/core/widgets/vision_scaffold.dart';
 import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
@@ -481,6 +482,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
 
           if (showAi) ...[
+            if (keyStatusAsync.isLoading && !keyStatusAsync.hasValue) ...[
+              VisionLoading.providerCard(),
+              const SizedBox(height: 16),
+            ],
             AssistantIdentitySection(
               identity: settings.assistantIdentity,
               onIdentityChanged: (identity) async {

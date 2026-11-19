@@ -1,9 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/core/theme/vision_animations.dart';
 import 'package:vision_ai/core/theme/vision_radius.dart';
 import 'package:vision_ai/core/theme/vision_theme_extension.dart';
 
-/// Accessible 44x44 semantic icon button with optional subtle surface fill.
+/// Accessible 44x44 semantic icon button with tactile press feedback and
+/// smooth icon transitions.
 class VisionIconButton extends StatelessWidget {
   const VisionIconButton({
     required this.icon,
@@ -21,19 +23,30 @@ class VisionIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.visionColors;
-    return IconButton(
-      onPressed: onPressed,
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        minimumSize: const Size(44, 44),
-        backgroundColor: selected ? colors.primaryContainer : colors.surface,
-        foregroundColor: selected ? colors.primary : colors.textPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: VisionRadius.smBorder,
-          side: BorderSide(color: selected ? colors.primary : colors.border),
+    return VisionPressable(
+      enabled: onPressed != null,
+      pressedScale: 0.94,
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        style: IconButton.styleFrom(
+          minimumSize: const Size(44, 44),
+          backgroundColor: selected ? colors.primaryContainer : colors.surface,
+          foregroundColor: selected ? colors.primary : colors.textPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: VisionRadius.smBorder,
+            side: BorderSide(color: selected ? colors.primary : colors.border),
+          ),
+        ),
+        icon: VisionAnimatePresets.iconTransition(
+          context,
+          Icon(
+            icon,
+            key: ValueKey<String>('${icon.codePoint}_$selected'),
+            size: 20,
+          ),
         ),
       ),
-      icon: Icon(icon, size: 20),
     );
   }
 }

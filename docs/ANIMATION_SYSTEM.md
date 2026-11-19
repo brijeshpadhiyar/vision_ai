@@ -1,38 +1,48 @@
-# VISION AI — Animation & Motion System
+# VISION AI — Animation System (`flutter_animate`)
 
-**Core Tokens:** `lib/core/theme/vision_animations.dart`  
-**Orb Engine:** `lib/features/assistant/presentation/widgets/vision_ai_orb.dart`
+## Overview
 
----
+VISION AI centralizes motion durations, curves, reduced-motion accessibility checks, off-screen ticker guards, and `flutter_animate` presets inside `lib/core/theme/vision_animations.dart` (preserving `lib/core/theme/vision_motion.dart` for backward compatibility).
 
-## 1. Motion Scale & Timing Guidelines
+## Package & Version
 
-| Tier | Duration | Curve | Usage |
-| :--- | :--- | :--- | :--- |
-| **Micro** | `120–160 ms` | `Curves.easeOutCubic` | Card press scale (`0.982`), button press (`0.97` / `0.92`), chip & tab selection, Send/Stop morph |
-| **Standard** | `220–280 ms` | `Curves.easeOutCubic` | Tab transitions, message bubble entrance, dialog scale/fade, `AnimatedSwitcher` status updates |
-| **Large** | `350–460 ms` | `Curves.easeOutQuart` | Assistant modal launch, splash reveal, greeting entrance |
-| **Ambient** | `1300–5400 ms` | `Curves.easeInOutSine` | `VisionAiOrb` breathing, orbital rotation, waveform rings, `VisionShimmer` |
+- **Package**: `flutter_animate: ^4.5.2` (resolved `4.5.2`)
+- **Transitive**: `flutter_shaders 0.1.5`
 
----
+## Standard Timings & Curves
 
-## 2. `VisionAiOrb` 5-State Architecture
+| Token | Duration / Curve | Usage |
+| :--- | :--- | :--- |
+| `microFast` / `micro` | `120 ms` / `160 ms` | Button press scale, icon switches |
+| `standardFast` / `standard` | `220 ms` / `280 ms` | Card entrances, chat bubbles, sheets |
+| `large` / `entrance` | `400 ms` / `460 ms` | Structural screen/modal entrances |
+| `shimmerCycle` | `1400 ms` | Skeleton & subtle shimmer |
+| `orbBreath` | `3400 ms` | Ambient orb breathing |
+| `standardCurve` | `Curves.easeOutCubic` | Default UI motion |
+| `emphasizedCurve` | `Curves.easeOutQuart` | Dialog scale-in & emphasis |
+| `breathCurve` | `Curves.easeInOutSine` | Ambient breathing |
 
-`VisionAiOrb` is rendered via a single `CustomPaint` (`_VisionOrbPainter`) driven by three coordinated `AnimationController`s (`_breathController`, `_orbitController`, `_waveController`) inside a `RepaintBoundary` so frame ticks never rebuild parent layouts.
+## Centralized Presets (`VisionAnimatePresets` & `VisionWidgetAnimations`)
 
-1. **Idle (`VisionOrbState.idle`):** Slow sinusoidal breathing (`3400ms`), gentle vertical float, rotating inner specular gradient, and subtle cyan/azure aura.
-2. **Listening (`VisionOrbState.listening`):** Emerald-cyan palette, two expanding ripple rings, 36-bar harmonic radial waveform modulated by live `VoiceSessionState.normalizedAmplitude`, and faster orbital rotation (`2800ms`).
-3. **Thinking (`VisionOrbState.thinking`):** Deep indigo/azure sweep arc and 6 lightweight orbiting light particles (`1900ms` cycle) with zero `MaskFilter.blur` overhead.
-4. **Speaking (`VisionOrbState.speaking`):** Luminous cyan-ice palette with rhythmic waveform bars and synchronized pulse intensity.
-5. **Error (`VisionOrbState.error`):** Coral/amber warning rim pulse for clear non-intrusive feedback before returning to idle.
+1. `fadeIn` — Clean opacity entrance.
+2. `slideUp` — Vertical rise (`beginY: 0.06` → `0`).
+3. `scaleIn` — Dialog/modal scale (`0.96` → `1.0`) + fade.
+4. `fadeAndSlide` — Combined fade + subtle upward slide (chat bubbles, empty/error views).
+5. `cardEntrance(index: ...)` — Staggered card entrance (capped at index `5` so long lists never feel sluggish).
+6. `buttonPress(isPressed: ...)` / `VisionPressable` — Lightweight `AnimatedScale` micro-feedback (`0.97` scale on press).
+7. `iconTransition` — `AnimatedSwitcher` fade + scale for icon/selection state changes.
+8. `shimmer` — Theme-tinted repeating shimmer (auto-disabled under reduced motion or hidden tickers).
+9. `subtleBreathing` — Gentle ambient scale pulse (auto-disabled under reduced motion or hidden tickers).
 
----
+## Reduced Motion & Hidden-Screen Lifecycle
 
-## 3. Navigation & Reduced-Motion Support
+Every preset checks `VisionAnimations.shouldAnimate(context)`:
 
-- **Route Transitions (`app_router.dart`):**
-  - Shell routes (`Home`, `Chat`, `Automation`, `Settings`) use `_fadeSlidePage` (`280ms` fade + subtle `2.5%` vertical slide).
-  - Dedicated Assistant routes (`/assistant`, `/assistant-overlay`) use `_assistantModalPage` (`400ms` fade + `0.94 -> 1.0` scale).
-- **Accessibility (`VisionAnimations.isReducedMotion`):**
-  - Checks `MediaQuery.maybeDisableAnimationsOf(context)` across `VisionAiOrb`, `VisionSplashScreen`, `AssistantGreetingHeader`, `ChatMessageBubble`, `VisionShimmer`, `VisionGlassCard`, `VisionGlassButton`, and `GoRouter` page transitions.
-  - When reduced motion is enabled, continuous animations stop cleanly at balanced static frames and transitions resolve instantaneously (`Duration.zero`).
+```dart
+static bool shouldAnimate(BuildContext context) {
+  return !isReducedMotion(context) && TickerMode.valuesOf(context).enabled;
+}
+```
+
+- When Android **Remove animations** / **Reduce motion** is enabled, presets return the raw child immediately (zero animation overhead).
+- When a route or shell tab is hidden (`TickerMode` disabled), continuous animations (`shimmer`, `subtleBreathing`) do not run.
