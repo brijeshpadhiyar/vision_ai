@@ -111,6 +111,18 @@ abstract final class StorageKeys {
   /// Key for locally persisted Daily Planner tasks & reminders (Module 19).
   static const String dailyPlannerTasks = 'vision_pref_daily_planner_tasks';
 
+  /// Key for locally persisted Smart Home devices & scenes (Module 23).
+  static const String smartHomeDevices = 'vision_pref_smart_home_devices';
+
+  /// Key for Home Assistant local base URL (Module 23).
+  static const String smartHomeHaBaseUrl = 'vision_pref_smart_home_ha_url';
+
+  /// Encrypted key for Home Assistant long-lived access token in Android Keystore.
+  static const String smartHomeHaToken = 'vision_secure_smart_home_ha_token';
+
+  /// Key for locally persisted Developer Assistant code snippets (Module 26).
+  static const String developerSnippets = 'vision_pref_developer_snippets';
+
   /// Prefix used for storing encrypted provider API keys in Android Keystore.
   static const String secureApiKeyPrefix = 'vision_secure_api_key_';
 

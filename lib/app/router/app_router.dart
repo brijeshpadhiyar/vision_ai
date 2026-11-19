@@ -13,12 +13,14 @@ import 'package:vision_ai/features/assistant/presentation/screens/assistant_home
 import 'package:vision_ai/features/assistant/presentation/screens/assistant_overlay_screen.dart';
 import 'package:vision_ai/features/automation/presentation/screens/automation_screen.dart';
 import 'package:vision_ai/features/chat/presentation/screens/chat_screen.dart';
+import 'package:vision_ai/features/developer/presentation/screens/developer_assistant_screen.dart';
 import 'package:vision_ai/features/diagnostics/presentation/screens/diagnostics_screen.dart';
 import 'package:vision_ai/features/help/presentation/screens/help_center_screen.dart';
 import 'package:vision_ai/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:vision_ai/features/planner/presentation/screens/daily_planner_screen.dart';
 import 'package:vision_ai/features/privacy/presentation/screens/privacy_dashboard_screen.dart';
 import 'package:vision_ai/features/settings/presentation/screens/settings_screen.dart';
+import 'package:vision_ai/features/smart_home/presentation/screens/smart_home_screen.dart';
 import 'package:vision_ai/features/splash/presentation/screens/splash_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
@@ -155,6 +157,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadeSlidePage(
           key: state.pageKey,
           child: const DailyPlannerScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.smartHomePath,
+        name: AppRoutes.smartHomeName,
+        pageBuilder: (context, state) => _fadeSlidePage(
+          key: state.pageKey,
+          child: const SmartHomeScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.developerPath,
+        name: AppRoutes.developerName,
+        pageBuilder: (context, state) => _fadeSlidePage(
+          key: state.pageKey,
+          child: const DeveloperAssistantScreen(),
         ),
       ),
     ],

@@ -35,4 +35,10 @@ abstract final class AppRoutes {
 
   static const String plannerPath = '/planner';
   static const String plannerName = 'planner';
+
+  static const String smartHomePath = '/smart-home';
+  static const String smartHomeName = 'smart_home';
+
+  static const String developerPath = '/developer';
+  static const String developerName = 'developer';
 }

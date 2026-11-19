@@ -17,8 +17,11 @@ import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
 import 'package:vision_ai/features/chat/domain/entities/image_attachment.dart';
 import 'package:vision_ai/features/chat/domain/repositories/chat_repository.dart';
+import 'package:vision_ai/features/integrations/data/services/external_app_integration_service.dart';
+import 'package:vision_ai/features/planner/presentation/controllers/daily_planner_controller.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
+import 'package:vision_ai/features/smart_home/presentation/controllers/smart_home_controller.dart';
 import 'package:vision_ai/features/vision/domain/services/visual_intelligence_service.dart';
 
 /// Immutable presentation state for the VISION conversation screen.
@@ -217,6 +220,15 @@ class ChatController extends Notifier<ChatState> {
     );
 
     try {
+      if (stagedImage == null) {
+        final extendedHandled = await _tryHandleExtendedLocalCommand(
+          trimmed: trimmed,
+          provider: settings.selectedAiProvider,
+          repository: repository,
+        );
+        if (extendedHandled) return true;
+      }
+
       final telemetry = ref.read(telemetryProvider.notifier);
       final resolution = DeviceIntentParser.analyzeIntent(
         trimmed,
@@ -485,5 +497,98 @@ class ChatController extends Notifier<ChatState> {
   /// Dismisses any visible error banner.
   void dismissError() {
     state = state.copyWith(clearError: true);
+  }
+
+  static final RegExp _addTaskRegex = RegExp(
+    r'^(?:add\s+(?:a\s+)?task|remind\s+me\s+to|new\s+task)\s+(.+)$',
+    caseSensitive: false,
+  );
+
+  static final RegExp _briefingRegex = RegExp(
+    r'^(?:my\s+tasks|daily\s+briefing|today.?s\s+plan|what\s+is\s+my\s+plan(?:\s+today)?|show\s+my\s+tasks)$',
+    caseSensitive: false,
+  );
+
+  Future<bool> _tryHandleExtendedLocalCommand({
+    required String trimmed,
+    required AiProviderType provider,
+    required ChatRepository repository,
+  }) async {
+    // 1. Module 19 Daily Planner hands-free commands
+    final addTaskMatch = _addTaskRegex.firstMatch(trimmed);
+    if (addTaskMatch != null) {
+      final taskTitle = (addTaskMatch.group(1) ?? '').trim();
+      if (taskTitle.isNotEmpty) {
+        await ref
+            .read(dailyPlannerControllerProvider.notifier)
+            .addTask(title: taskTitle);
+        final reply = 'Added "$taskTitle" to your Daily Planner.';
+        _intelContext = _intelContext.copyWith(lastSpokenReply: reply);
+        final updated = await repository.recordLocalActionExchange(
+          userPrompt: trimmed,
+          assistantReply: reply,
+          provider: provider,
+          modelId: 'local-daily-planner',
+        );
+        state = ChatState(messages: updated);
+        return true;
+      }
+    }
+
+    if (_briefingRegex.hasMatch(trimmed)) {
+      final briefing = ref
+          .read(dailyPlannerControllerProvider.notifier)
+          .buildDailyBriefing();
+      _intelContext = _intelContext.copyWith(lastSpokenReply: briefing);
+      final updated = await repository.recordLocalActionExchange(
+        userPrompt: trimmed,
+        assistantReply: briefing,
+        provider: provider,
+        modelId: 'local-daily-planner',
+      );
+      state = ChatState(messages: updated);
+      return true;
+    }
+
+    // 2. Module 22 External App Integrations (YouTube, Spotify, Calendar, Email, Maps)
+    final externalCommand = ExternalAppIntegrationService.parseCommand(trimmed);
+    if (externalCommand != null) {
+      final reply = await ExternalAppIntegrationService().execute(
+        externalCommand,
+      );
+      _intelContext = _intelContext.copyWith(lastSpokenReply: reply);
+      final updated = await repository.recordLocalActionExchange(
+        userPrompt: trimmed,
+        assistantReply: reply,
+        provider: provider,
+        modelId: 'local-external-integration',
+      );
+      state = ChatState(messages: updated);
+      return true;
+    }
+
+    // 3. Module 23 Smart Home voice/chat commands (only if a configured device matches)
+    final smartHomeCommand = SmartHomeController.parseVoiceCommand(trimmed);
+    if (smartHomeCommand != null) {
+      final smartHome = ref.read(smartHomeControllerProvider.notifier);
+      final device = smartHome.matchDevice(smartHomeCommand.deviceQuery);
+      if (device != null) {
+        final reply = await smartHome.setDevicePower(
+          device,
+          turnOn: smartHomeCommand.turnOn,
+        );
+        _intelContext = _intelContext.copyWith(lastSpokenReply: reply);
+        final updated = await repository.recordLocalActionExchange(
+          userPrompt: trimmed,
+          assistantReply: reply,
+          provider: provider,
+          modelId: 'local-smart-home',
+        );
+        state = ChatState(messages: updated);
+        return true;
+      }
+    }
+
+    return false;
   }
 }

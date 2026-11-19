@@ -27,6 +27,7 @@ import 'package:vision_ai/features/automation/presentation/widgets/automation_ac
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
+import 'package:vision_ai/features/proactive/presentation/widgets/proactive_suggestions_strip.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/api_key_controller.dart';
@@ -108,6 +109,16 @@ class AssistantHomeScreen extends ConsumerWidget {
       unawaited(context.push(AppRoutes.plannerPath));
     }
 
+    void handleOpenSmartHome() {
+      haptic();
+      unawaited(context.push(AppRoutes.smartHomePath));
+    }
+
+    void handleOpenDeveloper() {
+      haptic();
+      unawaited(context.push(AppRoutes.developerPath));
+    }
+
     void handleDismissNotice() {
       ref.read(assistantControllerProvider.notifier).dismissNotice();
       ref.read(voiceControllerProvider.notifier).dismissError();
@@ -179,6 +190,8 @@ class AssistantHomeScreen extends ConsumerWidget {
               onWakeWordTap: handleWakeWordTap,
               onOpenChat: handleOpenChat,
               onOpenPlanner: handleOpenPlanner,
+              onOpenSmartHome: handleOpenSmartHome,
+              onOpenDeveloper: handleOpenDeveloper,
               onOpenAutomation: handleOpenAutomation,
               onOpenSettings: handleOpenSettings,
               onOpenRoadmap: () {
@@ -202,6 +215,8 @@ class AssistantHomeScreen extends ConsumerWidget {
             onWakeWordTap: handleWakeWordTap,
             onOpenChat: handleOpenChat,
             onOpenPlanner: handleOpenPlanner,
+            onOpenSmartHome: handleOpenSmartHome,
+            onOpenDeveloper: handleOpenDeveloper,
             onOpenAutomation: handleOpenAutomation,
             onOpenSettings: handleOpenSettings,
             onOpenRoadmap: () {
@@ -230,6 +245,8 @@ class _CompactHomeLayout extends StatelessWidget {
     required this.onWakeWordTap,
     required this.onOpenChat,
     required this.onOpenPlanner,
+    required this.onOpenSmartHome,
+    required this.onOpenDeveloper,
     required this.onOpenAutomation,
     required this.onOpenSettings,
     required this.onOpenRoadmap,
@@ -248,6 +265,8 @@ class _CompactHomeLayout extends StatelessWidget {
   final VoidCallback onWakeWordTap;
   final VoidCallback onOpenChat;
   final VoidCallback onOpenPlanner;
+  final VoidCallback onOpenSmartHome;
+  final VoidCallback onOpenDeveloper;
   final VoidCallback onOpenAutomation;
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenRoadmap;
@@ -314,11 +333,15 @@ class _CompactHomeLayout extends StatelessWidget {
           onAssistant: onOrbTap,
           onChat: onOpenChat,
           onPlanner: onOpenPlanner,
+          onSmartHome: onOpenSmartHome,
+          onDeveloper: onOpenDeveloper,
           onAutomation: onOpenAutomation,
           onSettings: onOpenSettings,
           onRoadmap: onOpenRoadmap,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
+        const ProactiveSuggestionsStrip(),
+        const SizedBox(height: 4),
         AssistantStatusPanel(
           readiness: readiness,
           settings: settings,
@@ -364,6 +387,8 @@ class _WideHomeLayout extends StatelessWidget {
     required this.onWakeWordTap,
     required this.onOpenChat,
     required this.onOpenPlanner,
+    required this.onOpenSmartHome,
+    required this.onOpenDeveloper,
     required this.onOpenAutomation,
     required this.onOpenSettings,
     required this.onOpenRoadmap,
@@ -382,6 +407,8 @@ class _WideHomeLayout extends StatelessWidget {
   final VoidCallback onWakeWordTap;
   final VoidCallback onOpenChat;
   final VoidCallback onOpenPlanner;
+  final VoidCallback onOpenSmartHome;
+  final VoidCallback onOpenDeveloper;
   final VoidCallback onOpenAutomation;
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenRoadmap;
@@ -443,11 +470,15 @@ class _WideHomeLayout extends StatelessWidget {
                   onAssistant: onOrbTap,
                   onChat: onOpenChat,
                   onPlanner: onOpenPlanner,
+                  onSmartHome: onOpenSmartHome,
+                  onDeveloper: onOpenDeveloper,
                   onAutomation: onOpenAutomation,
                   onSettings: onOpenSettings,
                   onRoadmap: onOpenRoadmap,
                 ),
                 const SizedBox(height: 12),
+                const ProactiveSuggestionsStrip(),
+                const SizedBox(height: 4),
                 AssistantStatusPanel(
                   readiness: readiness,
                   settings: settings,
@@ -491,6 +522,8 @@ class _QuickActionsRow extends StatelessWidget {
     required this.onAssistant,
     required this.onChat,
     required this.onPlanner,
+    required this.onSmartHome,
+    required this.onDeveloper,
     required this.onAutomation,
     required this.onSettings,
     required this.onRoadmap,
@@ -499,6 +532,8 @@ class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onAssistant;
   final VoidCallback onChat;
   final VoidCallback onPlanner;
+  final VoidCallback onSmartHome;
+  final VoidCallback onDeveloper;
   final VoidCallback onAutomation;
   final VoidCallback onSettings;
   final VoidCallback onRoadmap;
@@ -527,6 +562,18 @@ class _QuickActionsRow extends StatelessWidget {
             icon: Icons.checklist_rounded,
             label: 'Daily Planner',
             onTap: onPlanner,
+          ),
+          const SizedBox(width: 8),
+          VisionGlassChip(
+            icon: Icons.home_outlined,
+            label: 'Smart Home',
+            onTap: onSmartHome,
+          ),
+          const SizedBox(width: 8),
+          VisionGlassChip(
+            icon: Icons.code_rounded,
+            label: 'Dev Studio',
+            onTap: onDeveloper,
           ),
           const SizedBox(width: 8),
           VisionGlassChip(

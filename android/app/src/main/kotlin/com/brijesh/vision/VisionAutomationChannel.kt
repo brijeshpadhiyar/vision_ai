@@ -24,6 +24,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.AlarmClock
+import android.provider.CalendarContract
 import android.provider.ContactsContract
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
@@ -299,6 +300,26 @@ class VisionAutomationChannel(
             "navigateTo" -> {
                 val destination = call.argument<String>("destination")?.trim() ?: ""
                 handleNavigateTo(destination, result)
+            }
+
+            "createCalendarEvent" -> {
+                val title = call.argument<String>("title")?.trim() ?: ""
+                val description = call.argument<String>("description")?.trim() ?: ""
+                val startMillis = call.argument<Number>("startMillis")?.toLong()
+                handleCreateCalendarEvent(title, description, startMillis, result)
+            }
+
+            "composeEmail" -> {
+                val to = call.argument<String>("to")?.trim() ?: ""
+                val subject = call.argument<String>("subject")?.trim() ?: ""
+                val body = call.argument<String>("body")?.trim() ?: ""
+                handleComposeEmail(to, subject, body, result)
+            }
+
+            "openExternalUri" -> {
+                val uri = call.argument<String>("uri")?.trim() ?: ""
+                val fallbackUrl = call.argument<String>("fallbackUrl")?.trim() ?: ""
+                handleOpenExternalUri(uri, fallbackUrl, result)
             }
 
             "getDeviceStatus" -> {
@@ -1476,6 +1497,107 @@ class VisionAutomationChannel(
         alarmManager.cancel(pendingIntent)
         pendingIntent.cancel()
         return true
+    }
+
+    private fun handleCreateCalendarEvent(
+        title: String,
+        description: String,
+        startMillis: Long?,
+        result: MethodChannel.Result,
+    ) {
+        if (title.isBlank()) {
+            result.error("INVALID_ARGUMENT", "Calendar event title cannot be empty.", null)
+            return
+        }
+        try {
+            val intent = Intent(Intent.ACTION_INSERT).apply {
+                data = CalendarContract.Events.CONTENT_URI
+                putExtra(CalendarContract.Events.TITLE, title)
+                if (description.isNotBlank()) {
+                    putExtra(CalendarContract.Events.DESCRIPTION, description)
+                }
+                if (startMillis != null && startMillis > 0L) {
+                    putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
+                    putExtra(CalendarContract.EXTRA_EVENT_END_TIME, startMillis + 3_600_000L)
+                }
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(intent)
+            result.success(true)
+        } catch (_: ActivityNotFoundException) {
+            result.error("NO_CALENDAR_APP", "No calendar app found on this device.", null)
+        } catch (e: Throwable) {
+            result.error("CALENDAR_ERROR", e.message ?: "Unable to open calendar event composer.", null)
+        }
+    }
+
+    private fun handleComposeEmail(
+        to: String,
+        subject: String,
+        body: String,
+        result: MethodChannel.Result,
+    ) {
+        try {
+            val mailto = StringBuilder("mailto:")
+            if (to.isNotBlank()) {
+                mailto.append(Uri.encode(to))
+            }
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse(mailto.toString())
+                if (subject.isNotBlank()) {
+                    putExtra(Intent.EXTRA_SUBJECT, subject)
+                }
+                if (body.isNotBlank()) {
+                    putExtra(Intent.EXTRA_TEXT, body)
+                }
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(intent)
+            result.success(true)
+        } catch (_: ActivityNotFoundException) {
+            result.error("NO_EMAIL_APP", "No email app found on this device.", null)
+        } catch (e: Throwable) {
+            result.error("EMAIL_ERROR", e.message ?: "Unable to open email composer.", null)
+        }
+    }
+
+    private fun handleOpenExternalUri(
+        uri: String,
+        fallbackUrl: String,
+        result: MethodChannel.Result,
+    ) {
+        val primary = uri.trim()
+        val fallback = fallbackUrl.trim()
+        if (primary.isEmpty() && fallback.isEmpty()) {
+            result.error("INVALID_ARGUMENT", "URI cannot be empty.", null)
+            return
+        }
+        try {
+            if (primary.isNotEmpty()) {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(primary)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(intent)
+                result.success(true)
+                return
+            }
+        } catch (_: Throwable) {
+            // Fall back to browser URL below.
+        }
+        if (fallback.isNotEmpty()) {
+            try {
+                val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallback)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(fallbackIntent)
+                result.success(true)
+                return
+            } catch (e: Throwable) {
+                result.error("URI_ERROR", e.message ?: "Unable to open link.", null)
+                return
+            }
+        }
+        result.error("APP_NOT_FOUND", "Required app is not installed on this device.", null)
     }
 
     fun dispose() {
