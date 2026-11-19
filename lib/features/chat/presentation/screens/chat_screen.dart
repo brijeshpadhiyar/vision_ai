@@ -169,6 +169,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             '${activeProvider.displayName} • ${settings.selectedVoiceLanguage.displayName}',
         actions: [
           IconButton(
+            onPressed: () => context.push(AppRoutes.helpPath),
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'Help & User Guide',
+          ),
+          IconButton(
             onPressed: () =>
                 setState(() => _useToolkitView = !_useToolkitView),
             icon: Icon(

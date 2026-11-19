@@ -103,6 +103,11 @@ class AssistantHomeScreen extends ConsumerWidget {
       context.go(AppRoutes.settingsPath);
     }
 
+    void handleOpenPlanner() {
+      haptic();
+      unawaited(context.push(AppRoutes.plannerPath));
+    }
+
     void handleDismissNotice() {
       ref.read(assistantControllerProvider.notifier).dismissNotice();
       ref.read(voiceControllerProvider.notifier).dismissError();
@@ -117,14 +122,26 @@ class AssistantHomeScreen extends ConsumerWidget {
           children: [
             const VisionBrandLogo(size: 30, showAmbientGlow: false),
             const SizedBox(width: 10),
-            Text(
-              AppConstants.appName,
-              style: Theme.of(context).textTheme.titleLarge
-                  ?.copyWith(letterSpacing: 3.2, fontWeight: FontWeight.w700),
+            Flexible(
+              child: Text(
+                AppConstants.appName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(letterSpacing: 3.2, fontWeight: FontWeight.w700),
+              ),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: () {
+              haptic();
+              context.push(AppRoutes.helpPath);
+            },
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'Help & User Guide',
+          ),
           IconButton(
             onPressed: handleOpenAutomation,
             icon: const Icon(Icons.phonelink_setup_rounded),
@@ -161,6 +178,7 @@ class AssistantHomeScreen extends ConsumerWidget {
               onMicTap: handleMicTap,
               onWakeWordTap: handleWakeWordTap,
               onOpenChat: handleOpenChat,
+              onOpenPlanner: handleOpenPlanner,
               onOpenAutomation: handleOpenAutomation,
               onOpenSettings: handleOpenSettings,
               onOpenRoadmap: () {
@@ -183,6 +201,7 @@ class AssistantHomeScreen extends ConsumerWidget {
             onMicTap: handleMicTap,
             onWakeWordTap: handleWakeWordTap,
             onOpenChat: handleOpenChat,
+            onOpenPlanner: handleOpenPlanner,
             onOpenAutomation: handleOpenAutomation,
             onOpenSettings: handleOpenSettings,
             onOpenRoadmap: () {
@@ -210,6 +229,7 @@ class _CompactHomeLayout extends StatelessWidget {
     required this.onMicTap,
     required this.onWakeWordTap,
     required this.onOpenChat,
+    required this.onOpenPlanner,
     required this.onOpenAutomation,
     required this.onOpenSettings,
     required this.onOpenRoadmap,
@@ -227,6 +247,7 @@ class _CompactHomeLayout extends StatelessWidget {
   final VoidCallback onMicTap;
   final VoidCallback onWakeWordTap;
   final VoidCallback onOpenChat;
+  final VoidCallback onOpenPlanner;
   final VoidCallback onOpenAutomation;
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenRoadmap;
@@ -292,6 +313,7 @@ class _CompactHomeLayout extends StatelessWidget {
         _QuickActionsRow(
           onAssistant: onOrbTap,
           onChat: onOpenChat,
+          onPlanner: onOpenPlanner,
           onAutomation: onOpenAutomation,
           onSettings: onOpenSettings,
           onRoadmap: onOpenRoadmap,
@@ -341,6 +363,7 @@ class _WideHomeLayout extends StatelessWidget {
     required this.onMicTap,
     required this.onWakeWordTap,
     required this.onOpenChat,
+    required this.onOpenPlanner,
     required this.onOpenAutomation,
     required this.onOpenSettings,
     required this.onOpenRoadmap,
@@ -358,6 +381,7 @@ class _WideHomeLayout extends StatelessWidget {
   final VoidCallback onMicTap;
   final VoidCallback onWakeWordTap;
   final VoidCallback onOpenChat;
+  final VoidCallback onOpenPlanner;
   final VoidCallback onOpenAutomation;
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenRoadmap;
@@ -418,6 +442,7 @@ class _WideHomeLayout extends StatelessWidget {
                 _QuickActionsRow(
                   onAssistant: onOrbTap,
                   onChat: onOpenChat,
+                  onPlanner: onOpenPlanner,
                   onAutomation: onOpenAutomation,
                   onSettings: onOpenSettings,
                   onRoadmap: onOpenRoadmap,
@@ -465,6 +490,7 @@ class _QuickActionsRow extends StatelessWidget {
   const _QuickActionsRow({
     required this.onAssistant,
     required this.onChat,
+    required this.onPlanner,
     required this.onAutomation,
     required this.onSettings,
     required this.onRoadmap,
@@ -472,6 +498,7 @@ class _QuickActionsRow extends StatelessWidget {
 
   final VoidCallback onAssistant;
   final VoidCallback onChat;
+  final VoidCallback onPlanner;
   final VoidCallback onAutomation;
   final VoidCallback onSettings;
   final VoidCallback onRoadmap;
@@ -494,6 +521,12 @@ class _QuickActionsRow extends StatelessWidget {
             icon: Icons.forum_outlined,
             label: 'AI Chat',
             onTap: onChat,
+          ),
+          const SizedBox(width: 8),
+          VisionGlassChip(
+            icon: Icons.checklist_rounded,
+            label: 'Daily Planner',
+            onTap: onPlanner,
           ),
           const SizedBox(width: 8),
           VisionGlassChip(

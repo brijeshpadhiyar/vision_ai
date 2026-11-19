@@ -14,7 +14,9 @@ import 'package:vision_ai/features/assistant/presentation/screens/assistant_over
 import 'package:vision_ai/features/automation/presentation/screens/automation_screen.dart';
 import 'package:vision_ai/features/chat/presentation/screens/chat_screen.dart';
 import 'package:vision_ai/features/diagnostics/presentation/screens/diagnostics_screen.dart';
+import 'package:vision_ai/features/help/presentation/screens/help_center_screen.dart';
 import 'package:vision_ai/features/onboarding/presentation/screens/onboarding_screen.dart';
+import 'package:vision_ai/features/planner/presentation/screens/daily_planner_screen.dart';
 import 'package:vision_ai/features/privacy/presentation/screens/privacy_dashboard_screen.dart';
 import 'package:vision_ai/features/settings/presentation/screens/settings_screen.dart';
 import 'package:vision_ai/features/splash/presentation/screens/splash_screen.dart';
@@ -135,6 +137,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadeSlidePage(
           key: state.pageKey,
           child: const PrivacyDashboardScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.helpPath,
+        name: AppRoutes.helpName,
+        pageBuilder: (context, state) => _fadeSlidePage(
+          key: state.pageKey,
+          child: const HelpCenterScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.plannerPath,
+        name: AppRoutes.plannerName,
+        pageBuilder: (context, state) => _fadeSlidePage(
+          key: state.pageKey,
+          child: const DailyPlannerScreen(),
         ),
       ),
     ],

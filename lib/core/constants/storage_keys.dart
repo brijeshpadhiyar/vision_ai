@@ -108,6 +108,9 @@ abstract final class StorageKeys {
   static const String automationExecutionHistory =
       'vision_pref_automation_history';
 
+  /// Key for locally persisted Daily Planner tasks & reminders (Module 19).
+  static const String dailyPlannerTasks = 'vision_pref_daily_planner_tasks';
+
   /// Prefix used for storing encrypted provider API keys in Android Keystore.
   static const String secureApiKeyPrefix = 'vision_secure_api_key_';
 

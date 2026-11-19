@@ -23,6 +23,7 @@ import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_usage_stats.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/usage_stats_controller.dart';
+import 'package:vision_ai/features/help/domain/entities/help_guide_catalog.dart';
 import 'package:vision_ai/features/memory/presentation/controllers/memory_controller.dart';
 import 'package:vision_ai/features/memory/presentation/widgets/personal_memory_sheet.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
@@ -52,6 +53,51 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   _SettingsCategory _category = _SettingsCategory.all;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _handleSettingSearchAction(HelpActionTarget target) {
+    switch (target) {
+      case HelpActionTarget.openSettingsAi:
+        setState(() {
+          _category = _SettingsCategory.ai;
+          _searchQuery = '';
+          _searchController.clear();
+        });
+      case HelpActionTarget.openSettingsVoice:
+        setState(() {
+          _category = _SettingsCategory.voice;
+          _searchQuery = '';
+          _searchController.clear();
+        });
+      case HelpActionTarget.openSettingsSystem:
+        setState(() {
+          _category = _SettingsCategory.system;
+          _searchQuery = '';
+          _searchController.clear();
+        });
+      case HelpActionTarget.openPrivacyDashboard:
+        context.push(AppRoutes.privacyDashboardPath);
+      case HelpActionTarget.openAutomation:
+        context.go(AppRoutes.automationPath);
+      case HelpActionTarget.openPlanner:
+        context.push(AppRoutes.plannerPath);
+      case HelpActionTarget.openDiagnostics:
+        context.push(AppRoutes.diagnosticsPath);
+      case HelpActionTarget.openOnboarding:
+        context.push(AppRoutes.onboardingPath);
+      case HelpActionTarget.openChat:
+        context.go(AppRoutes.chatPath);
+      case HelpActionTarget.openVoiceAssistant:
+        context.push(AppRoutes.assistantPath);
+    }
+  }
 
   @override
   void initState() {
@@ -313,15 +359,85 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _category == _SettingsCategory.all ||
         _category == _SettingsCategory.system;
 
+    final searchMatches = _searchQuery.trim().isNotEmpty
+        ? HelpGuideCatalog.searchSettings(_searchQuery)
+        : const <SettingSearchEntry>[];
+
     return VisionScaffold(
-      appBar: const VisionAppBar(
+      appBar: VisionAppBar(
         title: 'SETTINGS',
         subtitle: 'AI Providers, Voice, Memory & Privacy',
+        actions: [
+          IconButton(
+            tooltip: 'Help & Full User Guide',
+            icon: const Icon(Icons.help_outline_rounded),
+            onPressed: () {
+              _triggerHaptic(settings);
+              context.push(AppRoutes.helpPath);
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: VisionSpacing.navBarClearance),
         children: [
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
+          VisionGlassInput(
+            controller: _searchController,
+            prefixIcon: const Icon(Icons.search_rounded),
+            hintText: 'Search settings (API key, voice, wake word, privacy)...',
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    tooltip: 'Clear search',
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                : null,
+            onChanged: (value) => setState(() => _searchQuery = value),
+          ),
+          if (_searchQuery.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            if (searchMatches.isEmpty)
+              VisionGlassCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text('No setting matched "$_searchQuery".'),
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: () => context.push(AppRoutes.helpPath),
+                      icon: const Icon(Icons.help_outline_rounded, size: 16),
+                      label: const Text('Search in Full Help & Guide'),
+                    ),
+                  ],
+                ),
+              )
+            else
+              VisionGlassCard(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  children: [
+                    for (final entry in searchMatches)
+                      ListTile(
+                        leading: Icon(entry.icon),
+                        title: Text(entry.title),
+                        subtitle: Text(
+                          '${entry.sectionLabel} • ${entry.subtitle}',
+                        ),
+                        trailing: FilledButton.tonal(
+                          onPressed: () =>
+                              _handleSettingSearchAction(entry.target),
+                          child: const Text('Go'),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+          const SizedBox(height: 12),
           _CategoryFilterStrip(
             selected: _category,
             onSelected: (cat) {

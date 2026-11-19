@@ -29,4 +29,10 @@ abstract final class AppRoutes {
 
   static const String privacyDashboardPath = '/privacy-dashboard';
   static const String privacyDashboardName = 'privacy_dashboard';
+
+  static const String helpPath = '/help';
+  static const String helpName = 'help';
+
+  static const String plannerPath = '/planner';
+  static const String plannerName = 'planner';
 }
