@@ -86,6 +86,24 @@ abstract final class AIModelRegistry {
       };
 
   static const List<AiModelConfig> _catalog = <AiModelConfig>[
+    // On-Device Edge AI (flutter_edge_ai / Gemini Nano via Android AICore)
+    AiModelConfig(
+      provider: AiProviderType.edgeAi,
+      modelId: 'gemini-nano',
+      displayName: 'Gemini Nano (On-Device)',
+      endpointUrl: 'on-device://android-aicore/gemini-nano',
+      capabilities: <AiCapability>{
+        AiCapability.text,
+        AiCapability.streaming,
+      },
+      contextWindowTokens: 4096,
+      maxOutputTokens: 1024,
+      isDefault: true,
+      tier: AiModelTier.fast,
+      reasoningScore: 6,
+      multilingualScore: 7,
+      costTier: AiCostTier.economy,
+    ),
     // Google Gemini
     AiModelConfig(
       provider: AiProviderType.gemini,
@@ -308,6 +326,7 @@ abstract final class AIModelRegistry {
       AiProviderType.gemini => '$geminiBaseEndpoint/models/$normalized',
       AiProviderType.openAi => openAiResponsesEndpoint,
       AiProviderType.claude => claudeMessagesEndpoint,
+      AiProviderType.edgeAi => 'on-device://android-aicore/gemini-nano',
     };
 
     return AiModelConfig(

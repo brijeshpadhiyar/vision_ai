@@ -350,25 +350,46 @@ class ClaudeProvider implements AIProvider, AiProviderClient {
     required bool stream,
   }) {
     // Anthropic requires alternating roles starting with `user`.
-    final messages = <Map<String, String>>[];
+    final messages = <Map<String, Object?>>[];
     for (final msg in request.messages) {
       if (msg.isError || msg.sender == MessageSender.system) continue;
       final role = msg.sender == MessageSender.assistant ? 'assistant' : 'user';
       if (messages.isEmpty && role == 'assistant') {
         continue;
       }
-      if (messages.isNotEmpty && messages.last['role'] == role) {
-        messages[messages.length - 1] = <String, String>{
+      final Object contentPayload =
+          (role == 'user' && msg.imageAttachment != null)
+          ? <Map<String, Object?>>[
+              <String, Object?>{
+                'type': 'image',
+                'source': <String, String>{
+                  'type': 'base64',
+                  'media_type': msg.imageAttachment!.mimeType,
+                  'data': msg.imageAttachment!.base64Data,
+                },
+              },
+              <String, Object?>{'type': 'text', 'text': msg.content},
+            ]
+          : msg.content;
+
+      if (messages.isNotEmpty &&
+          messages.last['role'] == role &&
+          messages.last['content'] is String &&
+          contentPayload is String) {
+        messages[messages.length - 1] = <String, Object?>{
           'role': role,
-          'content': '${messages.last['content']}\n\n${msg.content}',
+          'content': '${messages.last['content']}\n\n$contentPayload',
         };
       } else {
-        messages.add(<String, String>{'role': role, 'content': msg.content});
+        messages.add(<String, Object?>{
+          'role': role,
+          'content': contentPayload,
+        });
       }
     }
 
     if (messages.isEmpty) {
-      messages.add(const <String, String>{'role': 'user', 'content': 'Hello'});
+      messages.add(const <String, Object?>{'role': 'user', 'content': 'Hello'});
     }
 
     return <String, Object?>{

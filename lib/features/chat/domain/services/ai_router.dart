@@ -104,7 +104,9 @@ class AIRouter {
     // Resolve keys concurrently to minimize pre-request Keystore overhead.
     final keyFutures = <Future<String?>>[
       for (final target in orderedTargets)
-        _credentialStore.readApiKey(target.provider.id),
+        target.provider.requiresApiKey
+            ? _credentialStore.readApiKey(target.provider.id)
+            : Future<String?>.value('on-device'),
     ];
     final keys = await Future.wait(keyFutures);
 
@@ -367,6 +369,7 @@ extension on AiCompletionRequest {
       enableDeviceActions: enableDeviceActions,
       personalMemoryContext: personalMemoryContext,
       deviceContextSummary: deviceContextSummary,
+      webResearchContext: webResearchContext,
       assistantIdentity: assistantIdentity,
     );
   }

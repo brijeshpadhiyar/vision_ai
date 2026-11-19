@@ -20,6 +20,13 @@ enum AiProviderType {
     defaultModel: 'claude-haiku-5-5',
     keyHint: 'sk-ant-...',
     summary: 'Claude 5.5 Haiku / Sonnet • Nuanced reasoning & tool use',
+  ),
+  edgeAi(
+    id: 'edge_ai',
+    displayName: 'On-Device Edge AI',
+    defaultModel: 'gemini-nano',
+    keyHint: 'No API key required (On-Device)',
+    summary: 'Gemini Nano via Android AICore • Private offline inference',
   );
 
   const AiProviderType({
@@ -44,6 +51,9 @@ enum AiProviderType {
 
   /// Short description shown in Settings.
   final String summary;
+
+  /// Whether this provider requires a cloud API key in Android Keystore.
+  bool get requiresApiKey => this != AiProviderType.edgeAi;
 
   /// Resolves an [AiProviderType] from its persisted [id], defaulting to [gemini].
   static AiProviderType fromId(String? id) {

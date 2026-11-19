@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_ai_toolkit/flutter_ai_toolkit.dart' as toolkit;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -17,8 +18,10 @@ import 'package:vision_ai/core/widgets/vision_status_badge.dart';
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/automation/presentation/controllers/automation_controller.dart';
 import 'package:vision_ai/features/automation/presentation/widgets/automation_action_prompt_card.dart';
+import 'package:vision_ai/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
+import 'package:vision_ai/features/chat/domain/services/vision_llm_provider.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:vision_ai/features/chat/presentation/widgets/chat_input_bar.dart';
 import 'package:vision_ai/features/chat/presentation/widgets/chat_message_bubble.dart';
@@ -27,6 +30,7 @@ import 'package:vision_ai/features/settings/presentation/controllers/api_key_con
 import 'package:vision_ai/features/settings/presentation/controllers/provider_connection_controller.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/api_key_config_dialog.dart';
+import 'package:vision_ai/features/vision/domain/services/visual_intelligence_service.dart';
 import 'package:vision_ai/features/voice/presentation/controllers/voice_controller.dart';
 
 /// Live multi-provider AI conversation screen with Liquid Glass UI.
@@ -40,6 +44,33 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  bool _useToolkitView = false;
+  VisionLlmProvider? _toolkitProvider;
+
+  VisionLlmProvider _getOrCreateToolkitProvider() {
+    return _toolkitProvider ??= VisionLlmProvider(
+      router: ref.read(aiRouterProvider),
+      settingsReader: () => ref.read(settingsControllerProvider),
+    );
+  }
+
+  Future<void> _handleCapturePhoto() async {
+    final attachment = await ref
+        .read(visualIntelligenceServiceProvider)
+        .capturePhoto();
+    if (attachment != null && mounted) {
+      ref.read(chatControllerProvider.notifier).setPendingImage(attachment);
+    }
+  }
+
+  Future<void> _handlePickGallery() async {
+    final attachment = await ref
+        .read(visualIntelligenceServiceProvider)
+        .pickFromGallery();
+    if (attachment != null && mounted) {
+      ref.read(chatControllerProvider.notifier).setPendingImage(attachment);
+    }
+  }
 
   @override
   void dispose() {
@@ -138,6 +169,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             '${activeProvider.displayName} • ${settings.selectedVoiceLanguage.displayName}',
         actions: [
           IconButton(
+            onPressed: () =>
+                setState(() => _useToolkitView = !_useToolkitView),
+            icon: Icon(
+              _useToolkitView
+                  ? Icons.chat_bubble_outline_rounded
+                  : Icons.widgets_outlined,
+            ),
+            tooltip: _useToolkitView
+                ? 'Switch to VISION Liquid Glass Chat'
+                : 'Switch to Flutter AI Toolkit View',
+          ),
+          IconButton(
             onPressed: () => context.push(AppRoutes.assistantPath),
             icon: const Icon(Icons.auto_awesome_outlined),
             tooltip: 'Voice Assistant Mode',
@@ -231,6 +274,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ],
             const SizedBox(height: 6),
+            if (_useToolkitView)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: VisionSpacing.navBarClearance,
+                  ),
+                  child: toolkit.LlmChatView(
+                    provider: _getOrCreateToolkitProvider(),
+                    welcomeMessage:
+                        'VISION AI Toolkit Mode (${activeProvider.displayName}). '
+                        'Send text or attach photos to stream replies.',
+                  ),
+                ),
+              )
+            else ...[
             Expanded(
               child: chatState.messages.isEmpty
                   ? _EmptyChatView(
@@ -271,6 +329,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           onSpeak: () => ref
                               .read(voiceControllerProvider.notifier)
                               .speakReply(msg.content),
+                          onCitationTap: (url) => unawaited(
+                            ref
+                                .read(automationControllerProvider.notifier)
+                                .executeRequest(
+                                  DeviceActionRequest(
+                                    type: DeviceActionType.openUrl,
+                                    target: url,
+                                    displaySummary: 'Open research source',
+                                  ),
+                                ),
+                          ),
                           onRegenerate:
                               (isLastAssistant && !chatState.isLoading)
                               ? () => unawaited(
@@ -350,6 +419,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 controller: _inputController,
                 isLoading: chatState.isLoading,
                 isListening: voiceState.isListening,
+                webResearchEnabled: chatState.webResearchEnabled,
+                pendingImage: chatState.pendingImage,
                 providerName: activeProvider.displayName,
                 onSend: _handleSend,
                 onCancel: () => ref
@@ -358,8 +429,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 onVoiceTap: () => ref
                     .read(voiceControllerProvider.notifier)
                     .toggleVoiceCapture(),
+                onCameraTap: _handleCapturePhoto,
+                onGalleryTap: _handlePickGallery,
+                onClearImage: () => ref
+                    .read(chatControllerProvider.notifier)
+                    .clearPendingImage(),
+                onExtractOcr: () => ref
+                    .read(chatControllerProvider.notifier)
+                    .extractTextFromPendingImage(),
+                onToggleWebResearch: () => ref
+                    .read(chatControllerProvider.notifier)
+                    .toggleWebResearch(),
               ),
             ),
+            ],
           ],
         ),
       ),
@@ -386,15 +469,17 @@ class _ProviderStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusLabel = switch (connectionState) {
-      ProviderConnectionState.connected => 'Connected',
-      ProviderConnectionState.testing => 'Testing...',
-      ProviderConnectionState.failed => 'Check Failed',
-      ProviderConnectionState.missingKey => 'Add API Key',
-      ProviderConnectionState.disabled => 'Disabled',
-      ProviderConnectionState.untested =>
-        hasApiKey ? 'Key Saved' : 'Add API Key',
-    };
+    final statusLabel = !provider.requiresApiKey
+        ? 'On-Device'
+        : switch (connectionState) {
+            ProviderConnectionState.connected => 'Connected',
+            ProviderConnectionState.testing => 'Testing...',
+            ProviderConnectionState.failed => 'Check Failed',
+            ProviderConnectionState.missingKey => 'Add API Key',
+            ProviderConnectionState.disabled => 'Disabled',
+            ProviderConnectionState.untested =>
+              hasApiKey ? 'Key Saved' : 'Add API Key',
+          };
     final statusColor = switch (connectionState) {
       ProviderConnectionState.connected => VisionColors.success,
       ProviderConnectionState.failed => VisionColors.error,

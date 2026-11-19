@@ -308,19 +308,32 @@ class OpenAIProvider implements AIProvider, AiProviderClient {
     required String modelId,
     required bool stream,
   }) {
-    final input = <Map<String, String>>[
+    final input = <Map<String, Object?>>[
       for (final msg in request.messages)
         if (!msg.isError && msg.sender != MessageSender.system)
-          <String, String>{
+          <String, Object?>{
             'role': msg.sender == MessageSender.assistant
                 ? 'assistant'
                 : 'user',
-            'content': msg.content,
+            'content':
+                (msg.sender == MessageSender.user &&
+                    msg.imageAttachment != null)
+                ? <Map<String, Object?>>[
+                    <String, Object?>{
+                      'type': 'input_text',
+                      'text': msg.content,
+                    },
+                    <String, Object?>{
+                      'type': 'input_image',
+                      'image_url': msg.imageAttachment!.dataUri,
+                    },
+                  ]
+                : msg.content,
           },
     ];
 
     if (input.isEmpty) {
-      input.add(const <String, String>{'role': 'user', 'content': 'Hello'});
+      input.add(const <String, Object?>{'role': 'user', 'content': 'Hello'});
     }
 
     final modelConfig = AIModelRegistry.resolveModel(providerType, modelId);

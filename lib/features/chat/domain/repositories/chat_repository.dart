@@ -1,6 +1,7 @@
 import 'package:vision_ai/features/automation/domain/entities/device_action.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
+import 'package:vision_ai/features/chat/domain/entities/image_attachment.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
 import 'package:vision_ai/features/settings/domain/entities/voice_language.dart';
@@ -37,6 +38,8 @@ abstract interface class ChatRepository {
     required String prompt,
     required AppSettings settings,
     AICancellationToken? cancellationToken,
+    ImageAttachment? imageAttachment,
+    bool webResearchEnabled = false,
   });
 
   /// Records a local device-automation command and result into conversation history.

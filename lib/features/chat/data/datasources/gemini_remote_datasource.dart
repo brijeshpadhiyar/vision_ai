@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:http/http.dart' as http;
 
 import 'package:vision_ai/features/chat/data/datasources/ai_http_helper.dart';
@@ -282,14 +283,38 @@ class GeminiProvider implements AIProvider, AiProviderClient {
 
   static const VoiceLanguage _defaultLanguage = VoiceLanguage.english;
 
+  /// Creates an official `google_generative_ai` [genai.GenerativeModel] bound
+  /// to the user's Keystore API key for direct SDK multimodal & streaming calls.
+  genai.GenerativeModel createSdkModel({
+    required String apiKey,
+    String? modelId,
+    String? systemInstruction,
+  }) {
+    final normalized = AIModelRegistry.normalizeModelId(providerType, modelId);
+    return genai.GenerativeModel(
+      model: normalized,
+      apiKey: apiKey,
+      systemInstruction: systemInstruction != null && systemInstruction.isNotEmpty
+          ? genai.Content.system(systemInstruction)
+          : null,
+    );
+  }
+
   Map<String, Object?> _buildPayload(AIRequest request) {
     final contents = <Map<String, Object?>>[
       for (final msg in request.messages)
         if (!msg.isError && msg.sender != MessageSender.system)
           <String, Object?>{
             'role': msg.sender == MessageSender.assistant ? 'model' : 'user',
-            'parts': <Map<String, String>>[
-              <String, String>{'text': msg.content},
+            'parts': <Map<String, Object?>>[
+              <String, Object?>{'text': msg.content},
+              if (msg.imageAttachment != null)
+                <String, Object?>{
+                  'inlineData': <String, String>{
+                    'mimeType': msg.imageAttachment!.mimeType,
+                    'data': msg.imageAttachment!.base64Data,
+                  },
+                },
             ],
           },
     ];

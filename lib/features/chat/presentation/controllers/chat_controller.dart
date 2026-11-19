@@ -15,9 +15,11 @@ import 'package:vision_ai/features/automation/presentation/controllers/automatio
 import 'package:vision_ai/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
+import 'package:vision_ai/features/chat/domain/entities/image_attachment.dart';
 import 'package:vision_ai/features/chat/domain/repositories/chat_repository.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
+import 'package:vision_ai/features/vision/domain/services/visual_intelligence_service.dart';
 
 /// Immutable presentation state for the VISION conversation screen.
 @immutable
@@ -30,6 +32,8 @@ class ChatState {
     this.routingNotice,
     this.missingKeyProvider,
     this.unsentDraft,
+    this.pendingImage,
+    this.webResearchEnabled = false,
   });
 
   final List<ChatMessage> messages;
@@ -39,6 +43,8 @@ class ChatState {
   final String? routingNotice;
   final AiProviderType? missingKeyProvider;
   final String? unsentDraft;
+  final ImageAttachment? pendingImage;
+  final bool webResearchEnabled;
 
   ChatState copyWith({
     List<ChatMessage>? messages,
@@ -48,9 +54,12 @@ class ChatState {
     String? routingNotice,
     AiProviderType? missingKeyProvider,
     String? unsentDraft,
+    ImageAttachment? pendingImage,
+    bool? webResearchEnabled,
     bool clearError = false,
     bool clearRoutingNotice = false,
     bool clearDraft = false,
+    bool clearPendingImage = false,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -66,6 +75,10 @@ class ChatState {
           ? null
           : (missingKeyProvider ?? this.missingKeyProvider),
       unsentDraft: clearDraft ? null : (unsentDraft ?? this.unsentDraft),
+      pendingImage: clearPendingImage
+          ? null
+          : (pendingImage ?? this.pendingImage),
+      webResearchEnabled: webResearchEnabled ?? this.webResearchEnabled,
     );
   }
 }
@@ -102,6 +115,54 @@ class ChatController extends Notifier<ChatState> {
   ///
   /// Returns `true` if the prompt completed or executed locally, or `false` if
   /// blocked before dispatch (missing key / offline) so callers can preserve the draft.
+  void setPendingImage(ImageAttachment attachment) {
+    state = state.copyWith(pendingImage: attachment, clearError: true);
+  }
+
+  void clearPendingImage() {
+    state = state.copyWith(clearPendingImage: true);
+  }
+
+  void toggleWebResearch() {
+    state = state.copyWith(webResearchEnabled: !state.webResearchEnabled);
+  }
+
+  /// Runs offline ML Kit OCR on the currently staged photo and appends the
+  /// extracted text into the conversation with zero cloud upload.
+  Future<void> extractTextFromPendingImage() async {
+    final image = state.pendingImage;
+    if (image == null || image.filePath.isEmpty || state.isLoading) return;
+
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final text = await ref
+          .read(visualIntelligenceServiceProvider)
+          .extractTextOffline(image.filePath);
+      final settings = ref.read(settingsControllerProvider);
+      final updated = await ref
+          .read(chatRepositoryProvider)
+          .recordLocalActionExchange(
+            userPrompt: 'Read text from photo (${image.label})',
+            assistantReply: text.isNotEmpty
+                ? 'Extracted text (Offline ML Kit OCR):\n\n$text'
+                : 'No readable text detected in this photo.',
+            provider: settings.selectedAiProvider,
+            modelId: 'mlkit-offline-ocr',
+          );
+      state = state.copyWith(
+        messages: updated,
+        isLoading: false,
+        clearPendingImage: true,
+        routingNotice: 'Offline ML Kit OCR completed locally.',
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Offline OCR failed: $error',
+      );
+    }
+  }
+
   Future<bool> sendMessage(
     String prompt, {
     List<String> alternativeTranscripts = const <String>[],
@@ -109,7 +170,8 @@ class ChatController extends Notifier<ChatState> {
     bool allowDuplicate = false,
   }) async {
     final trimmed = prompt.trim();
-    if (trimmed.isEmpty || state.isLoading) {
+    final stagedImage = state.pendingImage;
+    if ((trimmed.isEmpty && stagedImage == null) || state.isLoading) {
       return false;
     }
 
@@ -267,10 +329,13 @@ class ChatController extends Notifier<ChatState> {
       }
 
       String? latestRoutingNotice;
+      final useWebResearch = state.webResearchEnabled;
       await for (final update in repository.streamUserMessage(
         prompt: trimmed,
         settings: settings,
         cancellationToken: cancellationToken,
+        imageAttachment: stagedImage,
+        webResearchEnabled: useWebResearch,
       )) {
         if (!ref.mounted) return false;
         if (update is ChatMessagesUpdated) {
@@ -278,6 +343,7 @@ class ChatController extends Notifier<ChatState> {
           state = state.copyWith(
             messages: update.messages,
             routingNotice: latestRoutingNotice,
+            clearPendingImage: true,
           );
         }
       }
@@ -314,6 +380,7 @@ class ChatController extends Notifier<ChatState> {
       state = ChatState(
         messages: allMessages,
         routingNotice: latestRoutingNotice,
+        webResearchEnabled: useWebResearch,
       );
       logger.info(
         'Completed reply using ${settings.selectedAiProvider.displayName}',

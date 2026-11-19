@@ -20,6 +20,7 @@ class AiCompletionRequest {
     this.enableDeviceActions = true,
     this.personalMemoryContext = '',
     this.deviceContextSummary = '',
+    this.webResearchContext = '',
     this.assistantIdentity = const AssistantIdentity(),
   });
 
@@ -32,6 +33,7 @@ class AiCompletionRequest {
   final bool enableDeviceActions;
   final String personalMemoryContext;
   final String deviceContextSummary;
+  final String webResearchContext;
   final AssistantIdentity assistantIdentity;
 
   String get resolvedModelId =>
@@ -134,6 +136,12 @@ class AiCompletionRequest {
       buffer
         ..writeln()
         ..writeln(personalMemoryContext.trim());
+    }
+
+    if (webResearchContext.trim().isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln(webResearchContext.trim());
     }
 
     if (enableDeviceActions) {

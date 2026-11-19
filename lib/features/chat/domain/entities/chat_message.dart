@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:vision_ai/features/chat/domain/entities/image_attachment.dart';
+import 'package:vision_ai/features/research/domain/entities/research_source.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 
 /// Identifies the author of a [ChatMessage] in a conversation thread.
@@ -30,6 +32,8 @@ class ChatMessage {
     this.outputTokens,
     this.routingNotice,
     this.isError = false,
+    this.imageAttachment,
+    this.citations = const <ResearchSource>[],
   });
 
   /// Deserializes a [ChatMessage] from a persisted JSON map using Dart 3 pattern matching.
@@ -58,6 +62,12 @@ class ChatMessage {
               ? json['routingNotice'] as String
               : null,
           isError: json['isError'] is bool && (json['isError'] as bool),
+          citations: (json['citations'] is List<Object?>)
+              ? (json['citations'] as List<Object?>)
+                    .whereType<Map<String, dynamic>>()
+                    .map(ResearchSource.fromJson)
+                    .toList(growable: false)
+              : const <ResearchSource>[],
         ),
       _ => throw const FormatException('Malformed ChatMessage JSON payload.'),
     };
@@ -73,6 +83,8 @@ class ChatMessage {
   final int? outputTokens;
   final String? routingNotice;
   final bool isError;
+  final ImageAttachment? imageAttachment;
+  final List<ResearchSource> citations;
 
   ChatMessage copyWith({
     String? id,
@@ -85,6 +97,8 @@ class ChatMessage {
     int? outputTokens,
     String? routingNotice,
     bool? isError,
+    ImageAttachment? imageAttachment,
+    List<ResearchSource>? citations,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -97,10 +111,15 @@ class ChatMessage {
       outputTokens: outputTokens ?? this.outputTokens,
       routingNotice: routingNotice ?? this.routingNotice,
       isError: isError ?? this.isError,
+      imageAttachment: imageAttachment ?? this.imageAttachment,
+      citations: citations ?? this.citations,
     );
   }
 
   /// Serializes this [ChatMessage] to a JSON map for local persistence.
+  ///
+  /// Raw [imageAttachment] bytes are intentionally excluded to protect user
+  /// photo privacy and avoid bloating SharedPreferences.
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
@@ -113,6 +132,8 @@ class ChatMessage {
       if (outputTokens != null) 'outputTokens': outputTokens,
       if (routingNotice != null) 'routingNotice': routingNotice,
       'isError': isError,
+      if (citations.isNotEmpty)
+        'citations': citations.map((c) => c.toJson()).toList(growable: false),
     };
   }
 }

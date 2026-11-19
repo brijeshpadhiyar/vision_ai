@@ -15,6 +15,7 @@ class ChatMessageBubble extends StatelessWidget {
     super.key,
     this.onSpeak,
     this.onRegenerate,
+    this.onCitationTap,
     this.isSpeaking = false,
     this.isStreaming = false,
   });
@@ -22,6 +23,7 @@ class ChatMessageBubble extends StatelessWidget {
   final ChatMessage message;
   final VoidCallback? onSpeak;
   final VoidCallback? onRegenerate;
+  final ValueChanged<String>? onCitationTap;
   final bool isSpeaking;
   final bool isStreaming;
 
@@ -127,6 +129,17 @@ class ChatMessageBubble extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 8),
+              if (isUser && message.imageAttachment != null) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: VisionRadii.mdBorder,
+                  child: Image.memory(
+                    message.imageAttachment!.decodeBytes(),
+                    height: 160,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ],
               if (isUser)
                 SelectableText(
                   message.content,
@@ -140,6 +153,28 @@ class ChatMessageBubble extends StatelessWidget {
                   data: message.content,
                   isStreaming: isStreaming,
                 ),
+              if (!isUser && message.citations.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (var i = 0; i < message.citations.length; i++)
+                      ActionChip(
+                        avatar: const Icon(Icons.public_rounded, size: 14),
+                        label: Text(
+                          '[${i + 1}] ${message.citations[i].resolvedDomain}',
+                          style: theme.textTheme.labelSmall,
+                        ),
+                        tooltip: message.citations[i].title,
+                        visualDensity: VisualDensity.compact,
+                        onPressed: onCitationTap == null
+                            ? null
+                            : () => onCitationTap!(message.citations[i].url),
+                      ),
+                  ],
+                ),
+              ],
               if (!isUser) ...[
                 const SizedBox(height: 8),
                 Row(

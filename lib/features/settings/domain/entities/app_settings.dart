@@ -38,12 +38,14 @@ class AppSettings {
         AiProviderType.gemini: 'gemini-3.5-flash-lite',
         AiProviderType.openAi: 'gpt-5.4-mini',
         AiProviderType.claude: 'claude-haiku-5-5',
+        AiProviderType.edgeAi: 'gemini-nano',
       };
 
   static const Set<AiProviderType> defaultEnabledProviders = <AiProviderType>{
     AiProviderType.gemini,
     AiProviderType.openAi,
     AiProviderType.claude,
+    AiProviderType.edgeAi,
   };
 
   /// Active theme mode. Defaults to [ThemeMode.dark] for VISION's dark aesthetic.
