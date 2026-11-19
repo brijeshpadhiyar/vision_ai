@@ -33,7 +33,7 @@ import 'package:vision_ai/features/settings/presentation/controllers/provider_co
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/api_key_config_dialog.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/assistant_identity_section.dart';
-import 'package:vision_ai/features/settings/presentation/widgets/coloros_setup_guide_sheet.dart';
+import 'package:vision_ai/features/settings/presentation/widgets/device_setup_guide_sheet.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/settings_section_card.dart';
 import 'package:vision_ai/features/settings/presentation/widgets/settings_tile.dart';
 import 'package:vision_ai/features/voice/domain/entities/voice_session_state.dart';
@@ -515,14 +515,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                 );
               },
-              onOpenColorOsGuide: () {
+              onOpenDeviceGuide: () {
                 _triggerHaptic(settings);
                 showModalBottomSheet<void>(
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
                   builder: (_) => VisionGlassBottomSheet(
-                    child: ColorOsSetupGuideSheet(
+                    child: DeviceSetupGuideSheet(
+                      deviceStatus: automationState.deviceStatus,
                       isDefaultAssistant: voiceState.isDefaultAssistant,
                       onOpenBatterySettings: () {
                         unawaited(
@@ -634,6 +635,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 20),
             _PrivacySection(
               configuredKeyCount: keyMap.values.where((v) => v).length,
+              onOpenPrivacyDashboard: () {
+                _triggerHaptic(settings);
+                context.push(AppRoutes.privacyDashboardPath);
+              },
             ),
             const SizedBox(height: 20),
             _AboutVisionSection(
@@ -1353,7 +1358,7 @@ class _PermissionsSection extends StatelessWidget {
     required this.onRequestCall,
     required this.onRequestDefaultAssistant,
     required this.onOpenBatteryOptimization,
-    required this.onOpenColorOsGuide,
+    required this.onOpenDeviceGuide,
   });
 
   final VoiceSessionState voiceState;
@@ -1363,14 +1368,18 @@ class _PermissionsSection extends StatelessWidget {
   final VoidCallback onRequestCall;
   final VoidCallback onRequestDefaultAssistant;
   final VoidCallback onOpenBatteryOptimization;
-  final VoidCallback onOpenColorOsGuide;
+  final VoidCallback onOpenDeviceGuide;
 
   @override
   Widget build(BuildContext context) {
+    final deviceName =
+        automationState.deviceStatus?.deviceDisplayName ?? 'Android Device';
+    final oemSkin = automationState.deviceStatus?.resolvedOemSkin ?? 'Android';
+
     return SettingsSectionCard(
       title: 'Permissions',
       icon: Icons.admin_panel_settings_outlined,
-      subtitle: 'Runtime Android permissions and OPPO ColorOS system roles',
+      subtitle: 'Runtime Android permissions and $oemSkin system roles',
       children: [
         SettingsTile(
           icon: Icons.mic_none_rounded,
@@ -1428,17 +1437,17 @@ class _PermissionsSection extends StatelessWidget {
         ),
         SettingsTile(
           icon: Icons.battery_saver_rounded,
-          title: 'OPPO ColorOS Battery Optimization',
+          title: '$oemSkin Battery Optimization',
           subtitle: 'Allow unrestricted background activity for wake-word',
           trailing: const Icon(Icons.open_in_new_rounded, size: 18),
           onTap: onOpenBatteryOptimization,
         ),
         SettingsTile(
           icon: Icons.checklist_rounded,
-          title: 'OPPO Reno 16 / ColorOS Setup Guide',
-          subtitle: 'Step-by-step Auto-launch, Recents lock & post-reboot recovery',
+          title: '$deviceName • $oemSkin Setup Guide',
+          subtitle: 'Tailored auto-launch, Recents lock & post-reboot recovery',
           trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: onOpenColorOsGuide,
+          onTap: onOpenDeviceGuide,
         ),
       ],
     );
@@ -1518,7 +1527,7 @@ class _DeviceAutomationSection extends StatelessWidget {
         SettingsTile(
           icon: Icons.phonelink_setup_rounded,
           title: 'Open Device Control Hub',
-          subtitle: 'Inspect OPPO Reno 16 telemetry and execute system actions',
+          subtitle: 'Inspect live device telemetry and execute system actions',
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: onOpenDeviceControlHub,
         ),
@@ -1595,9 +1604,13 @@ class _MemorySection extends StatelessWidget {
 }
 
 class _PrivacySection extends StatelessWidget {
-  const _PrivacySection({required this.configuredKeyCount});
+  const _PrivacySection({
+    required this.configuredKeyCount,
+    required this.onOpenPrivacyDashboard,
+  });
 
   final int configuredKeyCount;
+  final VoidCallback onOpenPrivacyDashboard;
 
   @override
   Widget build(BuildContext context) {
@@ -1606,6 +1619,14 @@ class _PrivacySection extends StatelessWidget {
       icon: Icons.lock_outline_rounded,
       subtitle: 'On-device credential protection and telemetry safeguards',
       children: [
+        SettingsTile(
+          icon: Icons.shield_outlined,
+          title: 'Privacy & Security Dashboard',
+          subtitle:
+              'Unified audit of permissions, trusted commands, blocklist & local data',
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onOpenPrivacyDashboard,
+        ),
         SettingsTile(
           icon: Icons.security_rounded,
           iconColor: VisionColors.success,

@@ -129,7 +129,7 @@ class DeviceNotificationSummary {
   final bool canReply;
 }
 
-/// Contextual telemetry snapshot of the Android / OPPO Reno 16 device.
+/// Contextual telemetry snapshot of the installed Android device.
 @immutable
 class DeviceStatusSnapshot {
   const DeviceStatusSnapshot({
@@ -142,6 +142,7 @@ class DeviceStatusSnapshot {
     required this.networkType,
     required this.ringerMode,
     required this.isColorOs,
+    this.oemSkin = '',
     this.isFlashlightOn = false,
     this.isDefaultAssistant = false,
     this.isIgnoringBatteryOptimizations = false,
@@ -149,8 +150,14 @@ class DeviceStatusSnapshot {
   });
 
   factory DeviceStatusSnapshot.fromMap(Map<Object?, Object?> raw) {
+    final manufacturer = (raw['manufacturer'] as String?) ?? 'Android';
+    final isColorOs = (raw['isColorOs'] as bool?) ?? false;
+    final rawSkin = (raw['oemSkin'] as String?)?.trim() ?? '';
+    final resolvedSkin = rawSkin.isNotEmpty
+        ? rawSkin
+        : detectOemSkin(manufacturer, isColorOsHint: isColorOs);
     return DeviceStatusSnapshot(
-      manufacturer: (raw['manufacturer'] as String?) ?? 'Android',
+      manufacturer: manufacturer,
       model: (raw['model'] as String?) ?? 'Device',
       androidVersion: (raw['androidVersion'] as String?) ?? '',
       sdkInt: (raw['sdkInt'] as num?)?.toInt() ?? 0,
@@ -158,7 +165,8 @@ class DeviceStatusSnapshot {
       isCharging: (raw['isCharging'] as bool?) ?? false,
       networkType: (raw['networkType'] as String?) ?? 'Unknown',
       ringerMode: (raw['ringerMode'] as String?) ?? 'normal',
-      isColorOs: (raw['isColorOs'] as bool?) ?? false,
+      isColorOs: isColorOs,
+      oemSkin: resolvedSkin,
       isFlashlightOn: (raw['isFlashlightOn'] as bool?) ?? false,
       isDefaultAssistant: (raw['isDefaultAssistant'] as bool?) ?? false,
       isIgnoringBatteryOptimizations:
@@ -176,19 +184,57 @@ class DeviceStatusSnapshot {
   final String networkType;
   final String ringerMode;
   final bool isColorOs;
+  final String oemSkin;
   final bool isFlashlightOn;
   final bool isDefaultAssistant;
   final bool isIgnoringBatteryOptimizations;
   final bool canScheduleExactAlarms;
 
+  /// Clean device name avoiding duplicate manufacturer prefixes (e.g. "Samsung S25").
+  String get deviceDisplayName {
+    final mfg = manufacturer.trim();
+    final mdl = model.trim();
+    if (mfg.isEmpty) return mdl.isEmpty ? 'Android Device' : mdl;
+    if (mdl.isEmpty) return mfg;
+    if (mdl.toLowerCase().startsWith(mfg.toLowerCase())) return mdl;
+    return '$mfg $mdl';
+  }
+
+  /// Resolved OEM ROM skin label for the installed device.
+  String get resolvedOemSkin =>
+      oemSkin.trim().isNotEmpty
+          ? oemSkin.trim()
+          : detectOemSkin(manufacturer, isColorOsHint: isColorOs);
+
+  /// Classifies the OEM ROM skin from [manufacturer] name.
+  static String detectOemSkin(String manufacturer, {bool isColorOsHint = false}) {
+    final lower = manufacturer.trim().toLowerCase();
+    if (lower.contains('oppo')) return 'ColorOS';
+    if (lower.contains('realme')) return 'Realme UI';
+    if (lower.contains('oneplus')) return 'OxygenOS';
+    if (lower.contains('samsung')) return 'One UI';
+    if (lower.contains('xiaomi') ||
+        lower.contains('redmi') ||
+        lower.contains('poco')) {
+      return 'HyperOS / MIUI';
+    }
+    if (lower.contains('vivo') || lower.contains('iqoo')) return 'Funtouch OS';
+    if (lower.contains('nothing')) return 'Nothing OS';
+    if (lower.contains('google')) return 'Pixel Android';
+    if (lower.contains('motorola')) return 'Hello UI';
+    if (isColorOsHint) return 'ColorOS';
+    return 'Android';
+  }
+
   String toReadableSummary() {
     final batteryPart = batteryLevel >= 0
         ? '$batteryLevel%${isCharging ? ' (charging)' : ''}'
         : 'unknown battery';
-    final osTag = isColorOs
-        ? 'ColorOS / Android $androidVersion'
+    final skin = resolvedOemSkin;
+    final osTag = skin != 'Android'
+        ? '$skin / Android $androidVersion'
         : 'Android $androidVersion';
-    return '$manufacturer $model ($osTag): battery $batteryPart, '
+    return '$deviceDisplayName ($osTag): battery $batteryPart, '
         'network $networkType, ringer $ringerMode.';
   }
 }

@@ -26,4 +26,7 @@ abstract final class AppRoutes {
 
   static const String diagnosticsPath = '/diagnostics';
   static const String diagnosticsName = 'diagnostics';
+
+  static const String privacyDashboardPath = '/privacy-dashboard';
+  static const String privacyDashboardName = 'privacy_dashboard';
 }

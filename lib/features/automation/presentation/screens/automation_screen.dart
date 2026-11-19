@@ -703,13 +703,13 @@ class _DeviceTelemetryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   snapshot != null
-                      ? '${snapshot.manufacturer} ${snapshot.model}'
+                      ? snapshot.deviceDisplayName
                       : AppConstants.targetDeviceName,
                   style: theme.textTheme.titleMedium,
                 ),
               ),
               VisionStatusBadge(
-                label: snapshot?.isColorOs == true ? 'ColorOS' : 'Android',
+                label: snapshot?.resolvedOemSkin ?? 'Android',
                 indicatorColor: VisionColors.success,
               ),
             ],
@@ -750,7 +750,7 @@ class _DeviceTelemetryCard extends StatelessWidget {
                         ? VisionColors.success
                         : VisionColors.warning,
                   ),
-                if (snapshot != null && snapshot.isColorOs)
+                if (snapshot != null)
                   VisionStatusBadge(
                     label: snapshot.isIgnoringBatteryOptimizations
                         ? 'Battery: Unrestricted'

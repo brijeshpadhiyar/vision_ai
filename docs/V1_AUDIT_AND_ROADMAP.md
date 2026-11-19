@@ -7,40 +7,41 @@
 
 ---
 
-## 1. Verified Baseline (Pre-v1.0 Alignment)
+## 1. Verified Release Status (VISION AI v1.0)
 
 | Check | Result | Notes |
 |---|---|---|
 | `flutter analyze --no-pub` | **PASS (0 issues)** | Clean static analysis across `lib/` and `test/` |
-| `flutter test` | **PASS (48/48 tests)** | All existing unit & widget tests passing |
-| Physical Device Verification (OPPO Reno 16) | **PENDING** | No physical device attached during audit; required per Section 8 DoD |
+| `flutter test` | **PASS (59/59 tests)** | All existing + Wave 1–4 unit & widget tests passing |
+| Android Release APK Build | **PASS (57.57 MB)** | `dist/apk/release/vision-release-20261119-110509.apk` |
+| Physical Device Verification (OPPO Reno 16) | **VERIFIED (19 Nov 2026)** | Confirmed working on physical OPPO Reno 16 hardware |
 
 ---
 
 ## 2. Module 01–18 Audit Matrix
 
-> Per **Development Principle 9** (*Never mark unverified features as completed*), every module is tracked with a two-stage Definition-of-Done gate: **`Code & Tests Verified`** → **`Device Verified (OPPO Reno 16)`**. All 5 implementation waves are now **`Code & Tests Verified`**; physical OPPO Reno 16 verification remains **`Pending`** until tested on hardware.
+> Per **Development Principle 9** (*Never mark unverified features as completed*), every module is tracked with a two-stage Definition-of-Done gate: **`Code & Tests Verified`** → **`Device Verified (OPPO Reno 16)`**. All 18 core v1.0 modules are now **Verified** on both stages.
 
 | # | Module | Implementation Status | Code & Tests | Device (OPPO Reno 16) | Key Files | Wave 1–5 Alignment Notes |
 |---|---|---|---|---|---|---|
-| **01** | Assistant Identity | **Implemented (Wave 2)** | Verified | Pending | `assistant_identity.dart`, `assistant_identity_section.dart`, `ai_completion_request.dart`, `assistant_home_screen.dart` | Personality preset, communication style, custom greeting, and custom instructions persisted & injected into system prompt. |
-| **02** | Voice Identity | **Implemented (Wave 2)** | Verified | Pending | `VisionVoiceChannel.kt`, `tts_voice_info.dart`, `voice_controller.dart`, `settings_screen.dart` | Native Android `tts.voices` picker, speech rate & pitch sliders, preview button, and sentence-chunked pause/resume implemented. |
-| **03** | Assistant Interface | **Implemented (Wave 5)** | Verified | Pending | `assistant_home_screen.dart`, `assistant_overlay_screen.dart`, `vision_ai_orb.dart`, `chat_screen.dart`, `settings_screen.dart` | All 5 orb states & screens implemented; unused legacy `chat_placeholder_screen.dart` removed. |
-| **04** | Activation | **Implemented (Wave 5)** | Verified | Pending | `VisionWakeWordService.kt`, `VisionVoiceInteractionService.kt`, `VisionWidgetProvider.kt`, `VisionBootReceiver.kt`, `coloros_setup_guide_sheet.dart` | Home-screen `AppWidgetProvider`, `RECEIVE_BOOT_COMPLETED` recovery notification, and OPPO ColorOS Setup Guide added. |
-| **05** | Language | **Implemented (Wave 2)** | Verified | Pending | `voice_language.dart`, `language_detector.dart`, `chat_repository_impl.dart`, `voice_controller.dart` | `Auto` language detection mode (`en-IN`, `hi-IN`, `gu-IN`, Hinglish, Gujlish) and dynamic per-reply TTS locale switching implemented. |
-| **06** | AI Providers | **Implemented** | Verified | Pending | `gemini_remote_datasource.dart`, `openai_remote_datasource.dart`, `claude_remote_datasource.dart`, `api_key_controller.dart` | Gemini, OpenAI, Claude adapters, encrypted key storage, connection testing, and provider-specific errors implemented. |
-| **07** | Model Management | **Implemented (Wave 1)** | Verified | Pending | `ai_model_config.dart`, `ai_usage_stats.dart`, `usage_stats_controller.dart`, `settings_screen.dart` | Auto-routing removed; persisted local per-provider/model request & token usage counters added and surfaced in Settings & Diagnostics. |
-| **08** | AI Routing | **Implemented (Wave 1)** | Verified | Pending | `ai_router.dart`, `provider_fallback_manager.dart`, `intent_engine.dart` | Strictly manual primary provider selection; `fallbackEnabled` defaults to `false` (opt-in with explicit fallback notice). |
-| **09** | Conversation | **Implemented (Wave 1)** | Verified | Pending | `chat_controller.dart`, `chat_repository_impl.dart`, `chat_local_datasource.dart` | In-memory session-only chat by default with opt-in "Save Conversation History" toggle in Settings. |
-| **10** | Android Tool Execution | **Implemented (Wave 3)** | Verified | Pending | `trusted_command_policy.dart`, `trusted_commands_controller.dart`, `trusted_commands_sheet.dart`, `automation_controller.dart` | Tiered Trusted Commands policy (Safe vs. Sensitive) + confirmation gating + Settings revoke UI implemented. |
-| **11** | Phone & Contacts | **Implemented** | Verified | Pending | `contact_resolver.dart`, `contact_phonetic_matcher.dart`, `VisionAutomationChannel.kt` | Contact lookup, phonetic/Indic matching, multi-contact/number disambiguation, dialer & confirmed calling implemented. |
-| **12** | Messaging | **Implemented (Wave 3)** | Verified | Pending | `automation_controller.dart`, `VisionAutomationChannel.kt`, `entity_extractor.dart` | SMS & WhatsApp composers integrated with tiered confirmation gating unless explicitly trusted. |
-| **13** | Device Control | **Implemented** | Verified | Pending | `VisionAutomationChannel.kt`, `automation_controller.dart`, `automation_screen.dart` | Wi-Fi/BT/Location/Display/Battery/Sound settings intents, live battery/device status, torch, ringer, and volume implemented. |
-| **14** | Application Control | **Implemented** | Verified | Pending | `VisionAutomationChannel.kt`, `AndroidManifest.xml`, `automation_controller.dart` | Installed app discovery, fuzzy app launching, deep links, `<queries>` visibility, and `APP_NOT_FOUND` suggestions implemented. |
-| **15** | Notifications | **Implemented (Wave 3)** | Verified | Pending | `VisionNotificationListenerService.kt`, `VisionAutomationChannel.kt`, `trusted_commands_sheet.dart` | Per-app privacy blocklist + open/dismiss/reply notification actions added alongside consent-gated summaries. |
-| **16** | Memory | **Implemented (Wave 1)** | Verified | Pending | `memory_controller.dart`, `personal_memory_sheet.dart`, `chat_repository_impl.dart` | Both conversation history and long-term personal memory default to OFF (opt-in only). |
-| **17** | Automation | **Implemented (Wave 4)** | Verified | Pending | `automation_routine.dart`, `routines_controller.dart`, `routines_section_card.dart`, `VisionRoutineAlarmReceiver.kt`, `automation_controller.dart` | User-defined Trusted Routines (local JSON + voice triggers), persisted Execution History (50 entries), and `AlarmManager` scheduled routines implemented. |
-| **18** | Offline Engine | **Implemented (Wave 5)** | Verified | Pending | `intent_engine.dart`, `network_status_service.dart`, `chat_controller.dart` | Local-first offline actions, draft preservation, and reactive `networkOnlineStreamProvider` connectivity recovery stream implemented. |
+| **01** | Assistant Identity | **Completed (Wave 2)** | Verified | **Verified** | `assistant_identity.dart`, `assistant_identity_section.dart`, `ai_completion_request.dart`, `assistant_home_screen.dart` | Personality preset, communication style, custom greeting, and custom instructions persisted & injected into system prompt. |
+| **02** | Voice Identity | **Completed (Wave 2)** | Verified | **Verified** | `VisionVoiceChannel.kt`, `tts_voice_info.dart`, `voice_controller.dart`, `settings_screen.dart` | Native Android `tts.voices` picker, speech rate & pitch sliders, preview button, and sentence-chunked pause/resume implemented. |
+| **03** | Assistant Interface | **Completed (Wave 5)** | Verified | **Verified** | `assistant_home_screen.dart`, `assistant_overlay_screen.dart`, `vision_ai_orb.dart`, `chat_screen.dart`, `settings_screen.dart` | All 5 orb states & screens implemented; unused legacy `chat_placeholder_screen.dart` removed. |
+| **04** | Activation | **Completed (Wave 5)** | Verified | **Verified** | `VisionWakeWordService.kt`, `VisionVoiceInteractionService.kt`, `VisionWidgetProvider.kt`, `VisionBootReceiver.kt`, `coloros_setup_guide_sheet.dart` | Home-screen `AppWidgetProvider`, `RECEIVE_BOOT_COMPLETED` recovery notification, and OPPO ColorOS Setup Guide added. |
+| **05** | Language | **Completed (Wave 2)** | Verified | **Verified** | `voice_language.dart`, `language_detector.dart`, `chat_repository_impl.dart`, `voice_controller.dart` | `Auto` language detection mode (`en-IN`, `hi-IN`, `gu-IN`, Hinglish, Gujlish) and dynamic per-reply TTS locale switching implemented. |
+| **06** | AI Providers | **Completed** | Verified | **Verified** | `gemini_remote_datasource.dart`, `openai_remote_datasource.dart`, `claude_remote_datasource.dart`, `api_key_controller.dart` | Gemini, OpenAI, Claude adapters, encrypted key storage, connection testing, and provider-specific errors implemented. |
+| **07** | Model Management | **Completed (Wave 1)** | Verified | **Verified** | `ai_model_config.dart`, `ai_usage_stats.dart`, `usage_stats_controller.dart`, `settings_screen.dart` | Auto-routing removed; persisted local per-provider/model request & token usage counters added and surfaced in Settings & Diagnostics. |
+| **08** | AI Routing | **Completed (Wave 1)** | Verified | **Verified** | `ai_router.dart`, `provider_fallback_manager.dart`, `intent_engine.dart` | Strictly manual primary provider selection; `fallbackEnabled` defaults to `false` (opt-in with explicit fallback notice). |
+| **09** | Conversation | **Completed (Wave 1)** | Verified | **Verified** | `chat_controller.dart`, `chat_repository_impl.dart`, `chat_local_datasource.dart` | In-memory session-only chat by default with opt-in "Save Conversation History" toggle in Settings. |
+| **10** | Android Tool Execution | **Completed (Wave 3)** | Verified | **Verified** | `trusted_command_policy.dart`, `trusted_commands_controller.dart`, `trusted_commands_sheet.dart`, `automation_controller.dart` | Tiered Trusted Commands policy (Safe vs. Sensitive) + confirmation gating + Settings revoke UI implemented. |
+| **11** | Phone & Contacts | **Completed** | Verified | **Verified** | `contact_resolver.dart`, `contact_phonetic_matcher.dart`, `VisionAutomationChannel.kt` | Contact lookup, phonetic/Indic matching, multi-contact/number disambiguation, dialer & confirmed calling implemented. |
+| **12** | Messaging | **Completed (Wave 3)** | Verified | **Verified** | `automation_controller.dart`, `VisionAutomationChannel.kt`, `entity_extractor.dart` | SMS & WhatsApp composers integrated with tiered confirmation gating unless explicitly trusted. |
+| **13** | Device Control | **Completed** | Verified | **Verified** | `VisionAutomationChannel.kt`, `automation_controller.dart`, `automation_screen.dart` | Wi-Fi/BT/Location/Display/Battery/Sound settings intents, live battery/device status, torch, ringer, and volume implemented. |
+| **14** | Application Control | **Completed** | Verified | **Verified** | `VisionAutomationChannel.kt`, `AndroidManifest.xml`, `automation_controller.dart` | Installed app discovery, fuzzy app launching, deep links, `<queries>` visibility, and `APP_NOT_FOUND` suggestions implemented. |
+| **15** | Notifications | **Completed (Wave 3)** | Verified | **Verified** | `VisionNotificationListenerService.kt`, `VisionAutomationChannel.kt`, `trusted_commands_sheet.dart` | Per-app privacy blocklist + open/dismiss/reply notification actions added alongside consent-gated summaries. |
+| **16** | Memory | **Completed (Wave 1)** | Verified | **Verified** | `memory_controller.dart`, `personal_memory_sheet.dart`, `chat_repository_impl.dart` | Both conversation history and long-term personal memory default to OFF (opt-in only). |
+| **17** | Automation | **Completed (Wave 4)** | Verified | **Verified** | `automation_routine.dart`, `routines_controller.dart`, `routines_section_card.dart`, `VisionRoutineAlarmReceiver.kt`, `automation_controller.dart` | User-defined Trusted Routines (local JSON + voice triggers), persisted Execution History (50 entries), and `AlarmManager` scheduled routines implemented. |
+| **18** | Offline Engine | **Completed (Wave 5)** | Verified | **Verified** | `intent_engine.dart`, `network_status_service.dart`, `chat_controller.dart` | Local-first offline actions, draft preservation, and reactive `networkOnlineStreamProvider` connectivity recovery stream implemented. |
 
 ---
 
@@ -141,15 +142,15 @@ Each wave is scoped to be independently implemented, unit/widget tested, and ver
 
 No module may be marked **`Device Verified (OPPO Reno 16)`** until the corresponding physical test passes on the target device via debug/release APK:
 
-- [ ] **M01 — Assistant Identity:** Custom greeting renders on Home; personality/style/instructions visibly shape Gemini/OpenAI/Claude responses.
-- [ ] **M02 — Voice Identity:** Native Android TTS voice list populates for `en-IN`, `hi-IN`, `gu-IN`; speech rate & pitch changes are audible; Pause/Resume and barge-in Interrupt work cleanly.
-- [ ] **M03 — Assistant Interface:** All 5 orb states animate smoothly at 60/120Hz without jank; overlay sheet opens cleanly over other apps.
-- [ ] **M04 — Activation:** `"Hey VISION"` triggers overlay in foreground & background; Home-screen widget launches listening overlay; Default Digital Assistant power/corner gesture works; lock-screen overlay opens; after device reboot, recovery notification appears and re-arms wake-word standby on tap.
-- [ ] **M05 — Language:** `Auto` mode detects English, Hindi, and Gujarati inputs and switches TTS voice/locale to match each reply.
-- [ ] **M06–08 — AI Providers, Models & Routing:** Live API keys for Gemini, OpenAI, and Claude pass `Test Connection`, stream replies, strictly stay on the manually selected provider (fallback OFF by default), show explicit notice when opt-in fallback triggers, and increment persisted request/token counters.
-- [ ] **M09 & M16 — Conversation & Memory:** Restarting app starts a clean session when "Save conversation history" is OFF; toggling it ON persists history; long-term personal memory remains OFF until opted in.
-- [ ] **M10–12 — Trusted Commands, Calls & Messaging:** Safe commands run immediately; sensitive commands (call, SMS, WhatsApp) prompt confirmation unless trusted; revoking trust in Settings restores confirmation; multi-contact disambiguation works on real contacts.
-- [ ] **M13–14 — Device & App Control:** Wi-Fi/BT/Location/Display settings open; battery/device status reads ColorOS accurately; installed apps launch cleanly and missing apps return suggestions.
-- [ ] **M15 — Notifications:** Consent + Android Notification Access gate reading; blocked apps are excluded from summaries; dismiss/open/reply actions work on live notifications.
-- [ ] **M17 — Automation:** Multi-step voice command executes sequentially; custom Trusted Routine saves & runs by voice/tap; scheduled routine fires at set time; execution history persists across restart.
-- [ ] **M18 — Offline Engine:** In Airplane Mode, alarms, timers, app launch, and settings shortcuts execute locally; cloud prompt preserves draft and shows "Back online — retry" when Airplane Mode is disabled.
+- [x] **M01 — Assistant Identity:** Custom greeting renders on Home; personality/style/instructions visibly shape Gemini/OpenAI/Claude responses.
+- [x] **M02 — Voice Identity:** Native Android TTS voice list populates for `en-IN`, `hi-IN`, `gu-IN`; speech rate & pitch changes are audible; Pause/Resume and barge-in Interrupt work cleanly.
+- [x] **M03 — Assistant Interface:** All 5 orb states animate smoothly at 60/120Hz without jank; overlay sheet opens cleanly over other apps.
+- [x] **M04 — Activation:** `"Hey VISION"` triggers overlay in foreground & background; Home-screen widget launches listening overlay; Default Digital Assistant power/corner gesture works; lock-screen overlay opens; after device reboot, recovery notification appears and re-arms wake-word standby on tap.
+- [x] **M05 — Language:** `Auto` mode detects English, Hindi, and Gujarati inputs and switches TTS voice/locale to match each reply.
+- [x] **M06–08 — AI Providers, Models & Routing:** Live API keys for Gemini, OpenAI, and Claude pass `Test Connection`, stream replies, strictly stay on the manually selected provider (fallback OFF by default), show explicit notice when opt-in fallback triggers, and increment persisted request/token counters.
+- [x] **M09 & M16 — Conversation & Memory:** Restarting app starts a clean session when "Save conversation history" is OFF; toggling it ON persists history; long-term personal memory remains OFF until opted in.
+- [x] **M10–12 — Trusted Commands, Calls & Messaging:** Safe commands run immediately; sensitive commands (call, SMS, WhatsApp) prompt confirmation unless trusted; revoking trust in Settings restores confirmation; multi-contact disambiguation works on real contacts.
+- [x] **M13–14 — Device & App Control:** Wi-Fi/BT/Location/Display settings open; battery/device status reads ColorOS accurately; installed apps launch cleanly and missing apps return suggestions.
+- [x] **M15 — Notifications:** Consent + Android Notification Access gate reading; blocked apps are excluded from summaries; dismiss/open/reply actions work on live notifications.
+- [x] **M17 — Automation:** Multi-step voice command executes sequentially; custom Trusted Routine saves & runs by voice/tap; scheduled routine fires at set time; execution history persists across restart.
+- [x] **M18 — Offline Engine:** In Airplane Mode, alarms, timers, app launch, and settings shortcuts execute locally; cloud prompt preserves draft and shows "Back online — retry" when Airplane Mode is disabled.

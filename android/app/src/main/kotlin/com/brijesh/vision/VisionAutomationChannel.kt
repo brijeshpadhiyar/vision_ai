@@ -1321,11 +1321,16 @@ class VisionAutomationChannel(
             else -> "normal"
         }
 
-        val manufacturer = Build.MANUFACTURER ?: "Android"
-        val model = Build.MODEL ?: "Device"
-        val isColorOs = manufacturer.equals("OPPO", ignoreCase = true) ||
-            manufacturer.equals("OnePlus", ignoreCase = true) ||
-            manufacturer.equals("realme", ignoreCase = true)
+        val manufacturer = (Build.MANUFACTURER ?: "Android").trim()
+        val brand = (Build.BRAND ?: manufacturer).trim()
+        val model = (Build.MODEL ?: "Device").trim()
+        val oemSkin = resolveOemSkin(manufacturer, brand)
+        val deviceDisplayName = if (model.startsWith(manufacturer, ignoreCase = true)) {
+            model
+        } else {
+            "$manufacturer $model".trim()
+        }
+        val isColorOs = oemSkin == "ColorOS" || oemSkin == "Realme UI" || oemSkin == "OxygenOS"
 
         val isDefaultAssistant = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = activity.getSystemService(RoleManager::class.java)
@@ -1351,6 +1356,8 @@ class VisionAutomationChannel(
         return mapOf(
             "manufacturer" to manufacturer,
             "model" to model,
+            "deviceDisplayName" to deviceDisplayName,
+            "oemSkin" to oemSkin,
             "androidVersion" to (Build.VERSION.RELEASE ?: ""),
             "sdkInt" to Build.VERSION.SDK_INT,
             "batteryLevel" to batteryLevel,
@@ -1363,6 +1370,22 @@ class VisionAutomationChannel(
             "isIgnoringBatteryOptimizations" to isIgnoringBattery,
             "canScheduleExactAlarms" to canScheduleExactAlarms,
         )
+    }
+
+    private fun resolveOemSkin(manufacturer: String, brand: String): String {
+        val id = "$manufacturer $brand".lowercase()
+        return when {
+            id.contains("oppo") -> "ColorOS"
+            id.contains("realme") -> "Realme UI"
+            id.contains("oneplus") -> "OxygenOS"
+            id.contains("samsung") -> "One UI"
+            id.contains("xiaomi") || id.contains("redmi") || id.contains("poco") -> "HyperOS / MIUI"
+            id.contains("vivo") || id.contains("iqoo") -> "Funtouch OS"
+            id.contains("nothing") -> "Nothing OS"
+            id.contains("google") -> "Pixel Android"
+            id.contains("motorola") -> "Hello UI"
+            else -> "Android"
+        }
     }
 
     private fun isNetworkConnected(): Boolean {

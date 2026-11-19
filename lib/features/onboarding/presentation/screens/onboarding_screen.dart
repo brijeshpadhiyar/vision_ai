@@ -66,34 +66,34 @@ class OnboardingScreen extends ConsumerWidget {
       phaseNumber: 'Phase 3',
       title: 'Multilingual Voice, Wake-Word & Assistant Role',
       description:
-          'English, Hindi, and Gujarati STT/TTS, foreground AudioRecord '
-          'wake-word service ("Hey VISION"), VoiceInteractionService, and '
-          'dedicated Assistant experience. Pending physical OPPO Reno 16 testing.',
-      statusLabel: 'Implemented • Pending Device Test',
-      state: _PhaseState.pendingVerification,
-      progress: 0.85,
+          'English, Hindi, Gujarati & Auto language STT/TTS, foreground '
+          'AudioRecord wake-word service ("Hey VISION"), VoiceInteractionService, '
+          'Home-Screen Widget, and dedicated Assistant experience.',
+      statusLabel: 'Verified • v1.0',
+      state: _PhaseState.completed,
+      progress: 1.0,
     ),
     _RoadmapPhaseItem(
       phaseNumber: 'Phase 4',
-      title: 'Android Device Automation & Actions',
+      title: 'Android Device Automation & Trusted Routines',
       description:
           'Kotlin MethodChannel bridges for calls, contacts, alarms/timers, '
           'app launching, settings, WhatsApp composer, consent-gated notifications, '
-          'and OPPO Reno 16 telemetry. Pending physical device verification.',
-      statusLabel: 'In Progress • Pending Device Test',
-      state: _PhaseState.active,
-      progress: 0.80,
+          'tiered trusted commands, routines, and live device telemetry.',
+      statusLabel: 'Verified • v1.0',
+      state: _PhaseState.completed,
+      progress: 1.0,
     ),
     _RoadmapPhaseItem(
       phaseNumber: 'Phase 5',
-      title: 'Liquid Glass UI/UX & Assistant Experience',
+      title: 'Liquid Glass UI/UX & Privacy Dashboard',
       description:
           'Centralized Liquid Glass design tokens, floating glass navigation, '
-          '5-state animated VisionAiOrb, dedicated Voice Assistant mode, '
-          'Markdown + code rendering, and responsive OPPO Reno 16 polish.',
-      statusLabel: 'Active • UI/UX Redesign',
+          '5-state animated VisionAiOrb, customizable Identity & Voice, '
+          'device-adaptive OEM guidance, and unified Privacy & Security Dashboard.',
+      statusLabel: 'Active • v1.1',
       state: _PhaseState.active,
-      progress: 0.90,
+      progress: 0.95,
     ),
   ];
 

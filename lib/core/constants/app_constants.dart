@@ -49,8 +49,8 @@ abstract final class AppConstants {
   /// Maximum number of recent messages included as context in AI requests.
   static const int maxContextMessages = 16;
 
-  /// Target hardware profile used for layout calibration.
-  static const String targetDeviceName = 'OPPO Reno 16';
+  /// Fallback device label used before live Android Build telemetry loads.
+  static const String targetDeviceName = 'Android Device';
 
   /// Primary greeting displayed on the Assistant home screen.
   static const String homeGreeting = "Hello, I'm VISION.";
