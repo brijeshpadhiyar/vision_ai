@@ -1,5 +1,12 @@
 /// Supported AI provider backends in VISION AI.
 enum AiProviderType {
+  visionCloud(
+    id: 'vision_cloud',
+    displayName: 'VISION Cloud (Free)',
+    defaultModel: 'gemini-2.5-flash',
+    keyHint: 'No API key required (Sign in with Google)',
+    summary: 'Built-in Gemini 2.5 Flash • 30 free requests/day for signed-in users',
+  ),
   gemini(
     id: 'gemini',
     displayName: 'Google Gemini',
@@ -52,8 +59,9 @@ enum AiProviderType {
   /// Short description shown in Settings.
   final String summary;
 
-  /// Whether this provider requires a cloud API key in Android Keystore.
-  bool get requiresApiKey => this != AiProviderType.edgeAi;
+  /// Whether this provider requires a user-supplied cloud API key in Android Keystore.
+  bool get requiresApiKey =>
+      this != AiProviderType.edgeAi && this != AiProviderType.visionCloud;
 
   /// Resolves an [AiProviderType] from its persisted [id], defaulting to [gemini].
   static AiProviderType fromId(String? id) {

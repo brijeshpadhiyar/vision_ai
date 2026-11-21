@@ -145,6 +145,15 @@ class VisionNotificationListenerService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         activeServiceRef = WeakReference(this)
+        // Backfill already-active unread notifications so Catch-Up Digest works immediately.
+        try {
+            val active = activeNotifications ?: return
+            for (sbn in active.sortedBy { it.postTime }) {
+                captureStatusBarNotification(sbn)
+            }
+        } catch (_: Throwable) {
+            // Safe fallback on OEM ROMs restricting activeNotifications at connect time.
+        }
     }
 
     override fun onListenerDisconnected() {
@@ -156,6 +165,10 @@ class VisionNotificationListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         activeServiceRef = WeakReference(this)
+        captureStatusBarNotification(sbn)
+    }
+
+    private fun captureStatusBarNotification(sbn: StatusBarNotification?) {
         if (sbn == null) return
         val pkg = sbn.packageName ?: return
         if (pkg == packageName || pkg in blockedPackages) return
@@ -167,7 +180,9 @@ class VisionNotificationListenerService : NotificationListenerService() {
 
         val extras = notification.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim() ?: ""
+        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim() ?: ""
+        val shortText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim() ?: ""
+        val text = if (bigText.isNotEmpty()) bigText else shortText
         if (title.isEmpty() && text.isEmpty()) return
 
         val replyAction = notification.actions?.firstOrNull { action ->

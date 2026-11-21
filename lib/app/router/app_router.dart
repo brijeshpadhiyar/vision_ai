@@ -33,6 +33,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.splashPath,
+    redirect: (context, state) {
+      final uri = state.uri;
+      final isOAuthCallback =
+          uri.scheme == 'com.brijesh.vision' ||
+          uri.host == 'login-callback' ||
+          uri.path.contains('login-callback') ||
+          uri.queryParameters.containsKey('code') ||
+          uri.queryParameters.containsKey('error_description');
+      if (isOAuthCallback) {
+        return AppRoutes.settingsPath;
+      }
+      return null;
+    },
     routes: <RouteBase>[
       GoRoute(
         path: AppRoutes.splashPath,

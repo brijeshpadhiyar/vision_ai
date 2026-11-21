@@ -107,6 +107,33 @@ final cloudAuthControllerProvider =
 class CloudAuthController extends Notifier<CloudAuthState> {
   static const String oauthRedirectUrl = 'com.brijesh.vision://login-callback/';
 
+  /// Returns `true` only when [error] represents an explicit user cancellation
+  /// rather than an Android Credential Manager configuration/reauth failure
+  /// (which `google_sign_in` v7 maps to [GoogleSignInExceptionCode.canceled]).
+  @visibleForTesting
+  static bool isUserInitiatedCancel(GoogleSignInException error) {
+    if (error.code != GoogleSignInExceptionCode.canceled) return false;
+    final desc = (error.description ?? '').trim().toLowerCase();
+    if (desc.isEmpty) return true;
+    const configFailureMarkers = <String>[
+      'reauth',
+      'developer',
+      'configuration',
+      'no credential',
+      'cannot find a matching credential',
+      'sha-1',
+      'sha1',
+      '[16]',
+      '[10]',
+      '28436',
+      '28444',
+    ];
+    for (final marker in configFailureMarkers) {
+      if (desc.contains(marker)) return false;
+    }
+    return true;
+  }
+
   StreamSubscription<AuthState>? _authSub;
   bool _googleInitialized = false;
 
@@ -149,31 +176,48 @@ class CloudAuthController extends Notifier<CloudAuthState> {
 
     try {
       final client = Supabase.instance.client;
-      _authSub ??= client.auth.onAuthStateChange.listen((authState) {
-        final user = authState.session?.user;
-        if (user != null) {
-          final wasSignedIn = state.isSignedIn;
-          state = state.copyWith(
-            isBusy: false,
-            isSignedIn: true,
-            userId: user.id,
-            email: user.email,
-            displayName: _extractDisplayName(user),
-            avatarUrl: _extractAvatarUrl(user),
-            clearMessages: true,
-            statusMessage: 'Signed in as ${user.email ?? 'Google User'}.',
-          );
-          if (!wasSignedIn && state.cloudHistorySyncEnabled) {
-            unawaited(syncThreadsNow());
+      _authSub ??= client.auth.onAuthStateChange.listen(
+        (authState) {
+          final user = authState.session?.user;
+          if (user != null) {
+            final wasSignedIn = state.isSignedIn;
+            state = state.copyWith(
+              isBusy: false,
+              isSignedIn: true,
+              userId: user.id,
+              email: user.email,
+              displayName: _extractDisplayName(user),
+              avatarUrl: _extractAvatarUrl(user),
+              clearMessages: true,
+              statusMessage: 'Signed in as ${user.email ?? 'Google User'}.',
+            );
+            if (!wasSignedIn && state.cloudHistorySyncEnabled) {
+              unawaited(syncThreadsNow());
+            }
+          } else {
+            state = state.copyWith(
+              isBusy: false,
+              isSignedIn: false,
+              clearUser: true,
+            );
           }
-        } else {
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          ref
+              .read(appLoggerProvider)
+              .error(
+                'Supabase Auth callback error',
+                error: error,
+                stackTrace: stackTrace,
+              );
+          final message = error is AuthException ? error.message : '$error';
           state = state.copyWith(
             isBusy: false,
-            isSignedIn: false,
-            clearUser: true,
+            clearMessages: true,
+            errorMessage: 'Sign-in callback error: $message',
           );
-        }
-      });
+        },
+      );
 
       final currentUser = client.auth.currentUser;
       return CloudAuthState(
@@ -266,7 +310,7 @@ class CloudAuthController extends Notifier<CloudAuthState> {
       }
       return true;
     } on GoogleSignInException catch (error, stackTrace) {
-      if (error.code == GoogleSignInExceptionCode.canceled) {
+      if (isUserInitiatedCancel(error)) {
         state = state.copyWith(isBusy: false, clearMessages: true);
         return false;
       }
@@ -316,6 +360,7 @@ class CloudAuthController extends Notifier<CloudAuthState> {
         OAuthProvider.google,
         redirectTo: oauthRedirectUrl,
         authScreenLaunchMode: LaunchMode.externalApplication,
+        queryParams: const <String, String>{'prompt': 'select_account'},
       );
       if (!launched) {
         state = state.copyWith(

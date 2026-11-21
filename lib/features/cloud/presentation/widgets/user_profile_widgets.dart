@@ -156,15 +156,24 @@ class VisionUserProfileSheet extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: VisionSpacing.md),
-          if (cloud.isConfigured)
+          if (cloud.isConfigured) ...<Widget>[
             VisionPrimaryButton(
               label: 'Sign in with Google',
               icon: Icons.login_rounded,
               isLoading: cloud.isBusy,
               expanded: true,
               onPressed: controller.signInWithGoogle,
-            )
-          else
+            ),
+            const SizedBox(height: VisionSpacing.xs),
+            VisionSecondaryButton(
+              label: 'Sign in via Browser (OAuth)',
+              icon: Icons.open_in_browser_rounded,
+              expanded: true,
+              onPressed: cloud.isBusy
+                  ? null
+                  : controller.signInWithGoogleBrowser,
+            ),
+          ] else
             VisionSecondaryButton(
               label: 'Open Cloud Sync Settings',
               icon: Icons.tune_rounded,
@@ -174,6 +183,13 @@ class VisionUserProfileSheet extends ConsumerWidget {
                 context.go(AppRoutes.settingsPath);
               },
             ),
+          if (cloud.statusMessage != null) ...<Widget>[
+            const SizedBox(height: VisionSpacing.xs),
+            Text(
+              cloud.statusMessage!,
+              style: textTheme.bodySmall?.copyWith(color: colors.success),
+            ),
+          ],
           if (cloud.errorMessage != null) ...<Widget>[
             const SizedBox(height: VisionSpacing.xs),
             Text(

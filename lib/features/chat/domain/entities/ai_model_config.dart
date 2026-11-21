@@ -86,6 +86,25 @@ abstract final class AIModelRegistry {
       };
 
   static const List<AiModelConfig> _catalog = <AiModelConfig>[
+    // Built-in VISION Cloud Free Tier (Supabase Edge Function -> Gemini 2.5 Flash)
+    AiModelConfig(
+      provider: AiProviderType.visionCloud,
+      modelId: 'gemini-2.5-flash',
+      displayName: 'VISION Cloud (Gemini 2.5 Flash • Free)',
+      endpointUrl: 'supabase://functions/vision-ai-proxy',
+      capabilities: <AiCapability>{
+        AiCapability.text,
+        AiCapability.streaming,
+        AiCapability.multimodalVision,
+      },
+      contextWindowTokens: 1000000,
+      maxOutputTokens: 4096,
+      isDefault: true,
+      tier: AiModelTier.fast,
+      reasoningScore: 8,
+      multilingualScore: 9,
+      costTier: AiCostTier.economy,
+    ),
     // On-Device Edge AI (flutter_edge_ai / Gemini Nano via Android AICore)
     AiModelConfig(
       provider: AiProviderType.edgeAi,
@@ -320,6 +339,7 @@ abstract final class AIModelRegistry {
     }
 
     final defaultEndpoint = switch (provider) {
+      AiProviderType.visionCloud => 'supabase://functions/vision-ai-proxy',
       AiProviderType.gemini => '$geminiBaseEndpoint/models/$normalized',
       AiProviderType.openAi => openAiResponsesEndpoint,
       AiProviderType.claude => claudeMessagesEndpoint,

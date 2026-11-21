@@ -20,6 +20,7 @@ import 'package:vision_ai/features/automation/presentation/controllers/trusted_c
 import 'package:vision_ai/features/contacts/data/repositories/contact_alias_repository.dart';
 import 'package:vision_ai/features/contacts/domain/entities/contact_resolution.dart';
 import 'package:vision_ai/features/contacts/domain/services/contact_resolver.dart';
+import 'package:vision_ai/features/notifications/domain/services/notification_digest_service.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
 
@@ -972,7 +973,7 @@ class AutomationController extends Notifier<AutomationState> {
     final blockedPackages = ref
         .read(trustedCommandsControllerProvider)
         .blockedNotificationPackages;
-    final rawItems = await repo.getRecentNotifications(limit: 5);
+    final rawItems = await repo.getRecentNotifications(limit: 15);
     final items = rawItems
         .where((n) => !blockedPackages.contains(n.packageName))
         .toList(growable: false);
@@ -984,14 +985,14 @@ class AutomationController extends Notifier<AutomationState> {
         summary: 'No recent notifications captured.',
       );
     }
-    final summaryText = items
-        .map((n) => '${n.appName}: ${n.title} — ${n.text}'.trim())
-        .join(' | ');
+    final digest = await ref
+        .read(notificationDigestServiceProvider)
+        .generateDigest(notifications: items, settings: settings);
     return DeviceActionResult(
       success: true,
       status: DeviceActionStatus.success,
       actionType: DeviceActionType.readNotifications,
-      summary: 'Recent notifications (${items.length}): $summaryText',
+      summary: digest.spokenSummary,
       notifications: items,
     );
   }

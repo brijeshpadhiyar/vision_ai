@@ -447,6 +447,51 @@ class AutomationPlatformDataSource {
     }
   }
 
+  Future<bool> openNotification(String key) async {
+    try {
+      final ok = await _methodChannel.invokeMethod<bool>(
+        'openNotification',
+        <String, Object>{'key': key},
+      );
+      return ok ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<bool> dismissNotification(String key) async {
+    try {
+      final ok = await _methodChannel.invokeMethod<bool>(
+        'dismissNotification',
+        <String, Object>{'key': key},
+      );
+      return ok ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<bool> replyNotification({
+    required String key,
+    required String text,
+  }) async {
+    try {
+      final ok = await _methodChannel.invokeMethod<bool>(
+        'replyNotification',
+        <String, Object>{'key': key, 'text': text},
+      );
+      return ok ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   Future<DeviceActionResult> openUrl(String url) async {
     try {
       final raw = await _methodChannel.invokeMethod<Map<Object?, Object?>>(

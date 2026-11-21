@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,6 +14,7 @@ import 'package:vision_ai/features/chat/domain/entities/conversation_thread.dart
 import 'package:vision_ai/features/chat/presentation/controllers/conversation_threads_controller.dart';
 import 'package:vision_ai/features/chat/presentation/widgets/conversation_threads_sheet.dart';
 import 'package:vision_ai/features/cloud/domain/services/zero_knowledge_key_vault.dart';
+import 'package:vision_ai/features/cloud/presentation/controllers/cloud_auth_controller.dart';
 import 'package:vision_ai/features/cloud/presentation/widgets/cloud_sync_settings_section.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/presentation/controllers/settings_controller.dart';
@@ -232,5 +234,30 @@ void main() {
         }
       },
     );
+  });
+
+  group('CloudAuthController mobile sign-in fallback', () {
+    test('treats Credential Manager reauth/SHA-1 errors as fallback, not user cancel', () {
+      const reauthError = GoogleSignInException(
+        code: GoogleSignInExceptionCode.canceled,
+        description: '[16] Account reauth failed.',
+      );
+      const devConfigError = GoogleSignInException(
+        code: GoogleSignInExceptionCode.canceled,
+        description: 'Developer console is not set up correctly.',
+      );
+      const trueCancel = GoogleSignInException(
+        code: GoogleSignInExceptionCode.canceled,
+        description: 'activity is cancelled by the user.',
+      );
+      const emptyCancel = GoogleSignInException(
+        code: GoogleSignInExceptionCode.canceled,
+      );
+
+      expect(CloudAuthController.isUserInitiatedCancel(reauthError), isFalse);
+      expect(CloudAuthController.isUserInitiatedCancel(devConfigError), isFalse);
+      expect(CloudAuthController.isUserInitiatedCancel(trueCancel), isTrue);
+      expect(CloudAuthController.isUserInitiatedCancel(emptyCancel), isTrue);
+    });
   });
 }

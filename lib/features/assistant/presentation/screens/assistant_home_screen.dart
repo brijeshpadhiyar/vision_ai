@@ -30,6 +30,7 @@ import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
 import 'package:vision_ai/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:vision_ai/features/cloud/presentation/controllers/cloud_auth_controller.dart';
 import 'package:vision_ai/features/cloud/presentation/widgets/user_profile_widgets.dart';
+import 'package:vision_ai/features/notifications/presentation/widgets/notification_digest_card.dart';
 import 'package:vision_ai/features/proactive/presentation/widgets/proactive_suggestions_strip.dart';
 import 'package:vision_ai/features/settings/domain/entities/ai_provider_type.dart';
 import 'package:vision_ai/features/settings/domain/entities/app_settings.dart';
@@ -365,7 +366,9 @@ class _CompactHomeLayout extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         const ProactiveSuggestionsStrip(),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
+        const NotificationDigestCard(),
+        const SizedBox(height: 12),
         VisionAnimatePresets.cardEntrance(
           context,
           AssistantStatusPanel(
@@ -506,7 +509,9 @@ class _WideHomeLayout extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const ProactiveSuggestionsStrip(),
-                const SizedBox(height: 4),
+                const SizedBox(height: 10),
+                const NotificationDigestCard(),
+                const SizedBox(height: 10),
                 AssistantStatusPanel(
                   readiness: readiness,
                   settings: settings,

@@ -154,7 +154,7 @@ final proactiveSuggestionsProvider = Provider<List<ProactiveSuggestion>>((ref) {
 
   final keyMap = keyStatus.asData?.value ?? const <AiProviderType, bool>{};
   final hasConfiguredProvider =
-      settings.selectedAiProvider == AiProviderType.edgeAi ||
+      !settings.selectedAiProvider.requiresApiKey ||
       (keyMap[settings.selectedAiProvider] ?? false);
 
   return ProactiveIntelligenceEngine.evaluate(

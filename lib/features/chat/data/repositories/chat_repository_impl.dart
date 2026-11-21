@@ -17,6 +17,7 @@ import 'package:vision_ai/features/chat/data/datasources/claude_remote_datasourc
 import 'package:vision_ai/features/chat/data/datasources/edge_ai_datasource.dart';
 import 'package:vision_ai/features/chat/data/datasources/gemini_remote_datasource.dart';
 import 'package:vision_ai/features/chat/data/datasources/openai_remote_datasource.dart';
+import 'package:vision_ai/features/chat/data/datasources/vision_cloud_datasource.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_completion_request.dart';
 import 'package:vision_ai/features/chat/domain/entities/ai_models.dart';
 import 'package:vision_ai/features/chat/domain/entities/chat_message.dart';
@@ -49,6 +50,11 @@ final aiProviderClientsProvider =
     Provider<Map<AiProviderType, AiProviderClient>>((ref) {
       final httpClient = ref.watch(httpClientProvider);
       return <AiProviderType, AiProviderClient>{
+        AiProviderType.visionCloud: VisionCloudProvider(
+          onQuotaUpdated: (quota) {
+            ref.read(visionCloudQuotaProvider.notifier).update(quota);
+          },
+        ),
         AiProviderType.gemini: GeminiProvider(httpClient),
         AiProviderType.openAi: OpenAIProvider(httpClient),
         AiProviderType.claude: ClaudeProvider(httpClient),

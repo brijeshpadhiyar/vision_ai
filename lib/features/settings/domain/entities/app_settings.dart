@@ -35,6 +35,7 @@ class AppSettings {
 
   static const Map<AiProviderType, String> defaultProviderModels =
       <AiProviderType, String>{
+        AiProviderType.visionCloud: 'gemini-2.5-flash',
         AiProviderType.gemini: 'gemini-3.5-flash-lite',
         AiProviderType.openAi: 'gpt-5.4-mini',
         AiProviderType.claude: 'claude-haiku-5-5',
@@ -42,6 +43,7 @@ class AppSettings {
       };
 
   static const Set<AiProviderType> defaultEnabledProviders = <AiProviderType>{
+    AiProviderType.visionCloud,
     AiProviderType.gemini,
     AiProviderType.openAi,
     AiProviderType.claude,

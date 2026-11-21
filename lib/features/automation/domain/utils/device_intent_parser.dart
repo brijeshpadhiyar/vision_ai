@@ -38,6 +38,11 @@ abstract final class DeviceIntentParser {
     ], context: context);
   }
 
+  static final RegExp _catchUpDigestRegex = RegExp(
+    r'(what\s+did\s+i\s+miss|catch\s+me\s+up|notification\s+digest|kya\s+miss\s+hua|mera\s+message\s+padho|mere\s+notifications\s+padho|મારા\s+મેસેજ\s+વાંચો|શું\s+મિસ\s+થયું)',
+    caseSensitive: false,
+  );
+
   /// Attempts to parse a direct local device command without calling a remote LLM.
   ///
   /// Returns `null` when [input] is conversational or requires clarification.
@@ -46,6 +51,12 @@ abstract final class DeviceIntentParser {
     ConversationIntelligenceContext context =
         const ConversationIntelligenceContext(),
   }) {
+    if (_catchUpDigestRegex.hasMatch(input.trim())) {
+      return const DeviceActionRequest(
+        type: DeviceActionType.readNotifications,
+        displaySummary: 'Smart Notification Catch-Up Digest',
+      );
+    }
     final resolution = IntentEngine.analyze(input, context: context);
     if (!resolution.shouldHandleLocally) return null;
     return resolution.request;
